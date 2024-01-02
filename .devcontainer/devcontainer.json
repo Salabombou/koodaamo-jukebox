@@ -1,0 +1,19 @@
+{
+    "name": "Koodaamo Jukebox",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/usr/src/app,type=bind,consistency=cached"
+    ],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": ["dbaeumer.vscode-eslint", "ms-azuretools.vscode-docker"]
+        }
+    },    
+    "workspaceFolder": "/usr/src/app"
+}

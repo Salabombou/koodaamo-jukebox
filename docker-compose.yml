@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  koodaamo-jukebox:
+    container_name: koodaamo-jukebox
+    build: .
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BOT_PREFIXES=${BOT_PREFIXES}
+      - DEFAULT_EMBED_COLOR=${DEFAULT_EMBED_COLOR}
+      - NODE_ENV=production
+    volumes:
+      - ./logs:/usr/src/app/logs
+    stop_grace_period: 0s
+    restart: always
+    command: ["npm", "run", "start"]
