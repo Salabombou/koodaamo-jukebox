@@ -381,7 +381,7 @@ export class JukeboxQueue extends Array<JukeboxTrack> {
     }
 
     clear() {
-        this.length = 0;
+        this.length = 1;
     }
 
     move(index: number, newIndex: number) {

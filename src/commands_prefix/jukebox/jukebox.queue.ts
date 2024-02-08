@@ -52,6 +52,52 @@ export const JukeboxQueueCommands: PrefixCommand = [
         }
     },
     {
+        names: ['playnext', 'addnext'],
+        description: 'Add songs to the front of the queue',
+        async execute(message, query) {
+            if (!query) {
+                throw new Error('No query provided');
+            }
+            const player = await JukeboxPlayer.from(message.member!, { force: true });
+
+            if (player.queue.length > 20_000) {
+                player.client.utils.safeReply(message, {
+                    content: `The queue is full. Remove ${player.queue.length - 20_000} tracks to add more.`,
+                    delete_after: 5000
+                });
+                return;
+            }
+
+            const tracks = [] as JukeboxTrack[];
+            for await (const chunk of JukeboxTrack.from(query)) {
+                if (Array.isArray(chunk)) {
+                    tracks.push(...chunk);
+                } else {
+                    tracks.push(chunk);
+                    player.client.utils.safeReply(message, {
+                        content: `Added [${chunk.title}] to the front of the queue.`,
+                        delete_after: 5000
+                    });
+                    player.logger.info(`${message.author.tag} added [${chunk.title}] to the front of the queue`);
+                }
+            }
+            player.queue.add(tracks, true);
+
+            if (tracks.length > 1) {
+                player.client.utils.safeReply(message, {
+                    content: `Added [${tracks.length}] tracks to the front of the queue.`,
+                    delete_after: 5000
+                });
+                player.logger.info(`${message.author.tag} added [${tracks.length}] tracks to the front of the queue`);
+            } else if (tracks.length === 0) {
+                player.client.utils.safeReply(message, {
+                    content: 'No tracks found.',
+                    delete_after: 5000
+                });
+            }
+        }
+    },
+    {
         names: ['track', 'song'],
         description: 'Display information about a track in the queue',
         async execute(message, index) {
