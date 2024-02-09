@@ -15,5 +15,6 @@
             "extensions": ["dbaeumer.vscode-eslint", "ms-azuretools.vscode-docker"]
         }
     },    
-    "workspaceFolder": "/usr/src/app"
+    "workspaceFolder": "/usr/src/app",
+    "remoteUser": "root"
 }
