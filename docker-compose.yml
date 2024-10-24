@@ -1,0 +1,48 @@
+services:
+  app:
+    container_name: koodaamo-watchalong-app
+    build: .
+    networks:
+      - koodaamo-watchalong-network
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://db:27017/watchalong
+    restart: unless-stopped
+
+  db:
+    image: mongo
+    container_name: koodaamo-watchalong-db
+    networks:
+      - koodaamo-watchalong-network
+    volumes:
+      - mongodb-data:/data/db
+    restart: unless-stopped
+
+  cloudflared:
+    container_name: koodaamo-watchalong-cloudflared
+    image: cloudflare/cloudflared
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
+    networks:
+      - koodaamo-watchalong-network
+    depends_on:
+      - app
+    healthcheck:
+      test: ['CMD', 'cloudflared', 'tunnel', 'status']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    command: tunnel run
+
+networks:
+  koodaamo-watchalong-network:
+
+volumes:
+  mongodb-data:

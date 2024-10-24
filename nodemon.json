@@ -1,0 +1,7 @@
+{
+  "exec": "tsx --inspect src/server/index.ts",
+  "watch": ["src/server", "src/shared"],
+  "ext": "ts",
+  "ignore": ["src/client", "build"],
+  "exitcrash": true
+}
