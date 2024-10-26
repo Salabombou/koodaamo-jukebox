@@ -14,9 +14,9 @@ export interface IQueue extends Document {
 
   shuffle: () => Promise<string>;
   move: (from: number, to: number) => Promise<void>;
-  remove: (index: number) => Promise<void>;
+  removeAt: (index: number) => Promise<void>;
   clear: () => Promise<void>;
-  add: (...tracks: IVideo[]) => Promise<void>;
+  add: (...videos: IVideo[]) => Promise<void>;
 
   playlistInfoJSON: () => Promise<PlaylistInfoResponse>;
 }
@@ -56,7 +56,7 @@ QueueSchema.methods.move = async function (this: IQueue, from: number, to: numbe
   await this.save();
 };
 
-QueueSchema.methods.remove = async function (this: IQueue, index: number): Promise<void> {
+QueueSchema.methods.removeAt = async function (this: IQueue, index: number): Promise<void> {
   remove(this, index);
   await this.save();
 };
@@ -66,24 +66,25 @@ QueueSchema.methods.clear = async function (this: IQueue): Promise<void> {
   await this.save();
 };
 
-QueueSchema.methods.add = async function (this: IQueue, ...tracks: IVideo[]): Promise<void> {
-  add(this, ...tracks);
+QueueSchema.methods.add = async function (this: IQueue, ...videos: IVideo[]): Promise<void> {
+  add(this, ...videos);
   await this.save();
 };
 
 QueueSchema.methods.playlistInfoJSON = async function (this: IQueue): Promise<PlaylistInfoResponse> {
-  const tracks = await Video.find({ videoId: { $in: new Set(this.playlist) } });
+  const videos = await Video.find({ videoId: { $in: new Set(this.playlist) } });
 
   return {
     currentIndex: this.currentIndex,
     timestamp: this.latestTimestamp,
     playlist: this.playlist,
-    tracks: tracks.map((track) => [
-      track.videoId,
+    videos: videos.map((v) => [
+      v.videoId,
       {
-        videoId: track.videoId,
-        title: track.title,
-        duration: track.duration
+        videoId: v.videoId,
+        title: v.title,
+        duration: v.duration,
+        uploader: v.uploader
       }
     ]),
     hash: this.hash

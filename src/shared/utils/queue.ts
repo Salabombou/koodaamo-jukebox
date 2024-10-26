@@ -1,16 +1,16 @@
 import seedrandom from 'seedrandom';
 
 import type { TClientQueue } from '../types/queue.ts';
-import type { TClientTrack } from '../types/track.ts';
+import type { TClientVideo } from '../types/video.ts';
 
 export function shuffle(queue: TClientQueue, seed: string) {
   if (queue.currentIndex === null) {
-    throw new Error('No current track');
+    throw new Error('No current video');
   }
 
-  const currentTrack = queue.playlist[queue.currentIndex];
-  if (!currentTrack) {
-    throw new Error('Current track not found');
+  const currentVideo = queue.playlist[queue.currentIndex];
+  if (!currentVideo) {
+    throw new Error('Current video not found');
   }
 
   queue.playlist.splice(queue.currentIndex, 1);
@@ -25,7 +25,7 @@ export function shuffle(queue: TClientQueue, seed: string) {
     queue.playlist[j] = temp;
   }
 
-  queue.playlist.unshift(currentTrack);
+  queue.playlist.unshift(currentVideo);
   queue.currentIndex = 0;
 }
 
@@ -38,8 +38,8 @@ export function move(queue: TClientQueue, from: number, to: number) {
     throw new Error('Invalid to index');
   }
 
-  const [track] = queue.playlist.splice(from, 1);
-  queue.playlist.splice(to, 0, track!);
+  const [video] = queue.playlist.splice(from, 1);
+  queue.playlist.splice(to, 0, video!);
 }
 
 export function remove(queue: TClientQueue, index: number) {
@@ -55,9 +55,9 @@ export function remove(queue: TClientQueue, index: number) {
 
 export function clear(queue: TClientQueue) {
   if (queue.currentIndex !== null) {
-    const currentTrack = queue.playlist[queue.currentIndex];
-    if (currentTrack) {
-      queue.playlist = [currentTrack];
+    const currentVideo = queue.playlist[queue.currentIndex];
+    if (currentVideo) {
+      queue.playlist = [currentVideo];
       queue.currentIndex = 0;
       return;
     }
@@ -67,15 +67,15 @@ export function clear(queue: TClientQueue) {
   queue.currentIndex = null;
 }
 
-export function add(queue: TClientQueue, ...tracks: TClientTrack[]) {
-  const { playlist, tracks: queueTracks } = queue as TClientQueue & { tracks?: TClientQueue<true>['tracks'] };
+export function add(queue: TClientQueue, ...videos: TClientVideo[]) {
+  const { playlist, videos: queueVideos } = queue as TClientQueue & { videos?: TClientQueue<true>['videos'] };
 
-  if (queueTracks) {
-    for (const track of tracks) {
-      queueTracks.set(track.videoId, track);
-      playlist.push(track.videoId);
+  if (queueVideos) {
+    for (const video of videos) {
+      queueVideos.set(video.videoId, video);
+      playlist.push(video.videoId);
     }
   } else {
-    playlist.push(...tracks.map((track) => track.videoId));
+    playlist.push(...videos.map((video) => video.videoId));
   }
 }

@@ -3,50 +3,48 @@ import express from 'express';
 import Queue from '../models/Queue';
 import Video from '../models/Video';
 
+import logger from '../utils/logger';
 import { fetchPlaylistItems, fetchVideoInfo, parseVideoPlaylistId } from '../utils/youtube';
 
 const router = express.Router();
 
-router.use(async (req, res, next) => {
-  const queue = await Queue.findOneAndUpdate(
-    { associatedRoom: req.room.roomId },
-    { associatedRoom: req.room.roomId },
-    { upsert: true }
-  );
+router.get('/info', async (req, res) => {
+  const queue = await Queue.findOne({ associatedRoom: req.room.roomId });
   if (!queue) {
     res.status(404).json({ error: 'Queue not found' });
     return;
   }
 
-  req.queue = queue;
-
-  next();
+  const response = await queue.playlistInfoJSON();
+  res.json(response);
 });
 
-router.post('/add', async (req, res) => {
-  let { query } = req.body;
-  if (typeof query !== 'string') {
-    res.status(400).json({ error: 'Invalid query' });
+router.get('/video/:index', async (req, res) => {
+  const index = parseInt(req.params.index, 10);
+  if (isNaN(index)) {
+    res.status(400).json({ error: 'Invalid index' });
     return;
   }
 
-  const [id, type] = parseVideoPlaylistId(query.trim());
-
-  if (type === 'playlist') {
-    for await (const item of fetchPlaylistItems(id)) {
-      await Video.findOneAndUpdate({ videoId: item.videoId }, item, { upsert: true });
-      req.queue.playlist.push(item.videoId);
-    }
-  } else {
-    const video = await fetchVideoInfo(id);
-    await Video.findOneAndUpdate({ videoId: video.videoId }, video, { upsert: true });
-    req.queue.playlist.push(video.videoId);
+  const queue = await Queue.findOne({ associatedRoom: req.room.roomId });
+  if (!queue) {
+    res.status(404).json({ error: 'Queue not found' });
+    return;
   }
 
-  await req.queue.save();
+  if (index < 0 || index >= queue.playlist.length) {
+    res.status(404).json({ error: 'Index out of bounds' });
+    return;
+  }
+
+  const videoId = queue.playlist[index]!;
+  const video = await Video.findOne({ videoId });
+  if (!video) {
+    logger.warn(`Video not found: ${videoId}`);
+    res.status(500).json({ error: 'Video not found' });
+    return;
+  }
+  res.json();
 });
-router.delete('/remove', (req, res) => {});
-router.get('/info', (req, res) => {});
-router.get('/track/:index', (req, res) => {});
 
 export default router;

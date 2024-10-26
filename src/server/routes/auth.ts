@@ -1,34 +1,55 @@
+import { DiscordSDKMock } from '@discord/embedded-app-sdk';
 import express from 'express';
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 
-import User from '../models/User';
+import Room from '../models/Room';
+import User, { type IUser } from '../models/User';
 
 import logger from '../utils/logger';
 
 const router = express.Router();
 router.use(express.json());
 
+const mockRoom = new DiscordSDKMock('', null, null).instanceId;
+
 router.post('/login', async (req, res) => {
-  const { code } = req.body;
+  const { code, room } = req.body;
   if (typeof code !== 'string') {
     res.status(400).json({ error: 'Invalid code' });
     return;
   }
 
   if (code === 'mock') {
-    let { user_id, access_token } = req.body;
-    if (typeof user_id !== 'string' || typeof access_token !== 'string') {
-      res.status(400).json({ error: 'Invalid parameters' });
+    if (room !== mockRoom) {
+      res.status(400).json({ error: 'Invalid room' });
+      return;
     }
 
-    if (!(await User.exists({ userId: user_id, accessToken: access_token, secure: false }))) {
+    let { user_id, access_token } = req.body;
+    let user: IUser | null = null;
+
+    if (typeof user_id === 'string' && typeof access_token === 'string') {
+      user = await User.findOne({ userId: user_id, accessToken: access_token, secure: false });
+    }
+
+    if (!user) {
       user_id = uuidv4();
       access_token = uuidv4();
-      await User.create({ userId: user_id, accessToken: access_token, secure: false });
+      user = new User({ userId: user_id, accessToken: access_token, secure: false });
     }
 
-    res.status(200).json({ user_id, access_token });
+    user.associatedRoom = room;
+    await user.save();
+
+    await Room.findOneAndUpdate({ roomId: room }, { $addToSet: { users: user_id }, secure: false }, { upsert: true });
+
+    res.json({ user_id, access_token });
+    return;
+  }
+
+  if (typeof room !== 'string') {
+    res.status(400).json({ error: 'Invalid room' });
     return;
   }
 
@@ -64,11 +85,12 @@ router.post('/login', async (req, res) => {
 
     await User.findOneAndUpdate(
       { userId: userid },
-      { userId: userid, accessToken: access_token, secure: true },
+      { userId: userid, accessToken: access_token, associatedRoom: room, secure: true },
       { upsert: true }
     );
+    await Room.findOneAndUpdate({ roomId: room }, { $addToSet: { users: userid }, secure: true }, { upsert: true });
 
-    res.status(200).json({ access_token });
+    res.json({ access_token });
   } catch (error) {
     res.status(500).json({ error: 'Failed to authenticate' });
     logger.error(error);

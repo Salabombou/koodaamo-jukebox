@@ -1,5 +1,7 @@
 import child_process from 'child_process';
 
+import type { TClientVideo } from '../../shared/types/video';
+
 const YT_DLP_BIN = process.env.YT_DLP_BIN || 'yt-dlp';
 
 export function getAudioPlaylistUrl(id: string) {
@@ -40,18 +42,25 @@ export function parseExpirationDate(url: string) {
 const videoIdPattern = /^[a-zA-Z0-9_-]{11}$/;
 const playlistIdPattern = /^[a-zA-Z0-9_-]{34}$/;
 
-export function parseVideoPlaylistId(input: string): [string, 'video' | 'playlist'] {
+export function parseVideoPlaylistId(input: string): [string, 'video' | 'playlist'] | null {
+  input = input.trim();
+
   let url: URL;
   try {
     url = new URL(input);
   } catch {
-    return [`ytsearch1:${input}`, 'video'];
+    if (videoIdPattern.test(input)) {
+      return [input, 'video'];
+    } else if (input.length >= 5) {
+      return [`ytsearch1:${input}`, 'video'];
+    }
+    return null;
   }
 
   if (url.hostname === 'youtu.be') {
     const videoId = url.pathname.slice(1);
     if (!videoIdPattern.test(videoId)) {
-      throw new Error('Invalid video ID');
+      return null;
     }
     return [videoId, 'video'];
   }
@@ -65,21 +74,21 @@ export function parseVideoPlaylistId(input: string): [string, 'video' | 'playlis
       const listId = url.searchParams.get('list');
       if (videoId) {
         if (!videoIdPattern.test(videoId)) {
-          throw new Error('Invalid video ID');
+          return null;
         }
         return [videoId, 'video'];
       } else if (listId) {
         if (!playlistIdPattern.test(listId)) {
-          throw new Error('Invalid playlist ID');
+          return null;
         }
         return [listId, 'playlist'];
       }
   }
 
-  throw new Error('Invalid URL');
+  return null;
 }
 
-export async function* fetchPlaylistItems(playlistId: string) {
+export async function fetchPlaylistItems(playlistId: string) {
   const ytDlp = child_process.spawn(YT_DLP_BIN, [
     '--flat-playlist',
     '--dump-json',
@@ -110,6 +119,7 @@ export async function* fetchPlaylistItems(playlistId: string) {
 
   const lines = data.trim().split('\n');
 
+  const videos = [] as TClientVideo[];
   for (const line of lines) {
     const { id: videoId, title, duration, uploader } = JSON.parse(line.trim());
 
@@ -121,8 +131,10 @@ export async function* fetchPlaylistItems(playlistId: string) {
       continue;
     }
 
-    yield { videoId, title, duration, uploader };
+    videos.push({ videoId, title, duration, uploader });
   }
+
+  return videos;
 }
 export async function fetchVideoInfo(videoId: string) {
   const ytDlp = child_process.spawn(YT_DLP_BIN, ['--dump-json', '--no-warnings', '--quiet', videoId]);

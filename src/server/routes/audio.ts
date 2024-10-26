@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import express from 'express';
 import fs from 'fs';
 import fetch from 'node-fetch';
+import path from 'path';
 
 import AudioPlaylist from '../models/AudioPlaylist';
 import AudioSegment from '../models/AudioSegment';
@@ -12,9 +13,6 @@ import logger from '../utils/logger';
 import { getAudioPlaylistUrl, parseExpirationDate } from '../utils/youtube';
 
 const router = express.Router();
-
-const STATIC_PATH = process.env.STATIC_PATH || '/tmp/media';
-fs.mkdirSync(STATIC_PATH, { recursive: true });
 
 const playlistDownloadMutex = new Mutex();
 router.get('/:videoId/.m3u8', async (req, res) => {
@@ -40,7 +38,6 @@ router.get('/:videoId/.m3u8', async (req, res) => {
         playlist = new AudioPlaylist({ videoId: videoId });
 
         playlist.url = await getAudioPlaylistUrl(videoId);
-        playlist.path = `${STATIC_PATH}/${playlist.videoId}.m3u8`;
         playlist.expiresAt = parseExpirationDate(playlist.url);
 
         await fetch(playlist.url)
@@ -67,14 +64,14 @@ router.get('/:videoId/.m3u8', async (req, res) => {
               }
 
               const urlHash = crypto.createHash('sha256').update(url).digest('hex');
-              if (!(await AudioSegment.exists({ hash: urlHash }))) {
-                await AudioSegment.create({ hash: urlHash, url, expiresAt: parseExpirationDate(url) });
+              if (!(await AudioSegment.exists({ urlHash }))) {
+                await AudioSegment.create({ urlHash, url, expiresAt: parseExpirationDate(url) });
               }
 
               playlistLines[i] = urlHash + '.ts';
             }
 
-            await fs.promises.writeFile(playlist!.path, playlistLines.join('\n'));
+            playlist!.data = Buffer.from(playlistLines.join('\n'));
           });
 
         await playlist.save();
@@ -85,7 +82,8 @@ router.get('/:videoId/.m3u8', async (req, res) => {
       }
     }
 
-    res.status(200).sendFile(playlist.path);
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.status(200).send(playlist.data);
   });
 });
 
@@ -120,17 +118,15 @@ router.get('/:videoId/:segmentUrlHash.ts', async (req, res) => {
 
     try {
       await fetch(segment.url).then(async (response) => {
-        if (!response.ok || !response.body) {
+        if (!response.ok) {
           throw new Error('Failed to fetch audio segment');
         }
 
-        segment.path = `${STATIC_PATH}/${segment.hash}.ts`;
-
-        await fs.promises.writeFile(`/tmp/${segment.hash}.ts`, response.body);
-        await fs.promises.rename(`/tmp/${segment.hash}.ts`, segment.path!);
+        segment.data = Buffer.from(await response.arrayBuffer());
       });
 
       segment.downloaded = true;
+
       await segment.save();
     } catch {
       res.status(500).json({ error: 'Failed to fetch audio segment' });
@@ -139,7 +135,8 @@ router.get('/:videoId/:segmentUrlHash.ts', async (req, res) => {
   });
   segmentDownloadMutexes.delete(segmentUrlHash);
 
-  res.status(200).sendFile(segment.path!);
+  res.setHeader('Cache-Control', 'public, max-age=31536000');
+  res.status(200).send(segment.data);
 });
 
 export default router;

@@ -11,7 +11,7 @@ export function useRoom() {
 
 export function RoomProvider({ children }: { children: ReactNode }) {
   const setupRoom = () => {
-    const pathname = `${discordSdk.isEmbedded ? '/.proxy' : ''}/api/room/${discordSdk.instanceId}`;
+    const pathname = `${discordSdk.isEmbedded ? '/.proxy' : ''}/api/jukebox/${discordSdk.instanceId}/room`;
 
     const url = new URL(location.href);
     url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';

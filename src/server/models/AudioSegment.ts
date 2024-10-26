@@ -1,37 +1,23 @@
-import fs from 'fs';
 import mongoose, { type Document, Schema } from 'mongoose';
 import cron from 'node-cron';
 
-import logger from '../utils/logger';
-
 cron.schedule('* * * * *', async () => {
-  const expiredSegments = await AudioSegment.find({ expiresAt: { $lt: new Date() } });
-
-  for (const segment of expiredSegments) {
-    await segment.deleteOne();
-    if (segment.path) {
-      fs.unlink(segment.path, (err) => {
-        if (err) {
-          logger.error(`Failed to delete audio segment file: ${err}`);
-        }
-      });
-    }
-  }
+  await AudioSegment.deleteMany({ expiresAt: { $lt: new Date() } });
 });
 
 export interface IAudioSegment extends Document {
-  hash: string;
+  urlHash: string;
   url: string;
-  path: string | null;
   downloaded: boolean;
+  data: Buffer | null;
   expiresAt: Date;
 }
 
 export const AudioSegmentSchema = new Schema<IAudioSegment>({
-  hash: { type: String, required: true, unique: true, index: true },
+  urlHash: { type: String, required: true, unique: true, index: true },
   url: { type: String, required: true },
-  path: { type: String, default: null },
   downloaded: { type: Boolean, default: false },
+  data: { type: Buffer, default: null },
   expiresAt: { type: Date, required: true }
 });
 

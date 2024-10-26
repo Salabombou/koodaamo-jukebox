@@ -9,7 +9,7 @@ declare module 'express-serve-static-core' {
   interface Request {
     user: IUser;
     room: IRoom;
-    queue: IQueue;
+    //queue: IQueue;
     connections: Map<string, WebSocket[]>;
   }
 }

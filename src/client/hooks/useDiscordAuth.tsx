@@ -30,7 +30,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(authBody)
+      body: JSON.stringify({ ...authBody, room: discordSdk.instanceId })
     }).then((res) => res.json());
 
     const { access_token } = response;

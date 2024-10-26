@@ -21,6 +21,10 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
         { isEmbedded }
       );
     } else {
+      sdk = Object.assign(new DiscordSDKMock(import.meta.env.VITE_DISCORD_CLIENT_ID, null, null), {
+        isEmbedded
+      });
+
       let mockUserId = sessionStorage.getItem('mock_user_id');
       let mockAccessToken = sessionStorage.getItem('mock_access_token');
 
@@ -28,6 +32,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: JSON.stringify({
           code: 'mock',
+          room: sdk.instanceId,
           user_id: mockUserId,
           access_token: mockAccessToken
         }),
@@ -46,10 +51,6 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
 
       sessionStorage.setItem('mock_user_id', mockUserId);
       sessionStorage.setItem('mock_access_token', mockAccessToken);
-
-      sdk = Object.assign(new DiscordSDKMock(import.meta.env.VITE_DISCORD_CLIENT_ID, null, null), {
-        isEmbedded
-      });
 
       sdk._updateCommandMocks({
         authenticate: async () => {

@@ -1,6 +1,7 @@
+import compression from 'compression';
 import dotenv from 'dotenv';
 import express from 'express';
-import http from 'http';
+import expressWs from 'express-ws';
 
 import Room from './models/Room.ts';
 import User from './models/User.ts';
@@ -12,8 +13,9 @@ dotenv.config();
 
 async function bootstrap() {
   const app = express();
-  const server = http.createServer(app);
+  expressWs(app);
 
+  app.use(compression());
   app.use(express.json());
 
   if (process.env.NODE_ENV === 'production') {
@@ -25,7 +27,7 @@ async function bootstrap() {
   const jukeboxRouter = express.Router();
 
   jukeboxRouter.use(async (req, res, next) => {
-    const instanceId = req.params.instanceId;
+    const instanceId = req.baseUrl.match(/\/api\/jukebox\/([^\/]+)/)?.[1];
     if (typeof instanceId !== 'string') {
       res.status(400).json({ error: 'Invalid instance ID' });
       return;
@@ -38,8 +40,21 @@ async function bootstrap() {
       return;
     }
 
-    const userId = req.headers['x-user-id'];
-    const accessToken = req.headers['x-access-token'];
+    let userId: string | undefined;
+    let accessToken: string | undefined;
+
+    const isWebSocket = req.headers.upgrade === 'websocket';
+    if (isWebSocket) {
+      [userId, accessToken] = req.headers['sec-websocket-protocol']?.split(', ') ?? [];
+    } else {
+      userId = req.headers['x-user-id'] as string;
+      accessToken = req.headers['x-access-token'] as string;
+    }
+
+    if (typeof userId !== 'string' || typeof accessToken !== 'string') {
+      res.status(400).json({ error: 'Invalid parameters' });
+      return;
+    }
 
     if (typeof userId !== 'string' || typeof accessToken !== 'string') {
       res.status(401).json({ error: 'Unauthorized' });
@@ -50,6 +65,11 @@ async function bootstrap() {
 
     if (!user) {
       res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (room.secure !== user.secure) {
+      res.status(403).json({ error: 'Forbidden' });
       return;
     }
 
@@ -73,10 +93,8 @@ async function bootstrap() {
   await connectDB();
 
   const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
   });
-
-
 }
 bootstrap();
