@@ -4,7 +4,7 @@ export default {
   content: ['./src/client/index.html', './src/client/**/*.{ts,tsx}'],
   theme: {},
   daisyui: {
-    themes: ['black']
+    themes: ['luxury']
   },
   plugins: [daisyui]
 };

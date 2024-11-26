@@ -84,7 +84,8 @@ QueueSchema.methods.playlistInfoJSON = async function (this: IQueue): Promise<Pl
         videoId: v.videoId,
         title: v.title,
         duration: v.duration,
-        uploader: v.uploader
+        uploader: v.uploader,
+        thumbnail: v.thumbnail
       }
     ]),
     hash: this.hash

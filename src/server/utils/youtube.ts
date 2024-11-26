@@ -88,6 +88,25 @@ export function parseVideoPlaylistId(input: string): [string, 'video' | 'playlis
   return null;
 }
 
+function parseVideoThumbnail(thumbnails: any[]) {
+  let thumbnail = thumbnails.at(-1).url;
+
+  // get album cover thumbnail (largest square thumbnail)
+  thumbnails.sort((a, b) => a.width - b.width);
+  thumbnails.reverse();
+  for (const thumb of thumbnails) {
+    if (typeof thumb.width !== 'number' || typeof thumb.height !== 'number') {
+      break;
+    }
+    if (thumb.width === thumb.height) {
+      thumbnail = thumb.url;
+      break;
+    }
+  }
+
+  return thumbnail;
+}
+
 export async function fetchPlaylistItems(playlistId: string) {
   const ytDlp = child_process.spawn(YT_DLP_BIN, [
     '--flat-playlist',
@@ -121,9 +140,16 @@ export async function fetchPlaylistItems(playlistId: string) {
 
   const videos = [] as TClientVideo[];
   for (const line of lines) {
-    const { id: videoId, title, duration, uploader } = JSON.parse(line.trim());
-
-    if (!videoId || !title || !duration || !uploader) {
+    const item = JSON.parse(line.trim());
+    const { id: videoId, title, duration, uploader, thumbnails } = item;
+    if (
+      typeof videoId !== 'string' ||
+      typeof title !== 'string' ||
+      typeof duration !== 'number' ||
+      typeof uploader !== 'string' ||
+      !Array.isArray(thumbnails) ||
+      thumbnails.length === 0
+    ) {
       continue;
     }
 
@@ -131,12 +157,18 @@ export async function fetchPlaylistItems(playlistId: string) {
       continue;
     }
 
-    videos.push({ videoId, title, duration, uploader });
+    const thumbnail = parseVideoThumbnail(thumbnails);
+
+    if (typeof thumbnail !== 'string') {
+      continue;
+    }
+
+    videos.push({ videoId, title, duration, uploader, thumbnail });
   }
 
   return videos;
 }
-export async function fetchVideoInfo(videoId: string) {
+export async function fetchVideoInfo(videoId: string): Promise<TClientVideo> {
   const ytDlp = child_process.spawn(YT_DLP_BIN, ['--dump-json', '--no-warnings', '--quiet', videoId]);
 
   let data = '';
@@ -159,9 +191,16 @@ export async function fetchVideoInfo(videoId: string) {
     });
   });
 
-  const { id, title, duration, uploader } = JSON.parse(data.trim());
+  const { id, title, duration, uploader, thumbnails } = JSON.parse(data.trim());
 
-  if (!id || !title || !duration || !uploader) {
+  if (
+    typeof id !== 'string' ||
+    typeof title !== 'string' ||
+    typeof duration !== 'number' ||
+    typeof uploader !== 'string' ||
+    !Array.isArray(thumbnails) ||
+    thumbnails.length === 0
+  ) {
     throw new Error('Failed to fetch video info');
   }
 
@@ -169,5 +208,11 @@ export async function fetchVideoInfo(videoId: string) {
     throw new Error('Video is deleted or private');
   }
 
-  return { videoId: id, title, duration, uploader };
+  const thumbnail = parseVideoThumbnail(thumbnails);
+
+  if (typeof thumbnail !== 'string') {
+    throw new Error('Failed to fetch video thumbnail');
+  }
+
+  return { videoId: id, title, duration, uploader, thumbnail };
 }

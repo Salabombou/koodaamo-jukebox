@@ -23,6 +23,9 @@
   "license": "MIT",
   "dependencies": {
     "@discord/embedded-app-sdk": "^1.5.0",
+    "@fortawesome/fontawesome-svg-core": "^6.7.1",
+    "@fortawesome/free-solid-svg-icons": "^6.7.1",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "@vitejs/plugin-react": "^4.3.3",
     "async-mutex": "^0.5.0",
     "autoprefixer": "^10.4.20",
@@ -31,6 +34,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-ws": "^5.0.2",
+    "hls.js": "^1.5.17",
     "mongoose": "^8.7.2",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",

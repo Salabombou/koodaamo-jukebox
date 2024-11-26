@@ -8,8 +8,8 @@ import Video from '../models/Video';
 
 import logger from '../utils/logger';
 import { fetchPlaylistItems, fetchVideoInfo, parseVideoPlaylistId } from '../utils/youtube';
-import { ERoomCloseCode } from '../../shared/enums/room';
 
+import { ERoomCloseCode } from '../../shared/enums/room';
 import type { TRoomEvent, TRoomMessage, TRoomMessageData } from '../../shared/types/room';
 
 const router = express.Router();
