@@ -1,19 +1,25 @@
 import React, { useEffect, useRef } from 'react';
 
+import {
+  faCopy,
+  faPause,
+  faPlay,
+  faRepeat,
+  faShuffle,
+  faStepBackward,
+  faStepForward
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Hls from 'hls.js';
 
 import { useDiscordAuth } from '../hooks/useDiscordAuth';
 import { useDiscordSDK } from '../hooks/useDiscordSdk';
 
 import type { TClientVideo } from '../../shared/types/video';
-import PlayButton from './PlayButton';
 import AudioSlider from './AudioSlider';
+import PlayButton from './PlayButton';
 import TimeDisplay from './TimeDisplay';
 import VolumeControls from './VolumeSlider';
-
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-
-import { faPlay, faPause, faStepBackward, faStepForward, faCopy, faShuffle, faRepeat } from '@fortawesome/free-solid-svg-icons';
 import VolumeSlider from './VolumeSlider';
 
 interface MusicPlayerCardProps {
@@ -45,53 +51,77 @@ export default function MusicPlayerCard({ video }: MusicPlayerCardProps) {
 
     hls.loadSource(`/api/jukebox/${discordSDK.instanceId}/audio/${video.videoId}/.m3u8`);
     hls.attachMedia(audio);
-  });
+
+    return () => {
+      hls.destroy();
+    };
+  }, []);
 
   return (
-    <div className='flex flex-row items-center justify-center'>
-      <div className='shadow'>
-        <VolumeSlider />
-      </div>
-    <div className="card bg-base-200 w-[400px] h-[600px] shadow-xl">
-      <figure className="px-10 pt-10 w-full">
-       <img src={video.thumbnail} alt={video.title} className="rounded-xl" />
-      </figure>
-      <div className="card-body">
-        <div>
-          <h2 className="card-title font-bold -my-1">{video.title}</h2>
-          <h4>{video.uploader}</h4>
-        </div>
-        <div className="card-actions w-full">
-          <audio ref={audioRef} controls={false}></audio>
-          <div className='flex w-full justify-start space-x-1 flex-col '>
-            <div>
-              <input type="range" min="0" max="100" value="50" className="range range-xs" />
-              <div className="flex justify-between">
-                <label>0:00</label>
-                <label>3:00</label>
+    <div className="flex flex-col items-center justify-center space-y-4">
+      <div className="card h-full bg-base-200">
+        <figure className="px-10 pt-10 w-full">
+          <img src={video.thumbnail} alt={video.title} className="rounded-xl" />
+        </figure>
+        <div className="card-body px-10">
+          <div>
+            <h2 className="card-title font-bold truncate">{video.title}</h2>
+            <h4 className="text-sm truncate">{video.uploader}</h4>
+          </div>
+          <div className="card-actions w-full">
+            <audio ref={audioRef} controls={false}></audio>
+            <div className="flex w-full justify-start space-x-1 flex-col ">
+              <div>
+                <input type="range" min="0" max="100" value="50" className="range range-sm" />
+                <div className="flex justify-between select-none">
+                  <label>0:00</label>
+                  <label>
+                    {video.duration >= 3600 && (
+                      <>
+                        <span>
+                          {Math.floor(video.duration / 3600)
+                            .toString()
+                            .padStart(2, '0')}
+                        </span>
+                        <span>:</span>
+                      </>
+                    )}
+                    <span>
+                      {Math.floor((video.duration % 3600) / 60)
+                        .toString()
+                        .padStart(2, '0')}
+                    </span>
+                    <span>:</span>
+                    <span>
+                      {Math.floor(video.duration % 60)
+                        .toString()
+                        .padStart(2, '0')}
+                    </span>
+                  </label>
+                </div>
               </div>
-            </div>
-              <div className='flex justify-center items-center space-x-4 w-full'>
-              <button className='btn btn-circle btn-ghost'>
-                <FontAwesomeIcon icon={faShuffle} />
-              </button>
-              <button className='btn btn-circle btn-ghost'>
-                <FontAwesomeIcon icon={faStepBackward} />
-              </button>
-              <button className='btn btn-circle btn-ghost btn-lg bg-base-300'>
-                <FontAwesomeIcon icon={faPlay} />
-              </button>
-              <button className='btn btn-circle btn-ghost'>
-                <FontAwesomeIcon icon={faStepForward} />  
-              </button>              
-              <button className='btn btn-circle btn-ghost'>
-                <FontAwesomeIcon icon={faRepeat} />
-              </button>
+              <div className="flex justify-center items-center space-x-4 w-full">
+                <button className="btn btn-circle btn-ghost">
+                  <FontAwesomeIcon icon={faShuffle} size="lg" />
+                </button>
+                <button className="btn btn-circle btn-ghost">
+                  <FontAwesomeIcon icon={faStepBackward} size="lg" />
+                </button>
+                <button className="btn btn-circle btn-ghost btn-lg bg-base-300">
+                  <FontAwesomeIcon icon={faPlay} size="xl" />
+                </button>
+                <button className="btn btn-circle btn-ghost">
+                  <FontAwesomeIcon icon={faStepForward} size="lg" />
+                </button>
+                <button className="btn btn-circle btn-ghost">
+                  <FontAwesomeIcon icon={faRepeat} size="lg" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <VolumeSlider />
     </div>
   );
 }
