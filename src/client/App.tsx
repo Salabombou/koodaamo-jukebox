@@ -38,7 +38,7 @@ export default function App() {
 
   return (
     <div className="flex items-center h-screen ml-4">
-      <div className="flex items-center justify-start w-full space-x-4">
+      <div className="flex items-center justify-start h-full w-full space-x-4">
         <MusicPlayerCard
           video={{
             videoId: 'R6XDAC55iss',
@@ -53,6 +53,7 @@ export default function App() {
           queue={queue}
           tracks={tracks.current}
           currentTrack={2}
+          
           onMove={(oldIndex, newIndex) => {
             // move item at oldIndex to newIndex
             const newQueue = [...queue];
@@ -60,6 +61,18 @@ export default function App() {
             if (typeof removed === 'undefined') return;
             newQueue.splice(newIndex, 0, removed);
             setQueue(newQueue);
+          }}
+
+          onRemove={(index) => {
+            // remove item at index
+            const newQueue = [...queue];
+            newQueue.splice(index, 1);
+            setQueue(newQueue);
+          }}
+
+          onAdd={(videoId, next) => {
+            // add item to the end of the queue
+            setQueue([...queue, videoId]);
           }}
         />
       </div>

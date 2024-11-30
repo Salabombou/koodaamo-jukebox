@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { DraggableAttributes } from '@dnd-kit/core';
+import { DragOverlay, type DraggableAttributes } from '@dnd-kit/core';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import type { Transform } from '@dnd-kit/utilities';
 import { CSS } from '@dnd-kit/utilities';
@@ -11,6 +11,7 @@ import type { TClientVideo } from '../../shared/types/video';
 
 interface QueueItemProps {
   track: TClientVideo;
+  index?: number;
   invisible?: boolean;
   highlight?: boolean;
   setNodeRef?: (node: HTMLElement | null) => void;
@@ -24,6 +25,7 @@ interface QueueItemProps {
 export default function QueueItem({
   setNodeRef,
   track,
+  index,
   invisible,
   highlight,
   style,
@@ -35,12 +37,13 @@ export default function QueueItem({
   return (
     <div
       ref={setNodeRef}
+      data-index={index}
       style={{
         ...style,
         height: '116px',
         transform: CSS.Transform.toString(transform!),
         transition,
-        opacity: invisible ? 0 : 1,
+        visibility: invisible ? 'hidden' : 'visible'
       }}
       className={`${highlight ? 'bg-base-300' : 'bg-base-200'} flex flex-row items-center select-none space-x-4 w-full p-4`}
     >

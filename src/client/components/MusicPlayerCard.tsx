@@ -61,7 +61,7 @@ export default function MusicPlayerCard({ video }: MusicPlayerCardProps) {
     <div className="flex flex-col items-center justify-center space-y-4">
       <div className="card h-full bg-base-200">
         <figure className="px-10 pt-10 w-full">
-          <img src={video.thumbnail} alt={video.title} className="rounded-xl" />
+          <img src={video.thumbnail} alt={video.title} className="rounded-box" />
         </figure>
         <div className="card-body px-10">
           <div>

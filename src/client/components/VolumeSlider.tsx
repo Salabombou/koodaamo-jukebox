@@ -19,7 +19,7 @@ export default function VolumeSlider() {
   }, [volume]);
 
   return (
-    <div className="card flex-row justify-center items-center h-full w-full bg-base-200 p-2 space-x-1 rounded-xl">
+    <div className="card flex-row justify-center items-center h-full w-full bg-base-200 p-2 space-x-1 rounded-box">
       <button className="btn btn-circle btn-sm" onClick={() => setMuted((muted) => !muted)}>
         <FontAwesomeIcon
           icon={volume === 0 || muted ? faVolumeMute : volume < 0.5 ? faVolumeDown : faVolumeUp}
