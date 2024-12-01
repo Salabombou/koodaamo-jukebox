@@ -21,26 +21,27 @@ interface QueueKanbanProps {
   queue: TClientVideo['videoId'][];
   tracks: Map<string, TClientVideo>;
   currentTrack: number;
-  
+
   onMove: (oldIndex: number, newIndex: number) => void;
   onRemove: (index: number) => void;
   onAdd(trackId: string, next: boolean): void;
 }
 
 function Row({ index, style, data }: ListChildComponentProps, tracks: Map<string, TClientVideo>, currentTrack: number) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id: data[index][0]
   });
 
   return (
     <QueueItem
+      ref={setNodeRef}
       index={data[index][0]}
       track={tracks.get(data[index][1])!}
       invisible={isDragging}
       highlight={data[index][0] === currentTrack}
+      disableHover={isSorting}
       attributes={attributes}
       listeners={listeners}
-      setNodeRef={setNodeRef}
       style={style}
       transform={transform}
       transition={transition}
@@ -103,8 +104,10 @@ export default function QueueKanban({ queue, tracks, currentTrack, onMove, onRem
       (event) => {
         event.preventDefault();
         setContextMenuCoordinates(null);
-        
-        const contextMenuTrack = Number((event.target as HTMLElement)?.closest('[data-index]')?.getAttribute('data-index'));
+
+        const contextMenuTrack = Number(
+          (event.target as HTMLElement)?.closest('[data-index]')?.getAttribute('data-index')
+        );
         if (!isFinite(contextMenuTrack)) return;
         setContextMenuTrack(contextMenuTrack);
 
@@ -192,6 +195,7 @@ export default function QueueKanban({ queue, tracks, currentTrack, onMove, onRem
             <QueueItem
               track={tracks.get(draggedTrack[1])!}
               highlight={draggedTrack[0] === currentTrack}
+              dragOverlay={true}
             />
           )}
         </DragOverlay>
@@ -203,7 +207,6 @@ export default function QueueKanban({ queue, tracks, currentTrack, onMove, onRem
           setContextMenuCoordinates(null);
           setContextMenuTrack(null);
         }}
-
         onCopyUrl={() => {
           const url = `https://youtu.be/${queue[contextMenuTrack!]}`;
           navigator.clipboard.writeText(url);
@@ -221,7 +224,6 @@ export default function QueueKanban({ queue, tracks, currentTrack, onMove, onRem
           if (contextMenuTrack === null) return;
           onAdd(query, position === 'next');
         }}
-
       />
     </>
   );

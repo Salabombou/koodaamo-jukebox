@@ -53,7 +53,6 @@ export default function App() {
           queue={queue}
           tracks={tracks.current}
           currentTrack={2}
-          
           onMove={(oldIndex, newIndex) => {
             // move item at oldIndex to newIndex
             const newQueue = [...queue];
@@ -62,14 +61,12 @@ export default function App() {
             newQueue.splice(newIndex, 0, removed);
             setQueue(newQueue);
           }}
-
           onRemove={(index) => {
             // remove item at index
             const newQueue = [...queue];
             newQueue.splice(index, 1);
             setQueue(newQueue);
           }}
-
           onAdd={(videoId, next) => {
             // add item to the end of the queue
             setQueue([...queue, videoId]);
