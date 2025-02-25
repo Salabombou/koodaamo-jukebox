@@ -1,0 +1,29 @@
+
+services:
+  server:
+    build:
+      context: ./server
+      target: final
+    volumes:
+      - client-build:/app/wwwroot
+    depends_on:
+      - client
+    ports:
+      - "8080:8080"
+  
+  client:
+    build:
+      context: ./client
+      target: build
+    volumes:
+      - client-build:/app/build
+
+  #db:
+  #  image: postgres:17
+  #  volumes:
+  #    - db-data:/var/lib/postgresql/data
+  #  environment:
+    
+volumes:
+  #db-data:
+  client-build:
