@@ -1,0 +1,10 @@
+/bin
+/build
+/obj
+/publish
+/Properties
+/Migrations
+/Tests
+
+.env
+.gitingore

@@ -1,0 +1,56 @@
+services:
+  server:
+    build:
+      context: ./server
+      target: final
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - JWT_SECRET=${JWT_SECRET}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
+      - DISCORD_REDIRECT_URI=${DISCORD_REDIRECT_URI}
+      - YOUTUBE_V3_API_KEY=${YOUTUBE_V3_API_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    volumes:
+      - client-build:/app/wwwroot:ro
+    depends_on:
+      - client
+    restart: always
+    network_mode: host
+    ports:
+      - "8080:8080"
+
+  client:
+    build:
+      context: ./client
+    volumes:
+      - type: tmpfs
+        target: /app/build
+      - client-build:/app/build:rw
+    environment:
+      - VITE_DISCORD_APPLICATION_ID=${VITE_DISCORD_APPLICATION_ID}
+      - VITE_DISCORD_OAUTH2_URL=${VITE_DISCORD_OAUTH2_URL}
+
+  bot:
+    build:
+      context: ./bot
+    environment:
+      - ENV=production
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - API_BASE_URL=http://localhost:8080   # Use localhost since server is on host network
+      - API_BASE_URL_PROD=${API_BASE_URL_PROD}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - server
+    restart: always
+    network_mode: host
+
+volumes:
+  client-build:
+    
