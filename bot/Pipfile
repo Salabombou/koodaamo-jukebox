@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+py-cord = "*"
+python-dotenv = "*"
+black = "*"
+psycopg2 = "*"
+httpx = "*"
+pyjwt = "*"
+
+[dev-packages]
+black = "*"
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.3"

@@ -4,8 +4,11 @@ services:
     build:
       context: ./server
       target: final
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
     volumes:
       - client-build:/app/wwwroot
+      - ./logs:/app/logs
     depends_on:
       - client
     ports:
@@ -15,8 +18,23 @@ services:
     build:
       context: ./client
       target: build
+    environment:
+      - NODE_ENV=production
     volumes:
       - client-build:/app/build
+
+  bot:
+    build:
+      context: ./bot
+    environment:
+      - ENV=production
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
+    volumes:
+      - type: volume
+        source: ./logs/bot.log
+        target: /app/bot.log
+    depends_on:
+      - server
 
   #db:
   #  image: postgres:17
@@ -25,5 +43,4 @@ services:
   #  environment:
     
 volumes:
-  #db-data:
   client-build:
