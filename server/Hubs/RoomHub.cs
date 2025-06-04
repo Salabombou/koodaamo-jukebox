@@ -10,11 +10,11 @@ namespace KoodaamoJukebox.Hubs
 {
 
     [Authorize]
-    public class QueueHub : Hub
+    public class RoomHub : Hub
     {
         private readonly AppDbContext _dbContext;
         private readonly QueueService _queueService;
-        public QueueHub(AppDbContext dbContext, QueueService queueService)
+        public RoomHub(AppDbContext dbContext, QueueService queueService)
         {
             _dbContext = dbContext;
             _queueService = queueService;
@@ -67,10 +67,28 @@ namespace KoodaamoJukebox.Hubs
             user.ConnectionId = Context.ConnectionId;
             await _dbContext.SaveChangesAsync();
 
-
             await Groups.AddToGroupAsync(Context.ConnectionId, instanceId);
-            
+
             await base.OnConnectedAsync();
+
+            var roomInfo = await _dbContext.RoomInfos
+                .Where(q => q.InstanceId == instanceId)
+                .FirstOrDefaultAsync();
+            if (roomInfo == null)
+            {
+                throw new UnauthorizedAccessException("RoomInfo not found for the specified instance.");
+            }
+
+            var queueItems = await _dbContext.QueueItems
+                .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                .Select(qi => new QueueItemDto(qi))
+                .ToListAsync();
+            if (queueItems == null)
+            {
+                throw new UnauthorizedAccessException("QueueItems not found for the specified instance.");
+            }
+
+            await Clients.Caller.SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), queueItems);
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -101,24 +119,74 @@ namespace KoodaamoJukebox.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task Ping()
+        public async Task PauseToggle(long sentAt, bool paused)
         {
-            await Clients.Caller.SendAsync("Pong");
-        }
-
-        public async Task PauseResume(long sentAt, bool paused)
-        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
             var instanceId = Context.User?.FindFirstValue("instance_id");
             if (string.IsNullOrEmpty(instanceId))
             {
                 throw new UnauthorizedAccessException("InstanceId not found in user claims.");
             }
 
-            await _queueService.PauseResume(instanceId, sentAt, paused);
+            await _queueService.Pause(instanceId, paused);
+        }
+
+        public async Task LoopToggle(long sentAt, bool loop)
+        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
+            var instanceId = Context.User?.FindFirstValue("instance_id");
+            if (string.IsNullOrEmpty(instanceId))
+            {
+                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+            }
+            await _queueService.Loop(instanceId, loop);
+        }
+
+        public async Task ShuffleToggle(long sentAt, bool shuffled)
+        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
+            var instanceId = Context.User?.FindFirstValue("instance_id");
+            if (string.IsNullOrEmpty(instanceId))
+            {
+                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+            }
+            await _queueService.Shuffle(instanceId, shuffled);
+        }
+
+        public async Task Seek(long sentAt, int seekTime)
+        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
+            var instanceId = Context.User?.FindFirstValue("instance_id");
+            if (string.IsNullOrEmpty(instanceId))
+            {
+                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+            }
+            await _queueService.Seek(instanceId, seekTime);
         }
 
         public async Task Skip(long sentAt, int index)
         {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
             var instanceId = Context.User?.FindFirstValue("instance_id");
             if (string.IsNullOrEmpty(instanceId))
             {
@@ -129,6 +197,11 @@ namespace KoodaamoJukebox.Hubs
 
         public async Task Move(long sentAt, int from, int to)
         {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
             var instanceId = Context.User?.FindFirstValue("instance_id");
             if (string.IsNullOrEmpty(instanceId))
             {
@@ -139,6 +212,11 @@ namespace KoodaamoJukebox.Hubs
 
         public async Task Add(long sentAt, string videoId)
         {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
             var instanceId = Context.User?.FindFirstValue("instance_id");
             if (string.IsNullOrEmpty(instanceId))
             {
@@ -149,6 +227,11 @@ namespace KoodaamoJukebox.Hubs
 
         public async Task Remove(long sentAt, int index)
         {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
             var instanceId = Context.User?.FindFirstValue("instance_id");
             if (string.IsNullOrEmpty(instanceId))
             {
@@ -156,5 +239,20 @@ namespace KoodaamoJukebox.Hubs
             }
             await _queueService.Remove(instanceId, index);
         }
+
+        /*public async Task Clear(long sentAt)
+        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
+            var instanceId = Context.User?.FindFirstValue("instance_id");
+            if (string.IsNullOrEmpty(instanceId))
+            {
+                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+            }
+            await _queueService.Clear(instanceId);
+        }*/
     }
 }

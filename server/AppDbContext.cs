@@ -15,7 +15,7 @@ namespace KoodaamoJukebox
 
         public DbSet<User> Users { get; set; }
 
-        public DbSet<Queue> Queues { get; set; }
+        public DbSet<RoomInfo> RoomInfos { get; set; }
 
         public DbSet<QueueItem> QueueItems { get; set; }
 
@@ -59,7 +59,7 @@ namespace KoodaamoJukebox
             entity.Property(u => u.Username).IsRequired();
             });
 
-            modelBuilder.Entity<Queue>(entity =>
+            modelBuilder.Entity<RoomInfo>(entity =>
             {
             entity.ToTable("Queues");
             entity.HasIndex(q => q.InstanceId).IsUnique();

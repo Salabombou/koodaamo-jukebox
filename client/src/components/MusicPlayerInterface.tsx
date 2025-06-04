@@ -154,6 +154,7 @@ export default function MusicPlayerInterface({
               setVolume(e.target.valueAsNumber);
               onVolumeChange(e.target.valueAsNumber);
             }}
+            defaultValue={1}
           />
         </div>
       </div>

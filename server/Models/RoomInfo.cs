@@ -7,7 +7,7 @@ namespace KoodaamoJukebox.Models
 {
     [Table("Queues")]
     [Index(nameof(InstanceId), IsUnique = true)]
-    public class Queue
+    public class RoomInfo
     {
         [Key]
         public int Id { get; set; }
@@ -24,11 +24,13 @@ namespace KoodaamoJukebox.Models
         public int? CurrentTrackIndex { get; set; }
 
         public long? PlayingSince { get; set; }
+        
+        public long? PausedAt { get; set; }
     }
 
-    public class QueueDto
+    public class RoomInfoDto
     {
-        public QueueDto(Queue queue)
+        public RoomInfoDto(RoomInfo queue)
         {
             InstanceId = queue.InstanceId;
             IsPaused = queue.isPaused;

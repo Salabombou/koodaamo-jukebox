@@ -25,9 +25,9 @@ namespace server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<QueueDto>> GetQueue(string instanceId)
+        public async Task<ActionResult<RoomInfoDto>> GetQueue(string instanceId)
         {
-            var queue = await _dbContext.Queues
+            var queue = await _dbContext.RoomInfos
                 .Where(q => q.InstanceId == instanceId)
                 .FirstOrDefaultAsync();
 
@@ -36,7 +36,7 @@ namespace server.Controllers
                 return NotFound("Queue not found for the specified instance.");
             }
 
-            return Ok(new QueueDto(queue));
+            return Ok(new RoomInfoDto(queue));
         }
 
         [HttpGet("items")]
@@ -74,7 +74,7 @@ namespace server.Controllers
                 end = currentTime; // Default to the current time
             }
 
-            var queue = await _dbContext.Queues
+            var queue = await _dbContext.RoomInfos
             .Where(q => q.InstanceId == instanceId)
             .FirstOrDefaultAsync();
 
@@ -111,7 +111,7 @@ namespace server.Controllers
             {
                 return Unauthorized("InstanceId not found in user claims.");
             }
-            var queue = await _dbContext.Queues
+            var queue = await _dbContext.RoomInfos
                 .Where(q => q.InstanceId == instanceId)
                 .FirstOrDefaultAsync();
             if (queue == null)

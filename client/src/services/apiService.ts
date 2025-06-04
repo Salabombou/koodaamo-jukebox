@@ -1,5 +1,6 @@
 import axios from "axios";
-import type { QueueInfo, QueueItem } from "../types/queue";
+import type { QueueItem } from "../types/queue";
+import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
 
 const apiClient = axios.create({
@@ -25,7 +26,7 @@ apiClient.interceptors.response.use(undefined, async (error) => {
 });
 
 export function getQueueInfo() {
-    return apiClient.get<QueueInfo>(`/api/queue`);
+    return apiClient.get<RoomInfo>(`/api/queue`);
 }
 
 export function getQueueItems(startTime?: number, endTime?: number) {

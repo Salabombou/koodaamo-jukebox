@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250604072549_InitialCreate")]
+    [Migration("20250604153445_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -60,43 +60,6 @@ namespace server.Migrations
                     b.ToTable("Playlists", (string)null);
                 });
 
-            modelBuilder.Entity("KoodaamoJukebox.Models.Queue", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("CurrentTrackIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("InstanceId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsLooping")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsShuffled")
-                        .HasColumnType("boolean");
-
-                    b.Property<long?>("PlayingSince")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("isPaused")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CurrentTrackIndex");
-
-                    b.HasIndex("InstanceId")
-                        .IsUnique();
-
-                    b.ToTable("Queues", (string)null);
-                });
-
             modelBuilder.Entity("KoodaamoJukebox.Models.QueueItem", b =>
                 {
                     b.Property<int>("Id")
@@ -135,6 +98,46 @@ namespace server.Migrations
                     b.HasIndex("TrackId");
 
                     b.ToTable("QueueItems", (string)null);
+                });
+
+            modelBuilder.Entity("KoodaamoJukebox.Models.RoomInfo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CurrentTrackIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("InstanceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsLooping")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsShuffled")
+                        .HasColumnType("boolean");
+
+                    b.Property<long?>("PausedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("PlayingSince")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("isPaused")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentTrackIndex");
+
+                    b.HasIndex("InstanceId")
+                        .IsUnique();
+
+                    b.ToTable("Queues", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.Segment", b =>

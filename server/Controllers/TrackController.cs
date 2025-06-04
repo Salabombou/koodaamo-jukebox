@@ -17,8 +17,8 @@ namespace KoodaamoJukebox.Controllers
         private readonly AppDbContext _dbContext;
         private readonly ILogger<TrackController> _logger;
         private readonly HttpClient _httpClient = new HttpClient();
-        private readonly SemaphoreSlim _playlistFetchLock = new SemaphoreSlim(1);
-        private readonly SemaphoreSlim _segmentFetchLock = new SemaphoreSlim(1);
+        private readonly SemaphoreSlim _playlistFetchLock = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _segmentFetchLock = new SemaphoreSlim(1, 1);
 
         public TrackController(AppDbContext dbContext, ILogger<TrackController> logger)
         {
@@ -113,8 +113,14 @@ namespace KoodaamoJukebox.Controllers
 
                 if (playlist == null)
                 {
+                    // Remove any existing playlist for this TrackId to avoid unique constraint violation
+                    var existingPlaylist = await _dbContext.Playlists.FirstOrDefaultAsync(p => p.TrackId == videoId);
+                    if (existingPlaylist != null)
+                    {
+                        _dbContext.Playlists.Remove(existingPlaylist);
+                        await _dbContext.SaveChangesAsync();
+                    }
                     var url = await YtDlp.GetPlaylistUrl(videoId);
-
                     playlist = new Playlist
                     {
                         TrackId = videoId,
@@ -122,7 +128,6 @@ namespace KoodaamoJukebox.Controllers
                         ExpiresAt = ParsePlaylistUrlExpiry(url),
                         IsLive = ParseIsPlaylistLive(url)
                     };
-
                     await _dbContext.Playlists.AddAsync(playlist);
                     await _dbContext.SaveChangesAsync();
                 }
@@ -148,16 +153,21 @@ namespace KoodaamoJukebox.Controllers
                             var segmentUrl = playlistStrLines[i].Trim();
                             var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(segmentUrl));
                             var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-                            var segment = new Segment
+                            // Check if segment with this UrlHash already exists
+                            var exists = await _dbContext.Segments.AnyAsync(s => s.UrlHash == hashString);
+                            if (!exists)
                             {
-                                TrackId = videoId,
-                                Url = segmentUrl,
-                                UrlHash = hashString
-                            };
-                            await _dbContext.Segments.AddAsync(segment);
-                            playlistStrLines[i] = $"segment-{segment.UrlHash}.ts";
-                            segmentUrlHashes.Add(segment.UrlHash);
-                            createdSegments.Add($"{hashString} => {segmentUrl}");
+                                var segment = new Segment
+                                {
+                                    TrackId = videoId,
+                                    Url = segmentUrl,
+                                    UrlHash = hashString
+                                };
+                                await _dbContext.Segments.AddAsync(segment);
+                                createdSegments.Add($"{hashString} => {segmentUrl}");
+                            }
+                            playlistStrLines[i] = $"segment-{hashString}.ts";
+                            segmentUrlHashes.Add(hashString);
                         }
                     }
                     _logger.LogInformation("Created segments for video {TrackId}: {Segments}", videoId, string.Join(", ", createdSegments));

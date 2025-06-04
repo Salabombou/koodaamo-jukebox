@@ -59,7 +59,8 @@ namespace server.Migrations
                     IsLooping = table.Column<bool>(type: "boolean", nullable: false),
                     IsShuffled = table.Column<bool>(type: "boolean", nullable: false),
                     CurrentTrackIndex = table.Column<int>(type: "integer", nullable: true),
-                    PlayingSince = table.Column<long>(type: "bigint", nullable: true)
+                    PlayingSince = table.Column<long>(type: "bigint", nullable: true),
+                    PausedAt = table.Column<long>(type: "bigint", nullable: true)
                 },
                 constraints: table =>
                 {

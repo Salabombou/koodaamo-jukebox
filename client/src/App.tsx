@@ -6,30 +6,29 @@ import Hls from "hls.js";
 import * as signalR from "@microsoft/signalr"
 import * as apiService from "./services/apiService";
 
-import { QueueItem, Queue } from "./types/queue";
-import { useDiscordSDK } from "./hooks/useDiscordSdk";
-import { useDiscordAuth } from "./hooks/useDiscordAuth";
+import { QueueItem } from "./types/queue";
+import { RoomInfo } from "./types/room";
+
+//import { useDiscordSDK } from "./hooks/useDiscordSdk";
+//import { useDiscordAuth } from "./hooks/useDiscordAuth";
 //import VolumeSlider from "./components/VolumeSlider";
 
 
 export default function App() {
-  const discordSdk = useDiscordSDK();
-  const discordAuth = useDiscordAuth();
-
   const queue = useRef<HTMLDivElement>(null);
 
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
   const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(new Map()); // key is the id of the said item
   const [queueItemsBuffer, setQueueItemsBuffer] = useState<[number, QueueItem][]>([]); // buffer for items that are being updated
   const [queueList, setQueueList] = useState<QueueItem[]>([]);
- 
 
-  useEffect(() => {
+
+  /*useEffect(() => {
     apiService.getQueueItems()
       .then((response) => {
         setQueueItemsBuffer(response.data.map((item) => [item.id, item]));
       });
-  }, []);
+  }, []);*/
 
   useEffect(() => {
     if (queueItemsBuffer.length === 0) return;
@@ -88,6 +87,7 @@ export default function App() {
   //const [timestamp, setTimestamp] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(true);
   const [looping, setLooping] = useState<boolean>(false);
+  const [shuffled, setShuffled] = useState<boolean>(false);
 
   const audioPlayer = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
@@ -109,17 +109,22 @@ export default function App() {
         hls.current.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
           setDuration(data.levels?.[0]?.details?.totalduration ?? 0);
         });
-        hls.current.attachMedia(audioPlayer.current);
         hls.current.on(Hls.Events.MEDIA_ATTACHED, () => {
           console.log("HLS media attached");
           if (currentTrack) {
-            hls.current!.loadSource(`/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`);
-            audioPlayer.current!.play().catch((err) => {
-              console.error("Error playing audio:", err);
-            });
+            const newSrc = `/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`;
+            if (hls.current!.url?.includes(currentTrack.trackId)) {
+              console.log("Loading new track source:", newSrc);
+              hls.current!.loadSource(newSrc);
+            }
+            if (!paused && hls.current?.media?.paused) {
+              audioPlayer.current!.play().catch((err) => {
+                console.error("Error playing audio:", err);
+              });
+            }
           }
         });
-        hls.current.on(Hls.Events.ERROR, (event, data) => {
+        hls.current.on(Hls.Events.ERROR, (_, data) => {
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
@@ -134,9 +139,7 @@ export default function App() {
             }
           }
         });
-        if (currentTrack) {
-          hls.current.loadSource(`/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`);
-        }
+        hls.current.attachMedia(audioPlayer.current);
       } else {
         alert("HLS is not supported in this browser.");
         window.location.reload();
@@ -145,23 +148,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (queueItemsBuffer.length > 0) return;
     const currentQueueItem = Array.from(queueItems.values()).find(i => i.index === currentTrackIndex);
     const trackId = currentQueueItem?.trackId;
     setCurrentTrack(trackId ? tracks.get(trackId) ?? null : null);
-  }, [currentTrackIndex, tracks, queueItems]);
+  }, [tracks, queueItems, queueItemsBuffer, currentTrackIndex]);
 
+  const playTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
+    if (playTimeoutRef.current) {
+      clearTimeout(playTimeoutRef.current);
+      playTimeoutRef.current = null;
+    }
     if (audioPlayer.current && currentTrack && hls.current) {
-      hls.current.loadSource(`/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`);
-      if (!paused) {
-        setTimeout(() => {
+      const src = `/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`;
+      if (!hls.current.url?.includes(currentTrack.trackId)) {
+        console.log("Loading new track source:", currentTrack.trackId);
+        hls.current.loadSource(src);
+      }
+      if (!paused && hls.current.media?.paused) {
+        playTimeoutRef.current = setTimeout(() => {
           audioPlayer.current!.play();
         }, Math.max(0, playingSince ? playingSince - Date.now() : 0));
       } else {
         audioPlayer.current.pause();
       }
     }
-  }, [currentTrack, paused]);
+  }, [currentTrack, paused, playingSince]);
 
 
   const connection = useRef<signalR.HubConnection | null>(null);
@@ -177,20 +190,20 @@ export default function App() {
       .configureLogging(signalR.LogLevel.Information)
       .build();
 
-    connection.current.on("QueueUpdate", (queue: Queue, updatedItems: QueueItem[]) => {
+    connection.current.on("QueueUpdate", (queue: RoomInfo, updatedItems: QueueItem[]) => {
       console.log("QueueUpdate received", queue, updatedItems);
-      setPlayingSince(queue.playingSince)
+      setQueueItemsBuffer(updatedItems.map((item) => [item.id, item]));
+      
+      setPlayingSince(queue.playingSince);
       setPaused(queue.isPaused);
       setLooping(queue.isLooping);
+      setShuffled(queue.isShuffled);
       setCurrentTrackIndex(queue.currentTrackIndex);
-      
-      setQueueItemsBuffer(updatedItems.map((item) => [item.id, item]));
     });
 
     connection.current.start()
       .then(() => {
         console.log("SignalR connection established");
-        connection.current!.invoke("Ping")
       })
       .catch((err) => {
         console.error("Error establishing SignalR connection:", err);
@@ -203,6 +216,21 @@ export default function App() {
     }
   }, []);
 
+  const [listHeight, setListHeight] = useState<number>(window.innerHeight - 24);
+  useEffect(() => {
+    const handleResize = () => {
+      setListHeight(window.innerHeight - 24);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  const seeking = useRef<boolean>(false);
+  useEffect(() => {
+    seeking.current = false;
+  }, [playingSince]);
 
   return (
     <div className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden">
@@ -211,15 +239,22 @@ export default function App() {
         onTimeUpdate={() => {
           const currentTime = Date.now();
 
-          if (typeof playingSince === "number") {
-              const elapsed = Math.floor((currentTime - playingSince) / 1000);
-              // if the difference between the current time and the playingSince is greater than 1 second, update the timestamp
-              if (Math.abs(audioPlayer.current!.currentTime - elapsed) > 1) {
-                audioPlayer.current!.currentTime = elapsed;
-              }
+          if (!seeking.current && typeof playingSince === "number") {
+            const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
+            if (Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1) {
+              audioPlayer.current!.currentTime = elapsedTime;
+            }
           }
-
-          setTimestamp(audioPlayer.current?.currentTime ?? 0);
+          setTimestamp(Math.max(audioPlayer.current?.currentTime ?? 0, 0));
+        }}
+        onEnded={() => {
+          console.log("Track ended");
+          if (looping) {
+            audioPlayer.current!.currentTime = 0;
+            audioPlayer.current!.play();
+          } else {
+            connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1);
+          }
         }}
       />
       <MusicPlayerInterface
@@ -229,33 +264,39 @@ export default function App() {
         paused={paused}
         looping={looping}
         onShuffle={() => {
-          console.log("onShuffle");
+          connection.current?.invoke("ShuffleToggle", Date.now(), !shuffled);
         }}
         onBackward={() => {
-          console.log("onBackward");
-        }}
-        onPlayToggle={() => {
-          connection.current?.invoke("PauseResume", Date.now(), !paused);
+          connection.current?.invoke("Skip", Date.now(), currentTrackIndex - 1);
         }}
         onForward={() => {
-          console.log("onForward");
+          connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1);
+        }}
+        onPlayToggle={() => {
+          connection.current?.invoke("PauseToggle", Date.now(), !paused);
         }}
         onLoopToggle={() => {
-          console.log("onLoopToggle");
+          connection.current?.invoke("LoopToggle", Date.now(), !looping);
+        }}
+        onSeek={(seekTime) => {
+          seeking.current = true;
+          audioPlayer.current!.currentTime = seekTime;
+          audioPlayer.current!.pause();
+          setTimestamp(seekTime);
+          connection.current?.invoke("Seek", Date.now(), seekTime)
+            .catch((err) => {
+              console.error("Error seeking:", err);
+              seeking.current = false;
+            });
         }}
         onVolumeChange={(volume) => {
           console.log("onVolumeChange", volume);
-        }}
-        onSeek={(seekTime) => {
-          if (audioPlayer.current) {
-            audioPlayer.current.currentTime = seekTime;
-            setTimestamp(seekTime);
-          }
+          audioPlayer.current!.volume = volume;
         }}
       />
       <Queuee
         ref={queue}
-        height={984}
+        height={listHeight}
         tracks={tracks}
         queueList={queueList}
         onMove={(fromIndex, toIndex) => {

@@ -121,14 +121,14 @@ namespace KoodaamoJukebox.Controllers
                 await _dbContext.SaveChangesAsync();
 
                 // create queue for the instanceId if it doesn't exist
-                var queue = await _dbContext.Queues.FirstOrDefaultAsync(q => q.InstanceId == dto.InstanceId);
+                var queue = await _dbContext.RoomInfos.FirstOrDefaultAsync(q => q.InstanceId == dto.InstanceId);
                 if (queue == null)
                 {
-                    queue = new Queue
+                    queue = new RoomInfo
                     {
                         InstanceId = dto.InstanceId
                     };
-                    _dbContext.Queues.Add(queue);
+                    _dbContext.RoomInfos.Add(queue);
                     await _dbContext.SaveChangesAsync();
                 }
 

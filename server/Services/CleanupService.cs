@@ -66,10 +66,10 @@ namespace KoodaamoJukebox.Services
             _logger.LogInformation("CleanupService started");
             while (!stoppingToken.IsCancellationRequested)
             {
-                await DeleteIsolatedQueues(stoppingToken);
-                await DeleteIsolatedQueueItemsAsync(stoppingToken);
-                await DeleteIsolatedTracksAsync(stoppingToken);
-                await DeleteExpiredPlaylistsAsync(stoppingToken);
+                //await DeleteIsolatedQueues(stoppingToken);
+                //await DeleteIsolatedQueueItemsAsync(stoppingToken);
+                //await DeleteIsolatedTracksAsync(stoppingToken);
+                //await DeleteExpiredPlaylistsAsync(stoppingToken);
 
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
@@ -77,7 +77,7 @@ namespace KoodaamoJukebox.Services
 
         private async Task DeleteIsolatedQueues(CancellationToken stoppingToken)
         {
-            var isolatedQueues = await _dbContext.Queues
+            var isolatedQueues = await _dbContext.RoomInfos
                 .Where(q => _dbContext.Users.Any(u => u.AssociatedInstanceId != q.InstanceId))
                 .ToListAsync(stoppingToken);
 
@@ -90,7 +90,7 @@ namespace KoodaamoJukebox.Services
             {
                 _logger.LogInformation("Deleting isolated queue: {InstanceId}", queue.InstanceId);
                 _queueService.RemoveSemaphore(queue.InstanceId);
-                _dbContext.Queues.Remove(queue);
+                _dbContext.RoomInfos.Remove(queue);
             }
             await _dbContext.SaveChangesAsync(stoppingToken);
             _logger.LogInformation("Deleted {Count} isolated queues", isolatedQueues.Count);
@@ -99,7 +99,7 @@ namespace KoodaamoJukebox.Services
         private async Task DeleteIsolatedQueueItemsAsync(CancellationToken stoppingToken)
         {
             var isolatedQueueItems = await _dbContext.QueueItems
-                .Where(qi => _dbContext.Queues.Any(q => q.InstanceId != qi.InstanceId))
+                .Where(qi => _dbContext.RoomInfos.Any(q => q.InstanceId != qi.InstanceId))
                 .ToListAsync(stoppingToken);
 
             if (isolatedQueueItems.Count == 0)
@@ -117,7 +117,7 @@ namespace KoodaamoJukebox.Services
             var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var expiredPlaylists = await _dbContext.Playlists
                 .Where(p =>
-                    !_dbContext.Queues.Any(q =>
+                    !_dbContext.RoomInfos.Any(q =>
                         _dbContext.QueueItems.Any(qi =>
                             qi.InstanceId == q.InstanceId &&
                             qi.Index == q.CurrentTrackIndex &&
