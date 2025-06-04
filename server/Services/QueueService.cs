@@ -24,7 +24,7 @@ namespace KoodaamoJukebox.Services
         {
             return _semaphores.GetOrAdd(instanceId, _ => new SemaphoreSlim(1, 1));
         }
-        
+
         public void RemoveSemaphore(string instanceId)
         {
             if (_semaphores.TryRemove(instanceId, out var semaphore))
@@ -60,7 +60,18 @@ namespace KoodaamoJukebox.Services
                     return;
                 }
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("PauseResume", currentTime, paused);
+                queue.isPaused = paused;
+                if (paused)
+                {
+                    queue.PlayingSince = null; // Reset playing time when paused
+                }
+                else
+                {
+                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500; // Add a small offset to avoid immediate playback issues
+                }
+                await _dbContext.SaveChangesAsync();
+
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -79,23 +90,29 @@ namespace KoodaamoJukebox.Services
                     throw new ArgumentOutOfRangeException(nameof(index), "Index must be a non-negative integer.");
                 }
 
-                var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.InstanceId == instanceId && qi.Index == index && !qi.IsDeleted);
+                var queue = await _dbContext.Queues
+                    .Where(q => q.InstanceId == instanceId)
+                    .FirstOrDefaultAsync();
+
+                if (queue == null)
+                {
+                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                }
+
+                var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.InstanceId == instanceId && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
                 if (!indexIsValid)
                 {
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is not valid for the current queue.");
                 }
 
-                await _dbContext.Queues
-                    .Where(q => q.InstanceId == instanceId)
-                    .ExecuteUpdateAsync(q => q
-                        .SetProperty(q => q.CurrentTrackIndex, index)
-                        .SetProperty(q => q.PlayingSince, (long?)null)
-                        .SetProperty(q => q.isPaused, true));
+                queue.CurrentTrackIndex = index;
+                if (!queue.isPaused)
+                {
+                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500;
+                }
+                await _dbContext.SaveChangesAsync();
 
-                var playingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500;
-
-                // Send skip command to the group
-                await _hubContext.Clients.Group(instanceId).SendAsync("Skip", playingSince, index);
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -109,8 +126,6 @@ namespace KoodaamoJukebox.Services
             await semaphore.WaitAsync();
             try
             {
-                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
                 if (from < 0 || to < 0)
                 {
                     throw new ArgumentOutOfRangeException("Indices must be non-negative integers.");
@@ -127,7 +142,7 @@ namespace KoodaamoJukebox.Services
 
                 var queueList = await _dbContext.QueueItems
                     .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
-                    .OrderBy(qi => qi.Index)
+                    .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                     .ToListAsync();
 
                 if (queueList.Count == 0)
@@ -163,15 +178,14 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var movedItem = queueList[from];
-                movedItem.Index = to;
-
-
-                _dbContext.QueueItems.Update(movedItem);
-                _dbContext.Queues.Update(queue);
-                await _dbContext.SaveChangesAsync();
-
-                // important: to make sure the client wont have to fetch shifted items
-                var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (queue.IsShuffled)
+                {
+                    movedItem.ShuffleIndex = to;
+                }
+                else
+                {
+                    movedItem.Index = to;
+                }
 
                 queueList.RemoveAt(from);
                 queueList.Insert(to, movedItem);
@@ -179,15 +193,24 @@ namespace KoodaamoJukebox.Services
                 // Re-assign indices to reflect the new order
                 for (int i = 0; i < queueList.Count; i++)
                 {
-                    queueList[i].Index = i;
+                    if (queue.IsShuffled)
+                    {
+                        queueList[i].ShuffleIndex = i;
+                    }
+                    else
+                    {
+                        queueList[i].Index = i;
+                    }
                 }
 
                 _dbContext.Queues.Update(queue);
                 _dbContext.QueueItems.UpdateRange(queueList);
                 await _dbContext.SaveChangesAsync();
+                
+                var updatedItems = queueList.Select(i => new QueueItemDto(i)).ToList();
 
                 // Send move command to the group
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueChange", startTime, endTime, queue.CurrentTrackIndex);
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), updatedItems);
             }
             finally
             {
@@ -201,8 +224,6 @@ namespace KoodaamoJukebox.Services
             await semaphore.WaitAsync();
             try
             {
-                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
                 if (string.IsNullOrWhiteSpace(urlOrQuery))
                 {
                     throw new ArgumentException("URL/Query cannot be null or empty.", nameof(urlOrQuery));
@@ -216,6 +237,8 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Instance not found.", nameof(instanceId));
                 }
+
+                var updatedItems = new List<QueueItemDto>();
 
                 var tracks = await YtDlp.GetTracks(urlOrQuery);
                 if (tracks == null || tracks.Length == 0)
@@ -265,15 +288,42 @@ namespace KoodaamoJukebox.Services
 
                 await _dbContext.SaveChangesAsync();
 
-                // move the track indexes to the right of the current index
-                var itemsToShift = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && qi.Index > queue.CurrentTrackIndex && !qi.IsDeleted)
-                    .OrderBy(qi => qi.Index)
+                var currentTrack = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && qi.ShuffleIndex == queue.CurrentTrackIndex && !qi.IsDeleted)
+                    .FirstOrDefaultAsync();
+
+                int unShuffledIndex = currentTrack?.Index ?? 0;
+                int shuffledIndex = currentTrack?.ShuffleIndex ?? 0;
+
+                var items = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
                     .ToListAsync();
 
-                for (int i = 0; i < itemsToShift.Count; i++)
+                var unShuffledItemsToShift = items
+                    .Where(i => i.Index > unShuffledIndex)
+                    .OrderBy(i => i.Index)
+                    .ToList();
+
+                for (int i = 0; i < unShuffledItemsToShift.Count; i++)
                 {
-                    itemsToShift[i].Index += trackIds.Count;
+                    unShuffledItemsToShift[i].Index += trackIds.Count;
+                }
+                _dbContext.QueueItems.UpdateRange(unShuffledItemsToShift);
+                updatedItems.AddRange(unShuffledItemsToShift.Select(i => new QueueItemDto(i)));
+
+                if (queue.IsShuffled)
+                {
+                    var shuffledItemsToShift = items
+                        .Where(i => i.ShuffleIndex > shuffledIndex)
+                        .OrderBy(i => i.ShuffleIndex)
+                        .ToList();
+
+                    for (int i = 0; i < shuffledItemsToShift.Count; i++)
+                    {
+                        shuffledItemsToShift[i].ShuffleIndex += trackIds.Count;
+                    }
+                    _dbContext.QueueItems.UpdateRange(shuffledItemsToShift);
+                    updatedItems.AddRange(shuffledItemsToShift.Select(i => new QueueItemDto(i)));
                 }
 
                 // Add new items to the queue
@@ -281,20 +331,50 @@ namespace KoodaamoJukebox.Services
                 {
                     InstanceId = instanceId,
                     TrackId = videoId,
-                    Index = queue.CurrentTrackIndex + index + 1, // Insert after the current track
+                    Index = 0, // will be set later
                     IsDeleted = false,
                 }).ToList();
+
+                if (queue.IsShuffled)
+                {
+                    // Assign shuffle indices for shuffled queues
+                    for (int i = 0; i < newItems.Count; i++)
+                    {
+                        newItems[i].ShuffleIndex = shuffledIndex + i;
+                        newItems[i].Index = unShuffledIndex + i;
+                    }
+                }
+                else
+                {
+                    // Assign indices for non-shuffled queues
+                    for (int i = 0; i < newItems.Count; i++)
+                    {
+                        newItems[i].Index = (queue.CurrentTrackIndex ?? 0) + i;
+                    }
+                }
+
+                if (queue.CurrentTrackIndex == null)
+                {
+                    queue.CurrentTrackIndex = 0; // Set current track index if it was null
+                }
+                _dbContext.Queues.Update(queue);
 
                 await _dbContext.QueueItems.AddRangeAsync(newItems);
                 await _dbContext.SaveChangesAsync();
 
-                // important: to make sure the client wont have to fetch shifted items
-                var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                // get new items from the database, with their IDs
+                var addedItems = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && trackIds.Contains(qi.TrackId) && !qi.IsDeleted)
+                    .ToListAsync();
+                updatedItems.AddRange(addedItems.Select(i => new QueueItemDto(i)));
 
-                _dbContext.QueueItems.UpdateRange(itemsToShift);
-                await _dbContext.SaveChangesAsync();
+                // remove duplicates from updatedItems
+                updatedItems = updatedItems
+                    .GroupBy(i => i.Id)
+                    .Select(g => g.First())
+                    .ToList();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueChange", startTime, endTime, queue.CurrentTrackIndex);
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), updatedItems);
             }
             finally
             {
@@ -308,8 +388,6 @@ namespace KoodaamoJukebox.Services
             await semaphore.WaitAsync();
             try
             {
-                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
                 if (id < 0)
                 {
                     throw new ArgumentOutOfRangeException(nameof(id), "ID must be a non-negative integer.");
@@ -333,6 +411,13 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Item does not belong to the specified instance.", nameof(instanceId));
                 }
+                else if (queue.IsShuffled
+                    ? item.ShuffleIndex == queue.CurrentTrackIndex
+                    : item.Index == queue.CurrentTrackIndex
+                )
+                {
+                    throw new InvalidOperationException("Cannot remove the current track from the queue.");
+                }
                 item.IsDeleted = true;
                 _dbContext.QueueItems.Update(item);
                 await _dbContext.SaveChangesAsync();
@@ -342,19 +427,174 @@ namespace KoodaamoJukebox.Services
 
                 // Only update indices of items to the right of the deleted item
                 var itemsToUpdate = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && qi.Index > item.Index && !qi.IsDeleted)
-                    .OrderBy(qi => qi.Index)
+                    .Where(qi => qi.InstanceId == instanceId &&
+                        (queue.IsShuffled ? qi.ShuffleIndex > item.ShuffleIndex : qi.Index > item.Index) &&
+                        !qi.IsDeleted)
+                    .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                     .ToListAsync();
 
                 for (int i = 0; i < itemsToUpdate.Count; i++)
                 {
-                    itemsToUpdate[i].Index = item.Index + 1 + i - 1; // shift left by 1
+                    if (queue.IsShuffled)
+                    {
+                        itemsToUpdate[i].ShuffleIndex = item.ShuffleIndex + i; // shift left by 1
+                    }
+                    else
+                    {
+                        itemsToUpdate[i].Index = item.Index + i; // shift left by 1
+                    }
                 }
                 _dbContext.QueueItems.UpdateRange(itemsToUpdate);
                 await _dbContext.SaveChangesAsync();
 
+                var updatedItems = itemsToUpdate.Select(i => new QueueItemDto(i)).ToList();
+                updatedItems.Insert(0, new QueueItemDto(item)); // Include the removed item in the update
+
                 // Send remove command to the group
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueChange", startTime, endTime, queue.CurrentTrackIndex);
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), updatedItems);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        public async Task Shuffle(string instanceId)
+        {
+            var semaphore = GetSemaphore(instanceId);
+            await semaphore.WaitAsync();
+            try
+            {
+                var queue = await _dbContext.Queues
+                    .Where(q => q.InstanceId == instanceId)
+                    .FirstOrDefaultAsync();
+
+                if (queue == null)
+                {
+                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                }
+
+                var updatedItems = new List<QueueItemDto>();
+
+                queue.IsShuffled = !queue.IsShuffled;
+                if (queue.IsShuffled)
+                {
+                    var rng = new Random();
+                    var items = await _dbContext.QueueItems
+                        .Where(qi => qi.InstanceId == instanceId && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
+                        .OrderBy(qi => rng.Next())
+                        .ToListAsync();
+
+                    var currentTrack = await _dbContext.QueueItems
+                        .Where(qi => qi.InstanceId == instanceId && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
+                        .FirstOrDefaultAsync();
+                    if (currentTrack == null)
+                    {
+                        throw new ArgumentException("Current track not found.", nameof(instanceId));
+                    }
+
+                    items.Insert(0, currentTrack);
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        items[i].ShuffleIndex = i;
+                    }
+
+                    _dbContext.QueueItems.UpdateRange(items);
+                    queue.CurrentTrackIndex = 0;
+                    updatedItems = items.Select(i => new QueueItemDto(i)).ToList();
+                }
+                else
+                {
+                    var items = await _dbContext.QueueItems
+                        .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                        .OrderBy(qi => qi.Index)
+                        .ToListAsync();
+
+                    var currentTrack = await _dbContext.QueueItems
+                        .Where(qi => qi.InstanceId == instanceId && qi.ShuffleIndex == queue.CurrentTrackIndex && !qi.IsDeleted)
+                        .FirstOrDefaultAsync();
+                    if (currentTrack == null)
+                    {
+                        throw new ArgumentException("Current track not found.", nameof(instanceId));
+                    }
+
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        items[i].Index = i; // not really necessary but cant hurt
+                        items[i].ShuffleIndex = null; // Reset shuffle index
+                    }
+                    _dbContext.QueueItems.UpdateRange(items);
+                    queue.CurrentTrackIndex = currentTrack.Index;
+                    updatedItems = items.Select(i => new QueueItemDto(i)).ToList();
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), updatedItems);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        public async Task Clear(string instanceId)
+        {
+            var semaphore = GetSemaphore(instanceId);
+            await semaphore.WaitAsync();
+            try
+            {
+                var queue = await _dbContext.Queues
+                    .Where(q => q.InstanceId == instanceId)
+                    .FirstOrDefaultAsync();
+
+                if (queue == null)
+                {
+                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                }
+
+                var items = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
+                    .ToListAsync();
+
+                var currentItem = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
+                    .FirstOrDefaultAsync();
+
+                if (currentItem == null)
+                {
+                    throw new ArgumentException("Current track not found.", nameof(instanceId));
+                }
+
+                foreach (var item in items)
+                {
+                    item.IsDeleted = true;
+                    _dbContext.QueueItems.Update(item);
+                }
+
+                queue.CurrentTrackIndex = 0;
+                currentItem.Index = 0;
+
+                if (queue.IsShuffled)
+                {
+                    currentItem.ShuffleIndex = 0;
+                }
+
+                _dbContext.QueueItems.Update(currentItem);
+                _dbContext.Queues.Update(queue);
+
+                await _dbContext.SaveChangesAsync();
+
+                var updatedItems = new List<QueueItemDto>
+                {
+                    new QueueItemDto(currentItem)
+                };
+                foreach (var item in items)
+                {
+                    updatedItems.Add(new QueueItemDto(item));
+                }
+
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new QueueDto(queue), updatedItems);
             }
             finally
             {

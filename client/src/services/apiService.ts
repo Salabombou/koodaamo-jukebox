@@ -15,13 +15,22 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 
+apiClient.interceptors.response.use(undefined, async (error) => {
+    const config = error.config;
+    if (!config || config.__retryCount >= 5) {
+        return Promise.reject(error);
+    }
+    config.__retryCount = (config.__retryCount || 0) + 1;
+    return apiClient(config);
+});
+
 export function getQueueInfo() {
     return apiClient.get<QueueInfo>(`/api/queue`);
 }
 
 export function getQueueItems(startTime?: number, endTime?: number) {
     return apiClient.get<QueueItem[]>(`/api/queue/items`, {
-        params: { startTime, endTime },
+        params: { start: startTime, end: endTime },
     });
 }
 

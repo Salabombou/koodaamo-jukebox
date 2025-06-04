@@ -26,6 +26,43 @@ namespace KoodaamoJukebox.Services
             _dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             _queueService = scope.ServiceProvider.GetRequiredService<QueueService>();
 
+            // Delete all playlist and segment files at startup
+            var allPlaylists = await _dbContext.Playlists.ToListAsync(stoppingToken);
+            foreach (var playlist in allPlaylists)
+            {
+                if (!string.IsNullOrEmpty(playlist.Path) && File.Exists(playlist.Path))
+                {
+                    try
+                    {
+                        File.Delete(playlist.Path);
+                        _logger.LogInformation("Deleted playlist file at startup: {Path}", playlist.Path);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to delete playlist file at startup: {Path}", playlist.Path);
+                    }
+                }
+                playlist.Path = null;
+            }
+            var allSegments = await _dbContext.Segments.ToListAsync(stoppingToken);
+            foreach (var segment in allSegments)
+            {
+                if (!string.IsNullOrEmpty(segment.Path) && File.Exists(segment.Path))
+                {
+                    try
+                    {
+                        File.Delete(segment.Path);
+                        _logger.LogInformation("Deleted segment file at startup: {Path}", segment.Path);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to delete segment file at startup: {Path}", segment.Path);
+                    }
+                }
+                segment.Path = null;
+            }
+            await _dbContext.SaveChangesAsync(stoppingToken);
+
             _logger.LogInformation("CleanupService started");
             while (!stoppingToken.IsCancellationRequested)
             {

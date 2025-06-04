@@ -21,6 +21,8 @@ namespace KoodaamoJukebox.Models
         [Required]
         public required int Index { get; set; }
 
+        public int? ShuffleIndex { get; set; }
+
         public bool IsDeleted { get; set; } = false;
 
         public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -35,12 +37,14 @@ namespace KoodaamoJukebox.Models
             Id = item.Id;
             TrackId = item.TrackId;
             Index = item.Index;
+            ShuffledIndex = item.ShuffleIndex;
             IsDeleted = item.IsDeleted;
         }
 
         public int Id { get; set; }
         public string TrackId { get; set; }
         public int Index { get; set; }
+        public int? ShuffledIndex { get; set; }
         public bool IsDeleted { get; set; } = false;
     }
 }

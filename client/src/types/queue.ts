@@ -1,3 +1,13 @@
+
+export interface Queue {
+  instanceId: string;
+  isPaused: boolean;
+  isLooping: boolean;
+  isShuffled: boolean;
+  currentTrackIndex: number;
+  playingSince: number;
+}
+
 /**
  * Represents the names of events that can occur in a room.
  *
@@ -10,11 +20,6 @@
  * - `"QueueChange"`: Notify about a change in the queue (e.g., track added, removed, moved, etc.).
  */
 export type QueueEventName =
-  | "PauseResume"
-  | "Seek"
-  | "Skip"
-  | "ShuffleToggle"
-  | "LoopToggle"
   | "QueueChange";
 
 /**

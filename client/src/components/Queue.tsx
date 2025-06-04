@@ -46,9 +46,11 @@ interface QueueProps {
 
   tracks: Map<string, any>;
   queueList: QueueItem[];
+
+  onMove: (fromIndex: number, toIndex: number) => void;
 }
 
-export default function Queue({ height, tracks, queueList, ref }: QueueProps) {
+export default function Queue({ height, tracks, queueList, onMove, ref }: QueueProps) {
   const [draggedIndex, setDraggedIndex] = useState<number>(0);
 
   // if any of the items in queueList is not in tracks, we should not render the queue
@@ -61,10 +63,20 @@ export default function Queue({ height, tracks, queueList, ref }: QueueProps) {
       collisionDetection={closestCenter}
       modifiers={[restrictToVerticalAxisCenterY]}
       onDragStart={(e) => {
-        setDraggedIndex(e.active.data.current?.index ?? 0);
+        console.log("drag start", e.active.data.current?.sortable.index);
+        setDraggedIndex(e.active.data.current?.sortable.index as number);
       }}
-      onDragEnd={() => {
+      onDragEnd={(e) => {
         setDraggedIndex(0);
+        const fromIndex = e.active.data.current?.sortable.index;
+        const toIndex = e.over?.data.current?.sortable.index;
+        if (
+          typeof fromIndex === "number" &&
+          typeof toIndex === "number" &&
+          fromIndex !== toIndex
+        ) {
+          onMove(fromIndex, toIndex);
+        }
       }}
     >
       <SortableContext
@@ -76,7 +88,7 @@ export default function Queue({ height, tracks, queueList, ref }: QueueProps) {
           height={height}
           width="100%"
           className="hidden md:flex mx-6"
-          itemData={queueList.map(({ trackId }) => tracks.get(trackId))}
+          itemData={queueList}
           itemCount={queueList.length}
           itemSize={50}
           style={{
@@ -85,7 +97,7 @@ export default function Queue({ height, tracks, queueList, ref }: QueueProps) {
             scrollbarWidth: "none",
           }}
         >
-          {(props) => QueueRow(props)}
+          {(props) => QueueRow({...props, tracks})}
         </FixedSizeList>
       </SortableContext>
       <DragOverlay
@@ -94,7 +106,8 @@ export default function Queue({ height, tracks, queueList, ref }: QueueProps) {
           <QueueRow
             index={draggedIndex ?? 0}
             style={{}}
-            data={tracks.get(queueList[draggedIndex ?? 0]?.trackId)}
+            data={queueList}
+            tracks={tracks}
           />
         }
       ></DragOverlay>

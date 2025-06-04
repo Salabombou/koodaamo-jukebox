@@ -138,53 +138,41 @@ namespace KoodaamoJukebox.Controllers
                 if (playlist.Path == null)
                 {
                     var playlistStr = await _httpClient.GetStringAsync(playlist.Url);
-
                     var playlistStrLines = playlistStr.Split('\n');
-
                     var segmentUrlHashes = new SortedSet<string>();
-
+                    var createdSegments = new List<string>();
                     for (int i = 0; i < playlistStrLines.Length; i++)
                     {
                         if (playlistStrLines[i].StartsWith("http"))
                         {
                             var segmentUrl = playlistStrLines[i].Trim();
-
                             var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(segmentUrl));
                             var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-
                             var segment = new Segment
                             {
                                 TrackId = videoId,
                                 Url = segmentUrl,
                                 UrlHash = hashString
                             };
-
-                            if (playlist.IsLive && !await _dbContext.Segments.AnyAsync(s => s.UrlHash == hashString))
-                            {
-                                await _dbContext.Segments.AddAsync(segment);
-                                await _dbContext.SaveChangesAsync();
-                            }
-
+                            await _dbContext.Segments.AddAsync(segment);
                             playlistStrLines[i] = $"segment-{segment.UrlHash}.ts";
                             segmentUrlHashes.Add(segment.UrlHash);
+                            createdSegments.Add($"{hashString} => {segmentUrl}");
                         }
                     }
-
+                    _logger.LogInformation("Created segments for video {TrackId}: {Segments}", videoId, string.Join(", ", createdSegments));
+                    await _dbContext.SaveChangesAsync();
                     var playlistData = string.Join('\n', playlistStrLines);
-
                     if (playlist.IsLive)
                     {
                         var oldSegments = await _dbContext.Segments.Where(s => !segmentUrlHashes.Contains(s.UrlHash) && s.TrackId == videoId).ToListAsync();
                         _dbContext.Segments.RemoveRange(oldSegments);
                         await _dbContext.SaveChangesAsync();
                         _logger.LogInformation("Removed {Count} old segments for video ID: {TrackId}", oldSegments.Count, videoId);
-
                         return Content(playlistData, "application/vnd.apple.mpegurl");
                     }
-
                     playlist.Path = Path.GetTempFileName();
                     await System.IO.File.WriteAllTextAsync(playlist.Path, playlistData);
-
                     await _dbContext.SaveChangesAsync();
                 }
 
@@ -204,10 +192,13 @@ namespace KoodaamoJukebox.Controllers
         [HttpGet("{videoId}/segment-{urlHash}.ts")]
         public async Task<ActionResult> GetTrackSegment(string videoId, string urlHash)
         {
+            _logger.LogInformation("Segment request: videoId={VideoId}, urlHash={UrlHash}", videoId, urlHash);
             var segmentExists = await _dbContext.Segments.AnyAsync(s => s.UrlHash == urlHash && s.TrackId == videoId);
             if (!segmentExists)
             {
-                return NotFound();
+                var allHashes = await _dbContext.Segments.Where(s => s.TrackId == videoId).Select(s => s.UrlHash).ToListAsync();
+                _logger.LogWarning("Segment not found for videoId={VideoId}, urlHash={UrlHash}. Existing hashes: {Hashes}", videoId, urlHash, string.Join(", ", allHashes));
+                return NotFound("Segment not found.");
             }
 
             await _segmentFetchLock.WaitAsync();
@@ -217,7 +208,7 @@ namespace KoodaamoJukebox.Controllers
 
                 if (segment == null)
                 {
-                    return NotFound();
+                    return NotFound("Segment not found..");
                 }
 
                 if (segment.Path == null)

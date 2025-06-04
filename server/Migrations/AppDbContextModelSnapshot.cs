@@ -54,7 +54,7 @@ namespace server.Migrations
                     b.HasIndex("TrackId")
                         .IsUnique();
 
-                    b.ToTable("Playlists");
+                    b.ToTable("Playlists", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.Queue", b =>
@@ -65,7 +65,7 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CurrentTrackIndex")
+                    b.Property<int?>("CurrentTrackIndex")
                         .HasColumnType("integer");
 
                     b.Property<string>("InstanceId")
@@ -75,21 +75,23 @@ namespace server.Migrations
                     b.Property<bool>("IsLooping")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsShuffled")
+                        .HasColumnType("boolean");
+
                     b.Property<long?>("PlayingSince")
                         .HasColumnType("bigint");
-
-                    b.Property<int?>("ShuffleSeed")
-                        .HasColumnType("integer");
 
                     b.Property<bool>("isPaused")
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CurrentTrackIndex");
+
                     b.HasIndex("InstanceId")
                         .IsUnique();
 
-                    b.ToTable("Queues");
+                    b.ToTable("Queues", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.QueueItem", b =>
@@ -113,6 +115,9 @@ namespace server.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("ShuffleIndex")
+                        .HasColumnType("integer");
+
                     b.Property<string>("TrackId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -126,7 +131,7 @@ namespace server.Migrations
 
                     b.HasIndex("TrackId");
 
-                    b.ToTable("QueueItems");
+                    b.ToTable("QueueItems", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.Segment", b =>
@@ -159,7 +164,7 @@ namespace server.Migrations
                     b.HasIndex("UrlHash")
                         .IsUnique();
 
-                    b.ToTable("Segments");
+                    b.ToTable("Segments", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.Track", b =>
@@ -190,7 +195,7 @@ namespace server.Migrations
                     b.HasIndex("TrackId")
                         .IsUnique();
 
-                    b.ToTable("Tracks");
+                    b.ToTable("Tracks", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.User", b =>
@@ -223,7 +228,7 @@ namespace server.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 #pragma warning restore 612, 618
         }

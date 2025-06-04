@@ -83,8 +83,8 @@ namespace server.Controllers
                 return NotFound("Queue not found for the specified instance.");
             }
 
-            var startDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(start.Value).ToUnixTimeMilliseconds();
-            var endDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(end.Value).ToUnixTimeMilliseconds();
+            long startDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(start.Value).ToUnixTimeMilliseconds();
+            long endDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(end.Value).ToUnixTimeMilliseconds();
 
             var queueItems = await _dbContext.QueueItems
             .Where(qi => qi.InstanceId == instanceId
@@ -97,7 +97,7 @@ namespace server.Controllers
 
             if (queueItems == null)
             {
-                return Ok(new QueueItemDto[0]); // Return empty array if no items found
+                return Ok(Array.Empty<QueueItemDto>()); // Return empty array if no items found
             }
 
             return Ok(queueItems);
@@ -111,18 +111,25 @@ namespace server.Controllers
             {
                 return Unauthorized("InstanceId not found in user claims.");
             }
+            var queue = await _dbContext.Queues
+                .Where(q => q.InstanceId == instanceId)
+                .FirstOrDefaultAsync();
+            if (queue == null)
+            {
+                return NotFound("Queue not found for the specified instance.");
+            }
 
             var queueItems = await _dbContext.QueueItems
                 .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
-                .OrderBy(qi => qi.Index)
+                .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                 .ToListAsync();
 
             var sha256 = System.Security.Cryptography.SHA256.Create();
 
             foreach (var item in queueItems)
             {
-                byte[] videoIdBytes = System.Text.Encoding.UTF8.GetBytes(item.TrackId);
-                sha256.TransformBlock(videoIdBytes, 0, videoIdBytes.Length, null, 0);
+                byte[] trackIdBytes = System.Text.Encoding.UTF8.GetBytes(item.TrackId);
+                sha256.TransformBlock(trackIdBytes, 0, trackIdBytes.Length, null, 0);
             }
             sha256.TransformFinalBlock([], 0, 0);
 

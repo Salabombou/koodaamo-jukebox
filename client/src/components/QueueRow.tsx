@@ -2,11 +2,17 @@ import type { ListChildComponentProps } from "react-window";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Track } from "../types/track";
+import { QueueItem } from "../types/queue";
 
-interface QueueRowProps extends ListChildComponentProps {}
+interface QueueRowProps extends ListChildComponentProps {
+  data: QueueItem[];
+  tracks: Map<string, Track>;
+}
 
-export default function QueueRow({ index, style, data }: QueueRowProps) {
-  console.log("QueueRow", index, data);
+export default function QueueRow({ index, style, data, tracks }: QueueRowProps) {
+  const item = data[index];
+  const track = tracks.get(item.trackId);
+
   const {
     attributes,
     listeners,
@@ -15,15 +21,16 @@ export default function QueueRow({ index, style, data }: QueueRowProps) {
     transition,
     isDragging,
   } = useSortable({
-    id: `${index}:${data[index].trackId}`,
+    id: item.id,
   });
 
-  const track = data[index] as Track;
+  
 
   return (
     <div
       ref={setNodeRef}
-      data-index={data[index][0]}
+      //data-id={item.id}
+      data-index={index}
       style={{
         ...style,
         transform: CSS.Transform.toString(transform),
@@ -40,14 +47,14 @@ export default function QueueRow({ index, style, data }: QueueRowProps) {
         >
           <div className="select-none bg-base-300 dark:bg-black">
             <img
-              src={`/.proxy/api/track/${track.trackId}/thumbnail.jpg`}
+              src={`/.proxy/api/track/${track?.trackId}/thumbnail.jpg`}
               className="object-cover"
             />
           </div>
         </div>
         <div className="flex flex-col overflow-hidden">
-          <label className="text-xs font-bold truncate">{track.title}</label>
-          <label className="text-xs truncate">{track.uploader}</label>
+          <label className="text-xs font-bold truncate">{track?.title}</label>
+          <label className="text-xs truncate">{track?.uploader}</label>
         </div>
       </div>
     </div>

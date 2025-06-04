@@ -19,9 +19,9 @@ namespace KoodaamoJukebox.Models
 
         public bool IsLooping { get; set; } = false;
 
-        public int? ShuffleSeed { get; set; }
+        public bool IsShuffled { get; set; } = false;
 
-        public int CurrentTrackIndex { get; set; } = 0;
+        public int? CurrentTrackIndex { get; set; }
 
         public long? PlayingSince { get; set; }
     }
@@ -33,16 +33,16 @@ namespace KoodaamoJukebox.Models
             InstanceId = queue.InstanceId;
             IsPaused = queue.isPaused;
             IsLooping = queue.IsLooping;
-            ShuffleSeed = queue.ShuffleSeed;
+            IsShuffled = queue.IsShuffled;
             CurrentTrackIndex = queue.CurrentTrackIndex;
             PlayingSince = queue.PlayingSince;
         }
         
         public string InstanceId { get; set; }
-        public bool IsPaused { get; set; } = true;
-        public bool IsLooping { get; set; } = false;
-        public int? ShuffleSeed { get; set; }
-        public int CurrentTrackIndex { get; set; }
+        public bool IsPaused { get; set; }
+        public bool IsLooping { get; set; }
+        public bool IsShuffled { get; set; }
+        public int? CurrentTrackIndex { get; set; }
         public long? PlayingSince { get; set; }
     }
 }

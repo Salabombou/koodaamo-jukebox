@@ -38,6 +38,7 @@ namespace server.Migrations
                     InstanceId = table.Column<string>(type: "text", nullable: false),
                     TrackId = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<int>(type: "integer", nullable: false),
+                    ShuffleIndex = table.Column<int>(type: "integer", nullable: true),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<long>(type: "bigint", nullable: false),
                     UpdatedAt = table.Column<long>(type: "bigint", nullable: false)
@@ -56,8 +57,8 @@ namespace server.Migrations
                     InstanceId = table.Column<string>(type: "text", nullable: false),
                     isPaused = table.Column<bool>(type: "boolean", nullable: false),
                     IsLooping = table.Column<bool>(type: "boolean", nullable: false),
-                    ShuffleSeed = table.Column<int>(type: "integer", nullable: true),
-                    CurrentTrackIndex = table.Column<int>(type: "integer", nullable: false),
+                    IsShuffled = table.Column<bool>(type: "boolean", nullable: false),
+                    CurrentTrackIndex = table.Column<int>(type: "integer", nullable: true),
                     PlayingSince = table.Column<long>(type: "bigint", nullable: true)
                 },
                 constraints: table =>
@@ -128,6 +129,11 @@ namespace server.Migrations
                 name: "IX_QueueItems_TrackId",
                 table: "QueueItems",
                 column: "TrackId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Queues_CurrentTrackIndex",
+                table: "Queues",
+                column: "CurrentTrackIndex");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Queues_InstanceId",
