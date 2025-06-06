@@ -1,6 +1,7 @@
-import dotenv
-
-dotenv.load_dotenv(dotenv_path="../.env")
+import os
+if os.getenv("ENV") != "production":
+    import dotenv
+    dotenv.load_dotenv(dotenv_path="../.env")
 
 import discord
 from discord.ext import commands
@@ -26,7 +27,7 @@ async def on_ready():
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 if TOKEN is None:
-    raise ValueError("DISCORD_CLIENT_SECRET is not set")
+    raise ValueError("DISCORD_BOT_TOKEN is not set")
 
 
 bot.run(TOKEN)

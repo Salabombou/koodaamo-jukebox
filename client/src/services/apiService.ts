@@ -4,41 +4,41 @@ import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
 
 const apiClient = axios.create({
-    baseURL: "/.proxy/",
+  baseURL: "/.proxy/",
 });
 
 apiClient.interceptors.request.use((config) => {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-        config.headers = config.headers || {};
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 apiClient.interceptors.response.use(undefined, async (error) => {
-    const config = error.config;
-    if (!config || config.__retryCount >= 5) {
-        return Promise.reject(error);
-    }
-    config.__retryCount = (config.__retryCount || 0) + 1;
-    return apiClient(config);
+  const config = error.config;
+  if (!config || config.__retryCount >= 5) {
+    return Promise.reject(error);
+  }
+  config.__retryCount = (config.__retryCount || 0) + 1;
+  return apiClient(config);
 });
 
 export function getQueueInfo() {
-    return apiClient.get<RoomInfo>(`/api/queue`);
+  return apiClient.get<RoomInfo>(`/api/queue`);
 }
 
 export function getQueueItems(startTime?: number, endTime?: number) {
-    return apiClient.get<QueueItem[]>(`/api/queue/items`, {
-        params: { start: startTime, end: endTime },
-    });
+  return apiClient.get<QueueItem[]>(`/api/queue/items`, {
+    params: { start: startTime, end: endTime },
+  });
 }
 
 export function getQueueItemsHash() {
-    return apiClient.get<string>(`/api/queue/items/hash`);
+  return apiClient.get<string>(`/api/queue/items/hash`);
 }
 
 export function getTracks(trackIds: string[]) {
-    return apiClient.post<Map<string, Track>>(`/api/track`, { trackIds });
+  return apiClient.post<Map<string, Track>>(`/api/track`, { trackIds });
 }

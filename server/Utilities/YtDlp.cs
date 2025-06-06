@@ -8,14 +8,14 @@ namespace KoodaamoJukebox.Utilities
     {
         private static readonly string _ytDlpPath = Environment.GetEnvironmentVariable("YT_DLP_PATH") ?? "yt-dlp";
 
-        public static async Task<string> GetPlaylistUrl(string query)
+        public static async Task<string> GetPlaylistUrl(string id)
         {
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = _ytDlpPath,
-                    Arguments = $"--get-url \"ytsearch1:{query}\" -f 234/233 --no-warnings",
+                    Arguments = $"--get-url \"{id}\" -f 234/233/234-1/233-1/234-0/233-0 --no-warnings",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
@@ -28,7 +28,7 @@ namespace KoodaamoJukebox.Utilities
 
             if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(url))
             {
-                throw new InvalidOperationException($"Failed to fetch playlist URL for query: {query}. Exit code: {process.ExitCode}");
+                throw new InvalidOperationException($"Failed to fetch playlist URL for ID: {id}. Exit code: {process.ExitCode}");
             }
 
             return url;

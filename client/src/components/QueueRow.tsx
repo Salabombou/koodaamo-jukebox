@@ -7,9 +7,20 @@ import { QueueItem } from "../types/queue";
 interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
   tracks: Map<string, Track>;
+  currentTrackIndex?: number;
+  dragging: boolean;
+  onSkip: (index: number) => void;
 }
 
-export default function QueueRow({ index, style, data, tracks }: QueueRowProps) {
+export default function QueueRow({
+  index,
+  style,
+  data,
+  tracks,
+  currentTrackIndex,
+  dragging, // when the queue list move is happening
+  onSkip,
+}: QueueRowProps) {
   const item = data[index];
   const track = tracks.get(item.trackId);
 
@@ -19,25 +30,26 @@ export default function QueueRow({ index, style, data, tracks }: QueueRowProps) 
     setNodeRef,
     transform,
     transition,
-    isDragging,
+    isDragging, // when the item itself is being dragged
   } = useSortable({
     id: item.id,
   });
 
-  
+  const higlighted = currentTrackIndex === index;
+  const isLastItem = index === data.length - 1;
 
   return (
     <div
       ref={setNodeRef}
-      //data-id={item.id}
       data-index={index}
       style={{
         ...style,
         transform: CSS.Transform.toString(transform),
         transition,
         visibility: isDragging ? "hidden" : "visible",
+        pointerEvents: dragging ? "none" : "auto",
       }}
-      className="flex h-12 max-h-12 bg-base-100"
+      className={`flex h-12 max-h-12 ${!isLastItem && isDragging && "isLastItemborder-b border-base-300"} ${higlighted ? "bg-base-200" : "bg-base-100"}`}
     >
       <div className="flex flex-row items-center space-x-4 w-full">
         <div
@@ -52,7 +64,10 @@ export default function QueueRow({ index, style, data, tracks }: QueueRowProps) 
             />
           </div>
         </div>
-        <div className="flex flex-col overflow-hidden">
+        <div
+          className="flex flex-col overflow-hidden"
+          onDoubleClick={() => onSkip(index)}
+        >
           <label className="text-xs font-bold truncate">{track?.title}</label>
           <label className="text-xs truncate">{track?.uploader}</label>
         </div>

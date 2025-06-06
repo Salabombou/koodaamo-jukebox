@@ -1,7 +1,6 @@
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text;
-using Microsoft.Extensions.FileProviders;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,9 +10,12 @@ namespace KoodaamoJukebox
     {
         static void Main(string[] args)
         {
-            DotNetEnv.Env.Load("../.env");
-
             var builder = WebApplication.CreateBuilder(args);
+            if (!builder.Environment.IsProduction())
+            {
+                // Load environment variables from .env file in development
+                DotNetEnv.Env.Load("../.env");
+            }
 
             builder.Services.AddControllers();
             builder.Services.AddDbContext<AppDbContext>();
@@ -107,11 +109,7 @@ namespace KoodaamoJukebox
             if (app.Environment.IsProduction())
             {
                 app.UseDefaultFiles();
-                app.UseStaticFiles(new StaticFileOptions
-                {
-                    FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), Environment.GetEnvironmentVariable("CLIENT_BUILD_DIR") ?? "../client/dist")),
-                    RequestPath = ""
-                });
+                app.UseStaticFiles();
             }
 
             if (app.Environment.IsDevelopment())

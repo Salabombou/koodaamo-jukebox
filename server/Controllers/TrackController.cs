@@ -96,11 +96,11 @@ namespace KoodaamoJukebox.Controllers
             return Redirect(track.AlbumArt);
         }
 
-        [HttpGet("{videoId}/playlist.m3u8")]
-        public async Task<ActionResult> GetTrackPlaylist(string videoId)
+        [HttpGet("{trackId}/playlist.m3u8")]
+        public async Task<ActionResult> GetTrackPlaylist(string trackId)
         {
 
-            var trackExists = await _dbContext.Tracks.AnyAsync(t => t.TrackId == videoId);
+            var trackExists = await _dbContext.Tracks.AnyAsync(t => t.TrackId == trackId);
             if (!trackExists)
             {
                 return NotFound();
@@ -109,21 +109,21 @@ namespace KoodaamoJukebox.Controllers
             await _playlistFetchLock.WaitAsync();
             try
             {
-                var playlist = await _dbContext.Playlists.FirstOrDefaultAsync(p => p.TrackId == videoId);
+                var playlist = await _dbContext.Playlists.FirstOrDefaultAsync(p => p.TrackId == trackId);
 
                 if (playlist == null)
                 {
                     // Remove any existing playlist for this TrackId to avoid unique constraint violation
-                    var existingPlaylist = await _dbContext.Playlists.FirstOrDefaultAsync(p => p.TrackId == videoId);
+                    var existingPlaylist = await _dbContext.Playlists.FirstOrDefaultAsync(p => p.TrackId == trackId);
                     if (existingPlaylist != null)
                     {
                         _dbContext.Playlists.Remove(existingPlaylist);
                         await _dbContext.SaveChangesAsync();
                     }
-                    var url = await YtDlp.GetPlaylistUrl(videoId);
+                    var url = await YtDlp.GetPlaylistUrl(trackId);
                     playlist = new Playlist
                     {
-                        TrackId = videoId,
+                        TrackId = trackId,
                         Url = url,
                         ExpiresAt = ParsePlaylistUrlExpiry(url),
                         IsLive = ParseIsPlaylistLive(url)
@@ -137,7 +137,7 @@ namespace KoodaamoJukebox.Controllers
                     _dbContext.Playlists.Remove(playlist);
 
                     await _dbContext.SaveChangesAsync();
-                    return await GetTrackPlaylist(videoId);
+                    return await GetTrackPlaylist(trackId);
                 }
 
                 if (playlist.Path == null)
@@ -159,7 +159,7 @@ namespace KoodaamoJukebox.Controllers
                             {
                                 var segment = new Segment
                                 {
-                                    TrackId = videoId,
+                                    TrackId = trackId,
                                     Url = segmentUrl,
                                     UrlHash = hashString
                                 };
@@ -170,15 +170,15 @@ namespace KoodaamoJukebox.Controllers
                             segmentUrlHashes.Add(hashString);
                         }
                     }
-                    _logger.LogInformation("Created segments for video {TrackId}: {Segments}", videoId, string.Join(", ", createdSegments));
+                    _logger.LogInformation("Created segments for video {TrackId}: {Segments}", trackId, string.Join(", ", createdSegments));
                     await _dbContext.SaveChangesAsync();
                     var playlistData = string.Join('\n', playlistStrLines);
                     if (playlist.IsLive)
                     {
-                        var oldSegments = await _dbContext.Segments.Where(s => !segmentUrlHashes.Contains(s.UrlHash) && s.TrackId == videoId).ToListAsync();
+                        var oldSegments = await _dbContext.Segments.Where(s => !segmentUrlHashes.Contains(s.UrlHash) && s.TrackId == trackId).ToListAsync();
                         _dbContext.Segments.RemoveRange(oldSegments);
                         await _dbContext.SaveChangesAsync();
-                        _logger.LogInformation("Removed {Count} old segments for video ID: {TrackId}", oldSegments.Count, videoId);
+                        _logger.LogInformation("Removed {Count} old segments for video ID: {TrackId}", oldSegments.Count, trackId);
                         return Content(playlistData, "application/vnd.apple.mpegurl");
                     }
                     playlist.Path = Path.GetTempFileName();
@@ -190,7 +190,7 @@ namespace KoodaamoJukebox.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to fetch playlist for video ID: {TrackId}", videoId);
+                _logger.LogError(e, "Failed to fetch playlist for video ID: {TrackId}", trackId);
                 return StatusCode(500);
             }
             finally

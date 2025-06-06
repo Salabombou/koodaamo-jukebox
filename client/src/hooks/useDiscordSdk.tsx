@@ -1,6 +1,13 @@
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { DiscordSDK, DiscordSDKMock, RPCCloseCodes } from '@discord/embedded-app-sdk';
+import { DiscordSDK, RPCCloseCodes } from "@discord/embedded-app-sdk";
 
 const DiscordSDKContext = createContext<DiscordSDK | null>(null);
 
@@ -13,7 +20,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
 
   const setupDiscordSDK = async () => {
     const newSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_APPLICATION_ID, {
-      disableConsoleLogOverride: true
+      disableConsoleLogOverride: true,
     });
 
     await newSdk.ready();
@@ -29,7 +36,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
 
     return () => {
       if (sdk) {
-        sdk.close(RPCCloseCodes.CLOSE_NORMAL, 'unmount');
+        sdk.close(RPCCloseCodes.CLOSE_NORMAL, "unmount");
       }
     };
   }, []);
@@ -38,5 +45,9 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
     return <p>Setting up SDK...</p>;
   }
 
-  return <DiscordSDKContext.Provider value={sdk}>{children}</DiscordSDKContext.Provider>;
+  return (
+    <DiscordSDKContext.Provider value={sdk}>
+      {children}
+    </DiscordSDKContext.Provider>
+  );
 }

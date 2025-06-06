@@ -3,7 +3,7 @@ import Queuee from "./components/Queue";
 import MusicPlayerInterface from "./components/MusicPlayerInterface";
 import { Track } from "./types/track";
 import Hls from "hls.js";
-import * as signalR from "@microsoft/signalr"
+import * as signalR from "@microsoft/signalr";
 import * as apiService from "./services/apiService";
 
 import { QueueItem } from "./types/queue";
@@ -13,15 +13,18 @@ import { RoomInfo } from "./types/room";
 //import { useDiscordAuth } from "./hooks/useDiscordAuth";
 //import VolumeSlider from "./components/VolumeSlider";
 
-
 export default function App() {
   const queue = useRef<HTMLDivElement>(null);
 
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
-  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(new Map()); // key is the id of the said item
-  const [queueItemsBuffer, setQueueItemsBuffer] = useState<[number, QueueItem][]>([]); // buffer for items that are being updated
+  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
+    new Map(),
+  ); // key is the id of the said item
+  const [queueItemsBuffer, setQueueItemsBuffer] = useState<
+    [number, QueueItem][]
+  >([]); // buffer for items that are being updated
   const [queueList, setQueueList] = useState<QueueItem[]>([]);
-
+  const [dragging, setDragging] = useState<boolean>(false);
 
   /*useEffect(() => {
     apiService.getQueueItems()
@@ -47,7 +50,9 @@ export default function App() {
     }
 
     // Recalculate indices by first sorting with index 0.5 and then assigning new indices
-    const sortedItems = Array.from(items.values()).sort((a, b) => a.index - b.index);
+    const sortedItems = Array.from(items.values()).sort(
+      (a, b) => a.index - b.index,
+    );
     for (const [index, item] of sortedItems.entries()) {
       item.index = index;
       items.set(item.id, item);
@@ -66,17 +71,24 @@ export default function App() {
     });
 
     if (unknownTrackIds.size > 0) {
-      apiService.getTracks(Array.from(unknownTrackIds))
-        .then((response) => {
-          const newTracks = new Map(tracks);
-          response.data.forEach((track) => {
-            newTracks.set(track.trackId, track);
-          });
-          setTracks(newTracks);
+      apiService.getTracks(Array.from(unknownTrackIds)).then((response) => {
+        const newTracks = new Map(tracks);
+        response.data.forEach((track) => {
+          newTracks.set(track.trackId, track);
         });
+        setTracks(newTracks);
+      });
     }
 
-    setQueueList(Array.from(queueItems.values()).sort((a, b) => a.index - b.index));
+    setQueueList(() => {
+      const list = Array.from(queueItems.values());
+      if (shuffled) {
+        list.sort((a, b) => a.shuffledIndex - b.shuffledIndex);
+      } else {
+        list.sort((a, b) => a.index - b.index);
+      }
+      return list;
+    });
   }, [queueItems]);
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
@@ -104,10 +116,11 @@ export default function App() {
             if (token) {
               xhr.setRequestHeader("Authorization", `Bearer ${token}`);
             }
-          }
+          },
         });
         hls.current.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-          setDuration(data.levels?.[0]?.details?.totalduration ?? 0);
+          const newDuration = data.levels?.[0]?.details?.totalduration ?? 0;
+          setDuration(newDuration);
         });
         hls.current.on(Hls.Events.MEDIA_ATTACHED, () => {
           console.log("HLS media attached");
@@ -117,7 +130,11 @@ export default function App() {
               console.log("Loading new track source:", newSrc);
               hls.current!.loadSource(newSrc);
             }
-            if (!paused && hls.current?.media?.paused) {
+            if (
+              !paused &&
+              hls.current?.media?.paused &&
+              playingSince !== null
+            ) {
               audioPlayer.current!.play().catch((err) => {
                 console.error("Error playing audio:", err);
               });
@@ -149,9 +166,22 @@ export default function App() {
 
   useEffect(() => {
     if (queueItemsBuffer.length > 0) return;
-    const currentQueueItem = Array.from(queueItems.values()).find(i => i.index === currentTrackIndex);
+
+    let currentQueueItem: QueueItem | undefined;
+    if (shuffled) {
+      const shuffledItems = Array.from(queueItems.values()).sort(
+        (a, b) => a.shuffledIndex - b.shuffledIndex,
+      );
+      currentQueueItem = shuffledItems[currentTrackIndex];
+    } else {
+      const sortedItems = Array.from(queueItems.values()).sort(
+        (a, b) => a.index - b.index,
+      );
+      currentQueueItem = sortedItems[currentTrackIndex];
+    }
+
     const trackId = currentQueueItem?.trackId;
-    setCurrentTrack(trackId ? tracks.get(trackId) ?? null : null);
+    setCurrentTrack(trackId ? (tracks.get(trackId) ?? null) : null);
   }, [tracks, queueItems, queueItemsBuffer, currentTrackIndex]);
 
   const playTimeoutRef = useRef<number | null>(null);
@@ -166,16 +196,25 @@ export default function App() {
         console.log("Loading new track source:", currentTrack.trackId);
         hls.current.loadSource(src);
       }
-      if (!paused && hls.current.media?.paused) {
-        playTimeoutRef.current = setTimeout(() => {
-          audioPlayer.current!.play();
-        }, Math.max(0, playingSince ? playingSince - Date.now() : 0));
+      if (!paused && playingSince !== null) {
+        playTimeoutRef.current = setTimeout(
+          () => {
+            if (
+              hls.current!.media?.paused &&
+              !paused &&
+              playingSince !== null &&
+              playingSince <= Date.now()
+            ) {
+              audioPlayer.current!.play();
+            }
+          },
+          Math.max(0, playingSince ? playingSince - Date.now() : 0),
+        );
       } else {
         audioPlayer.current.pause();
       }
     }
   }, [currentTrack, paused, playingSince]);
-
 
   const connection = useRef<signalR.HubConnection | null>(null);
   useEffect(() => {
@@ -183,25 +222,29 @@ export default function App() {
       .withUrl("/.proxy/api/hubs/queue", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("authToken") ?? ""}`,
-        }
+        },
       })
       .withAutomaticReconnect()
       .withHubProtocol(new signalR.JsonHubProtocol())
       .configureLogging(signalR.LogLevel.Information)
       .build();
 
-    connection.current.on("QueueUpdate", (queue: RoomInfo, updatedItems: QueueItem[]) => {
-      console.log("QueueUpdate received", queue, updatedItems);
-      setQueueItemsBuffer(updatedItems.map((item) => [item.id, item]));
-      
-      setPlayingSince(queue.playingSince);
-      setPaused(queue.isPaused);
-      setLooping(queue.isLooping);
-      setShuffled(queue.isShuffled);
-      setCurrentTrackIndex(queue.currentTrackIndex);
-    });
+    connection.current.on(
+      "QueueUpdate",
+      (queue: RoomInfo, updatedItems: QueueItem[]) => {
+        console.log("QueueUpdate received", queue, updatedItems);
+        setQueueItemsBuffer(updatedItems.map((item) => [item.id, item]));
 
-    connection.current.start()
+        setPlayingSince(queue.playingSince);
+        setPaused(queue.isPaused);
+        setLooping(queue.isLooping);
+        setShuffled(queue.isShuffled);
+        setCurrentTrackIndex(queue.currentTrackIndex);
+      },
+    );
+
+    connection.current
+      .start()
       .then(() => {
         console.log("SignalR connection established");
       })
@@ -213,7 +256,7 @@ export default function App() {
       if (connection.current) {
         connection.current.stop();
       }
-    }
+    };
   }, []);
 
   const [listHeight, setListHeight] = useState<number>(window.innerHeight - 24);
@@ -240,8 +283,13 @@ export default function App() {
           const currentTime = Date.now();
 
           if (!seeking.current && typeof playingSince === "number") {
-            const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
-            if (Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1) {
+            const elapsedTime =
+              ((currentTime - playingSince) % (duration * 1000)) / 1000;
+
+            if (
+              elapsedTime >= 1 &&
+              Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
+            ) {
               audioPlayer.current!.currentTime = elapsedTime;
             }
           }
@@ -250,10 +298,22 @@ export default function App() {
         onEnded={() => {
           console.log("Track ended");
           if (looping) {
+            seeking.current = true;
             audioPlayer.current!.currentTime = 0;
             audioPlayer.current!.play();
           } else {
-            connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1);
+            console.log("Skipping to next track");
+            connection.current?.invoke(
+              "Skip",
+              Date.now(),
+              currentTrackIndex + 1,
+            );
+          }
+        }}
+        onCanPlayThrough={() => {
+          if (!paused && playingSince === null) {
+            console.log("Starting playback");
+            connection.current?.invoke("PauseToggle", Date.now(), false);
           }
         }}
       />
@@ -264,18 +324,23 @@ export default function App() {
         paused={paused}
         looping={looping}
         onShuffle={() => {
+          console.log("Shuffle toggle", !shuffled);
           connection.current?.invoke("ShuffleToggle", Date.now(), !shuffled);
         }}
         onBackward={() => {
+          console.log("Backward skip", currentTrackIndex - 1);
           connection.current?.invoke("Skip", Date.now(), currentTrackIndex - 1);
         }}
         onForward={() => {
+          console.log("Forward skip", currentTrackIndex + 1);
           connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1);
         }}
         onPlayToggle={() => {
+          console.log("Play toggle", !paused);
           connection.current?.invoke("PauseToggle", Date.now(), !paused);
         }}
         onLoopToggle={() => {
+          console.log("Loop toggle", !looping);
           connection.current?.invoke("LoopToggle", Date.now(), !looping);
         }}
         onSeek={(seekTime) => {
@@ -283,7 +348,9 @@ export default function App() {
           audioPlayer.current!.currentTime = seekTime;
           audioPlayer.current!.pause();
           setTimestamp(seekTime);
-          connection.current?.invoke("Seek", Date.now(), seekTime)
+          console.log("Seeking to", seekTime);
+          connection.current
+            ?.invoke("Seek", Date.now(), seekTime)
             .catch((err) => {
               console.error("Error seeking:", err);
               seeking.current = false;
@@ -299,9 +366,20 @@ export default function App() {
         height={listHeight}
         tracks={tracks}
         queueList={queueList}
+        currentTrackIndex={currentTrackIndex}
+        dragging={dragging}
+        onSkip={(index) => {
+          console.log("onSkip", index);
+          connection.current?.invoke("Skip", Date.now(), index);
+        }}
         onMove={(fromIndex, toIndex) => {
           console.log("onMove", fromIndex, toIndex);
-          connection.current?.invoke("Move", Date.now(), fromIndex, toIndex)
+          setDragging(true);
+          connection.current
+            ?.invoke("Move", Date.now(), fromIndex, toIndex)
+            .finally(() => {
+              setDragging(false);
+            });
         }}
       />
     </div>

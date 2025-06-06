@@ -46,17 +46,31 @@ interface QueueProps {
 
   tracks: Map<string, any>;
   queueList: QueueItem[];
+  currentTrackIndex?: number;
+  dragging: boolean;
 
   onMove: (fromIndex: number, toIndex: number) => void;
+  onSkip: (index: number) => void;
 }
 
-export default function Queue({ height, tracks, queueList, onMove, ref }: QueueProps) {
-  const [draggedIndex, setDraggedIndex] = useState<number>(0);
-
-  // if any of the items in queueList is not in tracks, we should not render the queue
-  if (queueList.length === 0 || queueList.some((item) => !tracks.has(item.trackId))) {
-    return;
+export default function Queue({
+  height,
+  tracks,
+  queueList,
+  currentTrackIndex,
+  dragging,
+  onMove,
+  onSkip,
+  ref,
+}: QueueProps) {
+  if (
+    queueList.length === 0 ||
+    queueList.some((item) => !tracks.has(item.trackId))
+  ) {
+    return null;
   }
+
+  const [draggedIndex, setDraggedIndex] = useState<number>(0);
 
   return (
     <DndContext
@@ -67,13 +81,14 @@ export default function Queue({ height, tracks, queueList, onMove, ref }: QueueP
         setDraggedIndex(e.active.data.current?.sortable.index as number);
       }}
       onDragEnd={(e) => {
-        setDraggedIndex(0);
-        const fromIndex = e.active.data.current?.sortable.index;
+        const fromIndex = draggedIndex;
         const toIndex = e.over?.data.current?.sortable.index;
+        setDraggedIndex(0);
         if (
           typeof fromIndex === "number" &&
           typeof toIndex === "number" &&
-          fromIndex !== toIndex
+          fromIndex !== toIndex &&
+          !dragging
         ) {
           onMove(fromIndex, toIndex);
         }
@@ -97,7 +112,9 @@ export default function Queue({ height, tracks, queueList, onMove, ref }: QueueP
             scrollbarWidth: "none",
           }}
         >
-          {(props) => QueueRow({...props, tracks})}
+          {(props) =>
+            QueueRow({ ...props, tracks, currentTrackIndex, dragging, onSkip })
+          }
         </FixedSizeList>
       </SortableContext>
       <DragOverlay
@@ -105,6 +122,9 @@ export default function Queue({ height, tracks, queueList, onMove, ref }: QueueP
         children={
           <QueueRow
             index={draggedIndex ?? 0}
+            currentTrackIndex={currentTrackIndex}
+            dragging={dragging}
+            onSkip={() => {}}
             style={{}}
             data={queueList}
             tracks={tracks}

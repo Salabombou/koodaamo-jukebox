@@ -49,7 +49,7 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Instance not found.", nameof(instanceId));
                 }
-                else if (queue.isPaused == paused)
+                else if (queue.isPaused == paused && queue.PlayingSince.HasValue)
                 {
                     // If the state is already the same, do nothing
                     return;
@@ -62,7 +62,7 @@ namespace KoodaamoJukebox.Services
                 }
                 else if (!queue.PlayingSince.HasValue)
                 {
-                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 5500; // Adjust to account for the time it takes to process the request
+                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500;
                 }
                 else
                 {
@@ -185,34 +185,9 @@ namespace KoodaamoJukebox.Services
                 }
 
                 queue.CurrentTrackIndex = index;
-                if (!queue.isPaused)
-                {
-                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-                    var currentTrack = await _dbContext.QueueItems
-                        .Where(qi => qi.InstanceId == instanceId && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted)
-                        .FirstOrDefaultAsync();
-                    if (currentTrack == null)
-                    {
-                        throw new ArgumentException("Current track not found.", nameof(instanceId));
-                    }
-                    var currentTrackPlaylist = await _dbContext.Playlists
-                        .Where(p => p.TrackId == currentTrack.TrackId)
-                        .FirstOrDefaultAsync();
-
-                    if (currentTrackPlaylist == null || currentTrackPlaylist.Path != null)
-                    {
-                        queue.PlayingSince += 500;
-                    }
-                    else if (currentTrackPlaylist.Url != null)
-                    {
-                        queue.PlayingSince += 2500;
-                    }
-                    else
-                    {
-                        queue.PlayingSince += 5500;
-                    }
-                }
+                queue.isPaused = false;
+                queue.PlayingSince = null;
+                
                 await _dbContext.SaveChangesAsync();
 
                 await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
@@ -568,77 +543,79 @@ namespace KoodaamoJukebox.Services
             await semaphore.WaitAsync();
             try
             {
-                var queue = await _dbContext.RoomInfos
+                var roomInfo = await _dbContext.RoomInfos
                     .Where(q => q.InstanceId == instanceId)
                     .FirstOrDefaultAsync();
 
-                if (queue == null)
+                if (roomInfo == null)
                 {
                     throw new ArgumentException("Instance not found.", nameof(instanceId));
                 }
-                if (queue.IsShuffled == shuffled)
+                if (roomInfo.IsShuffled == shuffled)
                 {
                     // If the state is already the same, do nothing
                     return;
                 }
 
-                var updatedItems = new List<QueueItemDto>();
+                var queueItems = await _dbContext.QueueItems
+                    .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                    .ToListAsync();
 
-                queue.IsShuffled = shuffled;
-                if (queue.IsShuffled)
+                if (queueItems.Count == 0)
                 {
+                    throw new InvalidOperationException("The queue is empty.");
+                }
+
+                roomInfo.IsShuffled = shuffled;
+                if (shuffled)
+                {
+                    var currentTrack = queueItems
+                        .FirstOrDefault(qi => qi.Index == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
+                    if (currentTrack != null)
+                    {
+                        queueItems.Remove(currentTrack);
+                    }
+
                     var rng = new Random();
-                    var items = await _dbContext.QueueItems
-                        .Where(qi => qi.InstanceId == instanceId && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
-                        .OrderBy(qi => rng.Next())
-                        .ToListAsync();
-
-                    var currentTrack = await _dbContext.QueueItems
-                        .Where(qi => qi.InstanceId == instanceId && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
-                        .FirstOrDefaultAsync();
-                    if (currentTrack == null)
+                    var shuffledItems = queueItems
+                        .OrderBy(x => rng.Next())
+                        .ToList();
+                    if (currentTrack != null)
                     {
-                        throw new ArgumentException("Current track not found.", nameof(instanceId));
+                        shuffledItems.Insert(0, currentTrack);
                     }
 
-                    items.Insert(0, currentTrack);
-                    for (int i = 0; i < items.Count; i++)
+                    for (int i = 0; i < shuffledItems.Count; i++)
                     {
-                        items[i].ShuffleIndex = i;
+                        shuffledItems[i].ShuffleIndex = i;
                     }
 
-                    _dbContext.QueueItems.UpdateRange(items);
-                    queue.CurrentTrackIndex = 0;
-                    updatedItems = items.Select(i => new QueueItemDto(i)).ToList();
+                    roomInfo.CurrentTrackIndex = 0;
+                    _dbContext.QueueItems.UpdateRange(shuffledItems);
                 }
                 else
                 {
-                    var items = await _dbContext.QueueItems
-                        .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
-                        .OrderBy(qi => qi.Index)
-                        .ToListAsync();
+                    var currentTrack = queueItems
+                        .FirstOrDefault(qi => qi.ShuffleIndex == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
 
-                    var currentTrack = await _dbContext.QueueItems
-                        .Where(qi => qi.InstanceId == instanceId && qi.ShuffleIndex == queue.CurrentTrackIndex && !qi.IsDeleted)
-                        .FirstOrDefaultAsync();
-                    if (currentTrack == null)
+                    for (int i = 0; i < queueItems.Count; i++)
                     {
-                        throw new ArgumentException("Current track not found.", nameof(instanceId));
+                        queueItems[i].ShuffleIndex = null;
                     }
 
-                    for (int i = 0; i < items.Count; i++)
+                    if (currentTrack != null)
                     {
-                        items[i].Index = i; // not really necessary but cant hurt
-                        items[i].ShuffleIndex = null; // Reset shuffle index
+                        roomInfo.CurrentTrackIndex = currentTrack.Index;
                     }
-                    _dbContext.QueueItems.UpdateRange(items);
-                    queue.CurrentTrackIndex = currentTrack.Index;
-                    updatedItems = items.Select(i => new QueueItemDto(i)).ToList();
+
+                    _dbContext.QueueItems.UpdateRange(queueItems);
                 }
+                _dbContext.RoomInfos.Update(roomInfo);
 
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                var updatedItems = queueItems.Select(i => new QueueItemDto(i)).ToList();
+                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), updatedItems);
             }
             finally
             {

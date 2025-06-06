@@ -53,7 +53,11 @@ export default function MusicPlayerInterface({
         <figure className="select-none bg-base-300 dark:bg-black">
           <div className="w-136 h-136 flex align-middle justify-center">
             {track?.trackId ? (
-              <img src={`/.proxy/api/track/${track.trackId}/thumbnail.jpg`} width="100%" height="100%" />
+              <img
+                src={`/.proxy/api/track/${track.trackId}/thumbnail.jpg`}
+                width="100%"
+                height="100%"
+              />
             ) : (
               <FaQuestion size="100%" />
             )}
@@ -79,9 +83,7 @@ export default function MusicPlayerInterface({
                 />
                 <div className="flex justify-between select-none">
                   <label children={<Timestamp timestamp={timestamp} />} />
-                  <label
-                    children={<Timestamp timestamp={duration ?? 0} />}
-                  />
+                  <label children={<Timestamp timestamp={duration ?? 0} />} />
                 </div>
               </div>
               <div className="flex justify-center items-center space-x-8">

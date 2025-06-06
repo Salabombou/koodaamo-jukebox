@@ -69,8 +69,6 @@ namespace KoodaamoJukebox.Hubs
 
             await Groups.AddToGroupAsync(Context.ConnectionId, instanceId);
 
-            await base.OnConnectedAsync();
-
             var roomInfo = await _dbContext.RoomInfos
                 .Where(q => q.InstanceId == instanceId)
                 .FirstOrDefaultAsync();
@@ -88,6 +86,7 @@ namespace KoodaamoJukebox.Hubs
                 throw new UnauthorizedAccessException("QueueItems not found for the specified instance.");
             }
 
+            await base.OnConnectedAsync();
             await Clients.Caller.SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), queueItems);
         }
 
@@ -193,6 +192,7 @@ namespace KoodaamoJukebox.Hubs
                 throw new UnauthorizedAccessException("InstanceId not found in user claims.");
             }
             await _queueService.Skip(instanceId, index);
+            //await _queueService.Pause(instanceId, false); // Unpause after skipping
         }
 
         public async Task Move(long sentAt, int from, int to)
