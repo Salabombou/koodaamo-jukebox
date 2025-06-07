@@ -6,7 +6,7 @@ namespace KoodaamoJukebox.Models
 {
     [Table("Playlists")]
     [Index(nameof(TrackId), IsUnique = true)]
-    public class Playlist
+    public class HlsPlaylist
     {
         [Key]
         public int Id { get; set; }
