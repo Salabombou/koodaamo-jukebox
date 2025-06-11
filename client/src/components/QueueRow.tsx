@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Track } from "../types/track";
 import { QueueItem } from "../types/queue";
+import { memo } from "react";
 
 interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
@@ -12,7 +13,7 @@ interface QueueRowProps extends ListChildComponentProps {
   onSkip: (index: number) => void;
 }
 
-export default function QueueRow({
+function QueueRow({
   index,
   style,
   data,
@@ -74,3 +75,7 @@ export default function QueueRow({
     </div>
   );
 }
+
+const MemoizedQueueRow = memo(QueueRow);
+
+export { MemoizedQueueRow };

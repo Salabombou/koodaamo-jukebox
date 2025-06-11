@@ -61,6 +61,8 @@ namespace KoodaamoJukebox.Services
                 }
                 segment.Path = null;
             }
+            _dbContext.HlsPlaylists.RemoveRange(allPlaylists);
+            _dbContext.HlsSegments.RemoveRange(allSegments);
             await _dbContext.SaveChangesAsync(stoppingToken);
 
             _logger.LogInformation("CleanupService started");

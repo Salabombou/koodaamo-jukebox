@@ -376,91 +376,81 @@ namespace KoodaamoJukebox.Services
 
                 await _dbContext.SaveChangesAsync();
 
-                var currentTrack = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && qi.ShuffleIndex == queue.CurrentTrackIndex && !qi.IsDeleted)
-                    .FirstOrDefaultAsync();
-
-                int unShuffledIndex = currentTrack?.Index ?? 0;
-                int shuffledIndex = currentTrack?.ShuffleIndex ?? 0;
-
-                var items = await _dbContext.QueueItems
+                // insert new items into the queue to be played next
+                var queueItems = await _dbContext.QueueItems
                     .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
                     .ToListAsync();
 
-                var unShuffledItemsToShift = items
-                    .Where(i => i.Index > unShuffledIndex)
-                    .OrderBy(i => i.Index)
-                    .ToList();
+                int insertIndex = queue.CurrentTrackIndex ?? -1;
+                int insertUnshuffledIndex = insertIndex;
+                int insertShuffledIndex = insertIndex;
 
-                for (int i = 0; i < unShuffledItemsToShift.Count; i++)
-                {
-                    unShuffledItemsToShift[i].Index += trackIds.Count;
-                }
-                _dbContext.QueueItems.UpdateRange(unShuffledItemsToShift);
-                updatedItems.AddRange(unShuffledItemsToShift.Select(i => new QueueItemDto(i)));
-
+                // Find the current track's unshuffled index (for shuffled mode)
                 if (queue.IsShuffled)
                 {
-                    var shuffledItemsToShift = items
-                        .Where(i => i.ShuffleIndex > shuffledIndex)
-                        .OrderBy(i => i.ShuffleIndex)
-                        .ToList();
-
-                    for (int i = 0; i < shuffledItemsToShift.Count; i++)
+                    var currentTrack = queueItems.FirstOrDefault(qi => qi.ShuffleIndex == insertIndex);
+                    if (currentTrack != null)
                     {
-                        shuffledItemsToShift[i].ShuffleIndex += trackIds.Count;
+                        insertUnshuffledIndex = currentTrack.Index;
                     }
-                    _dbContext.QueueItems.UpdateRange(shuffledItemsToShift);
-                    updatedItems.AddRange(shuffledItemsToShift.Select(i => new QueueItemDto(i)));
                 }
 
-                // Add new items to the queue
-                var newItems = trackIds.Select((videoId, index) => new QueueItem
-                {
-                    InstanceId = instanceId,
-                    TrackId = videoId,
-                    Index = 0, // will be set later
-                    IsDeleted = false,
-                }).ToList();
-
+                // Shift indices of items after the insertion point
                 if (queue.IsShuffled)
                 {
-                    // Assign shuffle indices for shuffled queues
-                    for (int i = 0; i < newItems.Count; i++)
+                    foreach (var item in queueItems)
                     {
-                        newItems[i].ShuffleIndex = shuffledIndex + i;
-                        newItems[i].Index = unShuffledIndex + i;
+                        if (item.ShuffleIndex.HasValue && item.ShuffleIndex > insertShuffledIndex)
+                        {
+                            item.ShuffleIndex += uniqueTracks.Count;
+                        }
+                        if (item.Index > insertUnshuffledIndex)
+                        {
+                            item.Index += uniqueTracks.Count;
+                        }
                     }
                 }
                 else
                 {
-                    // Assign indices for non-shuffled queues
-                    for (int i = 0; i < newItems.Count; i++)
+                    foreach (var item in queueItems)
                     {
-                        newItems[i].Index = (queue.CurrentTrackIndex ?? 0) + i;
+                        if (item.Index > insertIndex)
+                        {
+                            item.Index += uniqueTracks.Count;
+                        }
                     }
                 }
 
-                if (queue.CurrentTrackIndex == null)
+                // Insert new items at the correct position
+                var newQueueItems = new List<QueueItem>();
+                for (int i = 0; i < uniqueTracks.Count; i++)
                 {
-                    queue.CurrentTrackIndex = 0; // Set current track index if it was null
+                    var track = uniqueTracks[i];
+                    var queueItem = new QueueItem
+                    {
+                        InstanceId = instanceId,
+                        TrackId = track.WebpageUrlHash,
+                        IsDeleted = false,
+                        Index = (queue.IsShuffled ? insertUnshuffledIndex : insertIndex) + 1 + i,
+                        ShuffleIndex = queue.IsShuffled ? insertShuffledIndex + 1 + i : null
+                    };
+                    newQueueItems.Add(queueItem);
                 }
-                _dbContext.RoomInfos.Update(queue);
+                await _dbContext.QueueItems.AddRangeAsync(newQueueItems);
+                // Update all shifted items
+                _dbContext.QueueItems.UpdateRange(queueItems);
 
-                await _dbContext.QueueItems.AddRangeAsync(newItems);
+                if (queue.CurrentTrackIndex == null && newQueueItems.Count > 0)
+                {
+                    // If the queue was empty, set the current track to the first added item
+                    queue.CurrentTrackIndex = newQueueItems[0].ShuffleIndex ?? newQueueItems[0].Index;
+                }
+
                 await _dbContext.SaveChangesAsync();
 
-                // get new items from the database, with their IDs
-                var addedItems = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && trackIds.Contains(qi.TrackId) && !qi.IsDeleted)
-                    .ToListAsync();
-                updatedItems.AddRange(addedItems.Select(i => new QueueItemDto(i)));
-
-                // remove duplicates from updatedItems
-                updatedItems = updatedItems
-                    .GroupBy(i => i.Id)
-                    .Select(g => g.First())
-                    .ToList();
+                // Prepare updated items for client
+                updatedItems.AddRange(newQueueItems.Select(i => new QueueItemDto(i)));
+                updatedItems.AddRange(queueItems.Select(i => new QueueItemDto(i)));
 
                 await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
             }

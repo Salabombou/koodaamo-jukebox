@@ -51,7 +51,7 @@ namespace KoodaamoJukebox.Utilities
                     return new YtDlpAudioStream
                     {
                         Url = audioUrl,
-                        Type = protocol == "m3u8_native" ? YtDlpAudioStreamType.M3U8Native : YtDlpAudioStreamType.HTTPS
+                        Type = protocol == "m3u8_native" ? YtDlpAudioStreamType.M3U8Native : YtDlpAudioStreamType.HTTPS,
                     };
                 }
             }
@@ -235,7 +235,7 @@ namespace KoodaamoJukebox.Utilities
                         }
                     }
 
-                    string? uploader = data.GetProperty("uploader").GetString();
+                    string? uploader = data.TryGetProperty("uploader", out var uploaderElement) ? (uploaderElement.GetString() ?? "Unknown") : "Unknown";
 
                     string? thumbnailHigh = null;
                     string? thumbnailLow = null;

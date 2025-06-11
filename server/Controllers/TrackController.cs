@@ -68,7 +68,7 @@ namespace KoodaamoJukebox.Controllers
 
             if (track == null)
             {
-                return NotFound();
+                return Redirect("/black.jpg");
             }
 
             if (!string.IsNullOrEmpty(track.ThumbnailHigh))
@@ -81,7 +81,7 @@ namespace KoodaamoJukebox.Controllers
             }
             else
             {
-                return NotFound("No thumbnail available for this track.");
+                return Redirect("/black.jpg");
             }
         }
 
@@ -94,7 +94,7 @@ namespace KoodaamoJukebox.Controllers
 
             if (track == null)
             {
-                return NotFound();
+                return Redirect("/black.jpg");
             }
 
             if (!string.IsNullOrEmpty(track.ThumbnailLow))
@@ -107,7 +107,7 @@ namespace KoodaamoJukebox.Controllers
             }
             else
             {
-                return NotFound("No thumbnail available for this track.");
+                return Redirect("/black.jpg");
             }
         }
     }

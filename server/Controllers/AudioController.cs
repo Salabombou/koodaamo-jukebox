@@ -28,6 +28,7 @@ namespace KoodaamoJukebox.Controllers
             _logger = logger;
 
             _httpClient.Timeout = TimeSpan.FromSeconds(30);
+
         }
 
         [HttpGet("{webpageUrlHash}")]
@@ -50,17 +51,16 @@ namespace KoodaamoJukebox.Controllers
             var hlsPlaylist = await _dbContext.HlsPlaylists
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.WebpageUrlHash == track.WebpageUrlHash);
+            if (hlsPlaylist != null && hlsPlaylist.ExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            {
+                _dbContext.HlsPlaylists.Remove(hlsPlaylist);
+                await _dbContext.SaveChangesAsync();
+                hlsPlaylist = null; // Force re-fetch
+            }
+
             if (hlsPlaylist != null)
             {
                 return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
-            }
-
-            var audioFile = await _dbContext.AudioFiles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.WebpageUrlHash == track.WebpageUrlHash);
-            if (audioFile != null)
-            {
-                return RedirectToAction(nameof(GetAudioFile), new { webpageUrlHash = track.WebpageUrlHash });
             }
 
             var audioStream = await YtDlp.GetAudioStream(track.WebpageUrl);
@@ -69,7 +69,8 @@ namespace KoodaamoJukebox.Controllers
                 var newHlsPlaylist = new HlsPlaylist
                 {
                     WebpageUrlHash = webpageUrlHash,
-                    DownloadUrl = audioStream.Url
+                    DownloadUrl = audioStream.Url,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()
                 };
 
                 _dbContext.HlsPlaylists.Add(newHlsPlaylist);
@@ -78,15 +79,50 @@ namespace KoodaamoJukebox.Controllers
             }
             else if (audioStream.Type == YtDlpAudioStreamType.HTTPS)
             {
-                var newAudioFile = new AudioFile
+                string audioDownloadUrlHash = Hashing.ComputeSha256Hash(audioStream.Url);
+                var newHlsSegment = new HlsSegment
                 {
                     WebpageUrlHash = webpageUrlHash,
-                    DownloadUrl = audioStream.Url
+                    DownloadUrl = audioStream.Url,
+                    DownloadUrlHash = audioDownloadUrlHash
+                };
+                newHlsSegment.Path = Path.GetTempFileName();
+                using (var response = await _httpClient.GetAsync(audioStream.Url, HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.EnsureSuccessStatusCode();
+                    using var responseStream = await response.Content.ReadAsStreamAsync();
+                    using var fileStream = new FileStream(newHlsSegment.Path, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await responseStream.CopyToAsync(fileStream);
+                }
+
+                float duration = await Ffprobe.GetDuration(newHlsSegment.Path);
+                
+                var newHlsPlaylist = new HlsPlaylist
+                {
+                    WebpageUrlHash = webpageUrlHash,
+                    DownloadUrl = audioStream.Url,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()
                 };
 
-                _dbContext.AudioFiles.Add(newAudioFile);
+                _dbContext.HlsSegments.Add(newHlsSegment);
+
+                newHlsPlaylist.Path = Path.GetTempFileName();
+
+                var hlsPlaylistLines = new[]
+                {
+                    "#EXTM3U",
+                    "#EXT-X-VERSION:3",
+                    $"#EXT-X-TARGETDURATION:{duration}",
+                    "#EXT-X-MEDIA-SEQUENCE:0",
+                    $"#EXTINF:{duration},",
+                    $"{webpageUrlHash}/playlist/segment-{audioDownloadUrlHash}",
+                    "#EXT-X-ENDLIST"
+                };
+                string hlsPlaylistContent = string.Join("\n", hlsPlaylistLines);
+                await System.IO.File.WriteAllTextAsync(newHlsPlaylist.Path, hlsPlaylistContent);
+                _dbContext.HlsPlaylists.Add(newHlsPlaylist);
                 await _dbContext.SaveChangesAsync();
-                return RedirectToAction(nameof(GetAudioFile), new { webpageUrlHash = track.WebpageUrlHash });
+                return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
             }
 
             return NotFound($"No audio file or HLS playlist found for track with hash '{webpageUrlHash}'.");
@@ -139,6 +175,12 @@ namespace KoodaamoJukebox.Controllers
                         continue; // Skip comments
                     }
 
+                    // Skip lines that are not valid URLs (e.g., ID3 tags or binary data)
+                    if (!Uri.IsWellFormedUriString(line, UriKind.Absolute) && !Uri.IsWellFormedUriString(line, UriKind.Relative))
+                    {
+                        continue; // Skip non-URL, non-comment lines
+                    }
+
                     var segment = new HlsSegment
                     {
                         WebpageUrlHash = webpageUrlHash,
@@ -156,10 +198,6 @@ namespace KoodaamoJukebox.Controllers
                         var absoluteUrl = new Uri(new Uri(baseUrl), line).ToString();
                         segment.DownloadUrl = absoluteUrl;
                         segment.DownloadUrlHash = Hashing.ComputeSha256Hash(absoluteUrl);
-                    }
-                    else
-                    {
-                        return BadRequest($"Invalid URL format in HLS playlist: {line}");
                     }
 
                     if (!segmentUrlHashes.Contains(segment.DownloadUrlHash))
@@ -243,69 +281,6 @@ namespace KoodaamoJukebox.Controllers
             }
 
             return PhysicalFile(hlsSegment.Path, "application/octet-stream");
-        }
-
-        [HttpGet("{webpageUrlHash}/audiofile")]
-        public async Task<IActionResult> GetAudioFile(string webpageUrlHash)
-        {
-            if (string.IsNullOrWhiteSpace(webpageUrlHash))
-            {
-                return BadRequest("Webpage URL hash cannot be null or empty.");
-            }
-
-            var audioFile = await _dbContext.AudioFiles
-                .FirstOrDefaultAsync(a => a.WebpageUrlHash == webpageUrlHash);
-
-            if (audioFile == null)
-            {
-                return NotFound($"Audio file with hash '{webpageUrlHash}' not found.");
-            }
-
-            if (audioFile.Path != null)
-            {
-                return PhysicalFile(audioFile.Path, "application/octet-stream");
-            }
-
-            await _audioFileLock.WaitAsync();
-            var audioFilePath = await _dbContext.AudioFiles
-                .AsNoTracking()
-                .Where(a => a.WebpageUrlHash == webpageUrlHash)
-                .Select(a => a.Path)
-                .FirstOrDefaultAsync();
-            if (audioFilePath != null)
-            {
-                return PhysicalFile(audioFilePath, "application/octet-stream");
-            }
-
-            try
-            {
-                var downloadUrl = audioFile.DownloadUrl;
-                if (string.IsNullOrWhiteSpace(downloadUrl))
-                {
-                    return BadRequest("Download URL is not available for this audio file.");
-                }
-
-                audioFile.Path = Path.GetTempFileName();
-                using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
-                {
-                    response.EnsureSuccessStatusCode();
-                    using var responseStream = await response.Content.ReadAsStreamAsync();
-                    using var fileStream = new FileStream(audioFile.Path, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await responseStream.CopyToAsync(fileStream);
-                }
-
-                await _dbContext.SaveChangesAsync();
-            }
-            catch (HttpRequestException ex)
-            {
-                return BadRequest($"Failed to download audio file: {ex.Message}");
-            }
-            finally
-            {
-                _audioFileLock.Release();
-            }
-
-            return PhysicalFile(audioFile.Path, "application/octet-stream");
         }
     }
 }

@@ -21,33 +21,6 @@ namespace server.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("KoodaamoJukebox.Models.AudioFile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("DownloadUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Path")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WebpageUrlHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WebpageUrlHash")
-                        .IsUnique();
-
-                    b.ToTable("AudioFiles", (string)null);
-                });
-
             modelBuilder.Entity("KoodaamoJukebox.Models.HlsPlaylist", b =>
                 {
                     b.Property<int>("Id")
@@ -59,6 +32,9 @@ namespace server.Migrations
                     b.Property<string>("DownloadUrl")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<long>("ExpiresAt")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Path")
                         .HasColumnType("text");

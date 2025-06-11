@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
-import QueueRow from "./QueueRow";
+import { MemoizedQueueRow } from "./QueueRow";
 import { QueueItem } from "../types/queue";
 
 const restrictToVerticalAxisCenterY: Modifier = ({
@@ -63,12 +63,12 @@ export default function Queue({
   onSkip,
   ref,
 }: QueueProps) {
-  if (
+  /*if (
     queueList.length === 0 ||
     queueList.some((item) => !tracks.has(item.trackId))
   ) {
     return null;
-  }
+  }*/
 
   const [draggedIndex, setDraggedIndex] = useState<number>(0);
 
@@ -112,15 +112,21 @@ export default function Queue({
             scrollbarWidth: "none",
           }}
         >
-          {(props) =>
-            QueueRow({ ...props, tracks, currentTrackIndex, dragging, onSkip })
-          }
+          {(props) => (
+            <MemoizedQueueRow
+              {...props}
+              tracks={tracks}
+              currentTrackIndex={currentTrackIndex}
+              dragging={dragging}
+              onSkip={onSkip}
+            />
+          )}
         </FixedSizeList>
       </SortableContext>
       <DragOverlay
         dropAnimation={null}
         children={
-          <QueueRow
+          <MemoizedQueueRow
             index={draggedIndex ?? 0}
             currentTrackIndex={currentTrackIndex}
             dragging={dragging}

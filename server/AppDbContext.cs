@@ -11,8 +11,6 @@ namespace KoodaamoJukebox
 
         public DbSet<HlsSegment> HlsSegments { get; set; }
 
-        public DbSet<AudioFile> AudioFiles { get; set; }
-
         public DbSet<Track> Tracks { get; set; }
 
         public DbSet<User> Users { get; set; }
@@ -62,6 +60,7 @@ namespace KoodaamoJukebox
                 entity.HasIndex(p => p.WebpageUrlHash).IsUnique();
                 entity.Property(p => p.WebpageUrlHash).IsRequired();
                 entity.Property(p => p.DownloadUrl).IsRequired();
+                entity.Property(p => p.ExpiresAt).IsRequired();
             });
 
             modelBuilder.Entity<HlsSegment>(entity =>
@@ -73,15 +72,6 @@ namespace KoodaamoJukebox
                 entity.Property(s => s.WebpageUrlHash).IsRequired();
                 entity.Property(s => s.DownloadUrl).IsRequired();
                 entity.Property(s => s.DownloadUrlHash).IsRequired();
-            });
-
-            modelBuilder.Entity<AudioFile>(entity =>
-            {
-                entity.ToTable("AudioFiles");
-                entity.HasKey(a => a.Id);
-                entity.HasIndex(a => a.WebpageUrlHash).IsUnique();
-                entity.Property(a => a.WebpageUrlHash).IsRequired();
-                entity.Property(a => a.DownloadUrl).IsRequired();
             });
         }
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

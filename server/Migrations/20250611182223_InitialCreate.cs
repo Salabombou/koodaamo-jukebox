@@ -12,21 +12,6 @@ namespace server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "AudioFiles",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AudioFiles", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "HlsPlaylists",
                 columns: table => new
                 {
@@ -34,6 +19,7 @@ namespace server.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
                     DownloadUrl = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAt = table.Column<long>(type: "bigint", nullable: false),
                     Path = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
@@ -131,12 +117,6 @@ namespace server.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AudioFiles_WebpageUrlHash",
-                table: "AudioFiles",
-                column: "WebpageUrlHash",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_HlsPlaylists_WebpageUrlHash",
                 table: "HlsPlaylists",
                 column: "WebpageUrlHash",
@@ -206,9 +186,6 @@ namespace server.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "AudioFiles");
-
             migrationBuilder.DropTable(
                 name: "HlsPlaylists");
 

@@ -17,6 +17,9 @@ namespace KoodaamoJukebox.Models
         [Required]
         public required string DownloadUrl { get; set; }
 
+        [Required]
+        public required long ExpiresAt { get; set; }
+
         public string? Path { get; set; }
     }
 }
