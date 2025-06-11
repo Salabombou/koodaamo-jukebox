@@ -18,4 +18,6 @@ RUN apk add --no-cache curl python3 ffmpeg
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
     chmod a+rx /usr/local/bin/yt-dlp
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "server.dll"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
