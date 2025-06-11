@@ -40,5 +40,5 @@ export function getQueueItemsHash() {
 }
 
 export function getTracks(trackIds: string[]) {
-  return apiClient.post<Map<string, Track>>(`/api/track`, { trackIds });
+  return apiClient.post<Map<string, Track>>(`/api/track`, { webpageUrlHashes: trackIds });
 }

@@ -43,10 +43,10 @@ async def get_token_from_context(ctx: commands.Context) -> str:
 
 
 
-async def add_tracks(tracks: List[str]) -> None:
-    resp = await _client.post("/api/tracks", json=tracks, headers={"Authorization": f"Bearer {API_KEY}"})
-    resp.raise_for_status()
-    return resp.json()
+#async def add_tracks(tracks: List[str]) -> None:
+    #resp = await _client.post("/api/tracks", json=tracks, headers={"Authorization": f"Bearer {API_KEY}"})
+    #resp.raise_for_status()
+    #return resp.json()
 
 async def add_to_queue(token: str, url_or_query: str) -> None:
     resp = await _client.post(f"/api/queue/items?urlOrQuery={quote(url_or_query)}", headers={"Authorization": f"Bearer {token}"}, timeout=60)

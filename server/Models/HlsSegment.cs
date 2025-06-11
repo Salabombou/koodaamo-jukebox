@@ -4,22 +4,22 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KoodaamoJukebox.Models
 {
-    [Table("Segments")]
-    [Index(nameof(TrackId))]
-    [Index(nameof(UrlHash), IsUnique = true)]
-    public class Segment
+    [Table("HlsSegments")]
+    [Index(nameof(WebpageUrlHash))]
+    [Index(nameof(DownloadUrlHash), IsUnique = true)]
+    public class HlsSegment
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        public required string TrackId { get; set; }
+        public required string WebpageUrlHash { get; set; }
 
         [Required]
-        public required string Url { get; set; }
+        public required string DownloadUrl { get; set; }
 
         [Required]
-        public required string UrlHash { get; set; }
+        public required string DownloadUrlHash { get; set; }
 
         public string? Path { get; set; }
     }

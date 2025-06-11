@@ -7,9 +7,11 @@ namespace KoodaamoJukebox
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<Playlist> Playlists { get; set; }
+        public DbSet<HlsPlaylist> HlsPlaylists { get; set; }
 
-        public DbSet<Segment> Segments { get; set; }
+        public DbSet<HlsSegment> HlsSegments { get; set; }
+
+        public DbSet<AudioFile> AudioFiles { get; set; }
 
         public DbSet<Track> Tracks { get; set; }
 
@@ -21,64 +23,65 @@ namespace KoodaamoJukebox
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Playlist>(entity =>
-            {
-            entity.ToTable("Playlists");
-            entity.HasIndex(p => p.TrackId).IsUnique();
-            entity.Property(e => e.TrackId).IsRequired();
-            entity.Property(e => e.Url).IsRequired();
-            entity.Property(e => e.ExpiresAt).IsRequired();
-            entity.Property(e => e.IsLive).IsRequired();
-            });
 
-            modelBuilder.Entity<Segment>(entity =>
-            {
-            entity.ToTable("Segments");
-            entity.HasIndex(s => s.TrackId);
-            entity.HasIndex(s => s.UrlHash);
-            entity.Property(s => s.TrackId).IsRequired();
-            entity.Property(s => s.UrlHash).IsRequired();
-            entity.Property(s => s.Url).IsRequired();
-            });
-
-            modelBuilder.Entity<Track>(entity =>
-            {
-            entity.ToTable("Tracks");
-            entity.HasIndex(t => t.TrackId).IsUnique();
-            entity.Property(t => t.TrackId).IsRequired();
-            entity.Property(t => t.Title).IsRequired();
-            entity.Property(t => t.Uploader).IsRequired();
-            entity.Property(t => t.AlbumArt).IsRequired(false);
-            });
 
             modelBuilder.Entity<User>(entity =>
             {
-            entity.ToTable("Users");
-            entity.HasIndex(u => u.UserId).IsUnique();
-            entity.Property(u => u.UserId).IsRequired();
-            entity.Property(u => u.Username).IsRequired();
+                entity.ToTable("Users");
+                entity.HasIndex(u => u.UserId).IsUnique();
+                entity.Property(u => u.UserId).IsRequired();
+                entity.Property(u => u.Username).IsRequired();
             });
 
             modelBuilder.Entity<RoomInfo>(entity =>
             {
-            entity.ToTable("Queues");
-            entity.HasIndex(q => q.InstanceId).IsUnique();
-            entity.HasIndex(q => q.CurrentTrackIndex);
-            entity.Property(q => q.InstanceId).IsRequired();
-            entity.Property(q => q.isPaused).IsRequired();
-            entity.Property(q => q.IsLooping).IsRequired();
+                entity.ToTable("Queues");
+                entity.HasIndex(q => q.InstanceId).IsUnique();
+                entity.HasIndex(q => q.CurrentTrackIndex);
+                entity.Property(q => q.InstanceId).IsRequired();
+                entity.Property(q => q.isPaused).IsRequired();
+                entity.Property(q => q.IsLooping).IsRequired();
             });
 
             modelBuilder.Entity<QueueItem>(entity =>
             {
-            entity.ToTable("QueueItems");
-            entity.HasIndex(qi => qi.TrackId);
-            entity.HasIndex(qi => qi.Index);
-            entity.Property(qi => qi.InstanceId).IsRequired();
-            entity.Property(qi => qi.TrackId).IsRequired();
-            entity.Property(qi => qi.Index).IsRequired();
-            entity.Property(qi => qi.CreatedAt).IsRequired();
-            entity.Property(qi => qi.UpdatedAt).IsRequired();
+                entity.ToTable("QueueItems");
+                entity.HasIndex(qi => qi.TrackId);
+                entity.HasIndex(qi => qi.Index);
+                entity.Property(qi => qi.InstanceId).IsRequired();
+                entity.Property(qi => qi.TrackId).IsRequired();
+                entity.Property(qi => qi.Index).IsRequired();
+                entity.Property(qi => qi.CreatedAt).IsRequired();
+                entity.Property(qi => qi.UpdatedAt).IsRequired();
+            });
+
+            modelBuilder.Entity<HlsPlaylist>(entity =>
+            {
+                entity.ToTable("HlsPlaylists");
+                entity.HasKey(p => p.Id);
+                entity.HasIndex(p => p.WebpageUrlHash).IsUnique();
+                entity.Property(p => p.WebpageUrlHash).IsRequired();
+                entity.Property(p => p.DownloadUrl).IsRequired();
+            });
+
+            modelBuilder.Entity<HlsSegment>(entity =>
+            {
+                entity.ToTable("HlsSegments");
+                entity.HasKey(s => s.Id);
+                entity.HasIndex(s => s.WebpageUrlHash);
+                entity.HasIndex(s => s.DownloadUrlHash).IsUnique();
+                entity.Property(s => s.WebpageUrlHash).IsRequired();
+                entity.Property(s => s.DownloadUrl).IsRequired();
+                entity.Property(s => s.DownloadUrlHash).IsRequired();
+            });
+
+            modelBuilder.Entity<AudioFile>(entity =>
+            {
+                entity.ToTable("AudioFiles");
+                entity.HasKey(a => a.Id);
+                entity.HasIndex(a => a.WebpageUrlHash).IsUnique();
+                entity.Property(a => a.WebpageUrlHash).IsRequired();
+                entity.Property(a => a.DownloadUrl).IsRequired();
             });
         }
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

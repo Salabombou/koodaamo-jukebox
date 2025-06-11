@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KoodaamoJukebox.Models
 {
-    [Table("HlsPlaylists")]
+    [Table("AudioFiles")]
     [Index(nameof(WebpageUrlHash), IsUnique = true)]
-    public class HlsPlaylist
+    public class AudioFile
     {
         [Key]
         public int Id { get; set; }

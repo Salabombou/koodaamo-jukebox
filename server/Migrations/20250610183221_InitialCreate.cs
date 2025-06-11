@@ -12,21 +12,49 @@ namespace server.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Playlists",
+                name: "AudioFiles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    TrackId = table.Column<string>(type: "text", nullable: false),
-                    Url = table.Column<string>(type: "text", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: true),
-                    Duration = table.Column<float>(type: "real", nullable: true),
-                    ExpiresAt = table.Column<long>(type: "bigint", nullable: false),
-                    IsLive = table.Column<bool>(type: "boolean", nullable: false)
+                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
+                    Path = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Playlists", x => x.Id);
+                    table.PrimaryKey("PK_AudioFiles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HlsPlaylists",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
+                    Path = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HlsPlaylists", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HlsSegments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrlHash = table.Column<string>(type: "text", nullable: false),
+                    Path = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HlsSegments", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -68,31 +96,18 @@ namespace server.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Segments",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    TrackId = table.Column<string>(type: "text", nullable: false),
-                    Url = table.Column<string>(type: "text", nullable: false),
-                    UrlHash = table.Column<string>(type: "text", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Segments", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Tracks",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    TrackId = table.Column<string>(type: "text", nullable: false),
+                    Type = table.Column<int>(type: "integer", nullable: false),
+                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
+                    WebpageUrl = table.Column<string>(type: "text", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false),
-                    Uploader = table.Column<string>(type: "text", nullable: false),
-                    AlbumArt = table.Column<string>(type: "text", nullable: true)
+                    Uploader = table.Column<string>(type: "text", nullable: true),
+                    ThumbnailHigh = table.Column<string>(type: "text", nullable: true),
+                    ThumbnailLow = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -116,10 +131,27 @@ namespace server.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Playlists_TrackId",
-                table: "Playlists",
-                column: "TrackId",
+                name: "IX_AudioFiles_WebpageUrlHash",
+                table: "AudioFiles",
+                column: "WebpageUrlHash",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HlsPlaylists_WebpageUrlHash",
+                table: "HlsPlaylists",
+                column: "WebpageUrlHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HlsSegments_DownloadUrlHash",
+                table: "HlsSegments",
+                column: "DownloadUrlHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HlsSegments_WebpageUrlHash",
+                table: "HlsSegments",
+                column: "WebpageUrlHash");
 
             migrationBuilder.CreateIndex(
                 name: "IX_QueueItems_Index",
@@ -143,20 +175,15 @@ namespace server.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Segments_TrackId",
-                table: "Segments",
-                column: "TrackId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Segments_UrlHash",
-                table: "Segments",
-                column: "UrlHash",
+                name: "IX_Tracks_WebpageUrl",
+                table: "Tracks",
+                column: "WebpageUrl",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Tracks_TrackId",
+                name: "IX_Tracks_WebpageUrlHash",
                 table: "Tracks",
-                column: "TrackId",
+                column: "WebpageUrlHash",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -180,16 +207,19 @@ namespace server.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Playlists");
+                name: "AudioFiles");
+
+            migrationBuilder.DropTable(
+                name: "HlsPlaylists");
+
+            migrationBuilder.DropTable(
+                name: "HlsSegments");
 
             migrationBuilder.DropTable(
                 name: "QueueItems");
 
             migrationBuilder.DropTable(
                 name: "Queues");
-
-            migrationBuilder.DropTable(
-                name: "Segments");
 
             migrationBuilder.DropTable(
                 name: "Tracks");

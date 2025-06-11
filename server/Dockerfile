@@ -15,6 +15,7 @@ RUN dotnet publish "server.csproj" -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 RUN apk add --no-cache curl python3
+ENV IDK=12
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
     chmod a+rx /usr/local/bin/yt-dlp
 COPY --from=publish /app/publish .

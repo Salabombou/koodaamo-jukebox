@@ -27,7 +27,7 @@ namespace KoodaamoJukebox.Services
             _queueService = scope.ServiceProvider.GetRequiredService<QueueService>();
 
             // Delete all playlist and segment files at startup
-            var allPlaylists = await _dbContext.Playlists.ToListAsync(stoppingToken);
+            var allPlaylists = await _dbContext.HlsPlaylists.ToListAsync(stoppingToken);
             foreach (var playlist in allPlaylists)
             {
                 if (!string.IsNullOrEmpty(playlist.Path) && File.Exists(playlist.Path))
@@ -44,7 +44,7 @@ namespace KoodaamoJukebox.Services
                 }
                 playlist.Path = null;
             }
-            var allSegments = await _dbContext.Segments.ToListAsync(stoppingToken);
+            var allSegments = await _dbContext.HlsSegments.ToListAsync(stoppingToken);
             foreach (var segment in allSegments)
             {
                 if (!string.IsNullOrEmpty(segment.Path) && File.Exists(segment.Path))
@@ -114,18 +114,14 @@ namespace KoodaamoJukebox.Services
 
         private async Task DeleteExpiredPlaylistsAsync(CancellationToken stoppingToken)
         {
-            var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var expiredPlaylists = await _dbContext.Playlists
-                .Where(p =>
-                    !_dbContext.RoomInfos.Any(q =>
-                        _dbContext.QueueItems.Any(qi =>
-                            qi.InstanceId == q.InstanceId &&
-                            qi.Index == q.CurrentTrackIndex &&
-                            qi.TrackId == p.TrackId
-                        )
-                    ) &&
-                    p.ExpiresAt <= currentTime
-                )
+            // There is no ExpiresAt or TrackId in HlsPlaylist. We'll delete playlists not referenced by any queue item.
+            var referencedHashes = await _dbContext.QueueItems
+                .Select(qi => qi.TrackId)
+                .Distinct()
+                .ToListAsync(stoppingToken);
+
+            var expiredPlaylists = await _dbContext.HlsPlaylists
+                .Where(p => !referencedHashes.Contains(p.WebpageUrlHash))
                 .ToListAsync(stoppingToken);
 
             if (expiredPlaylists.Count == 0)
@@ -133,7 +129,7 @@ namespace KoodaamoJukebox.Services
                 return;
             }
 
-            _dbContext.Playlists.RemoveRange(expiredPlaylists);
+            _dbContext.HlsPlaylists.RemoveRange(expiredPlaylists);
             await _dbContext.SaveChangesAsync(stoppingToken);
 
             foreach (var playlist in expiredPlaylists)
@@ -153,8 +149,10 @@ namespace KoodaamoJukebox.Services
 
             _logger.LogInformation("Deleted {Count} expired playlists", expiredPlaylists.Count);
 
-            var segmentsToDelete = await _dbContext.Segments
-                .Where(s => expiredPlaylists.Any(p => p.TrackId == s.TrackId))
+            // Delete segments whose WebpageUrlHash matches the deleted playlists
+            var expiredHashes = expiredPlaylists.Select(p => p.WebpageUrlHash).ToList();
+            var segmentsToDelete = await _dbContext.HlsSegments
+                .Where(s => expiredHashes.Contains(s.WebpageUrlHash))
                 .ToListAsync(stoppingToken);
 
             if (segmentsToDelete.Count == 0)
@@ -162,7 +160,7 @@ namespace KoodaamoJukebox.Services
                 return;
             }
 
-            _dbContext.Segments.RemoveRange(segmentsToDelete);
+            _dbContext.HlsSegments.RemoveRange(segmentsToDelete);
             await _dbContext.SaveChangesAsync(stoppingToken);
 
             foreach (var segment in segmentsToDelete)
@@ -185,8 +183,14 @@ namespace KoodaamoJukebox.Services
 
         private async Task DeleteIsolatedTracksAsync(CancellationToken stoppingToken)
         {
+            // Remove tracks whose WebpageUrlHash is not referenced by any QueueItem.TrackId
+            var referencedTrackIds = await _dbContext.QueueItems
+                .Select(qi => qi.TrackId)
+                .Distinct()
+                .ToListAsync(stoppingToken);
+
             var isolatedTracks = await _dbContext.Tracks
-                .Where(t => _dbContext.QueueItems.Any(qi => qi.TrackId != t.TrackId))
+                .Where(t => !referencedTrackIds.Contains(t.WebpageUrlHash))
                 .ToListAsync(stoppingToken);
 
             if (isolatedTracks.Count == 0)

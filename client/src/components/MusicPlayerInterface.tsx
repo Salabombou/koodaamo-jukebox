@@ -51,10 +51,10 @@ export default function MusicPlayerInterface({
     <div className="flex flex-col ml-6">
       <div className="card h-180 bg-base-200 rounded-none">
         <figure className="select-none bg-base-300 dark:bg-black">
-          <div className="w-136 h-136 flex align-middle justify-center">
-            {track?.trackId ? (
+          <div className="w-240 h-135 flex align-middle justify-center">
+            {track?.id ? (
               <img
-                src={`/.proxy/api/track/${track.trackId}/thumbnail.jpg`}
+                src={`/.proxy/api/track/${track.id}/thumbnail-high`}
                 width="100%"
                 height="100%"
               />

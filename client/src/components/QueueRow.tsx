@@ -55,14 +55,13 @@ export default function QueueRow({
         <div
           {...attributes}
           {...listeners}
-          className="w-12 flex flex-shrink-0 items-center overflow-hidden"
+          className="w-12 h-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black"
         >
-          <div className="select-none bg-base-300 dark:bg-black">
-            <img
-              src={`/.proxy/api/track/${track?.trackId}/thumbnail.jpg`}
-              className="object-cover"
-            />
-          </div>
+          <img
+            src={`/.proxy/api/track/${track?.id}/thumbnail-low`}
+            className="object-contain w-full h-full bg-black"
+            style={{ backgroundColor: "black" }}
+          />
         </div>
         <div
           className="flex flex-col overflow-hidden"

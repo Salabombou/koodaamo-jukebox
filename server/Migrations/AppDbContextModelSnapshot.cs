@@ -21,7 +21,7 @@ namespace server.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("KoodaamoJukebox.Models.Playlist", b =>
+            modelBuilder.Entity("KoodaamoJukebox.Models.AudioFile", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -29,32 +29,83 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<float?>("Duration")
-                        .HasColumnType("real");
-
-                    b.Property<long>("ExpiresAt")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsLive")
-                        .HasColumnType("boolean");
+                    b.Property<string>("DownloadUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Path")
                         .HasColumnType("text");
 
-                    b.Property<string>("TrackId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Url")
+                    b.Property<string>("WebpageUrlHash")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TrackId")
+                    b.HasIndex("WebpageUrlHash")
                         .IsUnique();
 
-                    b.ToTable("Playlists", (string)null);
+                    b.ToTable("AudioFiles", (string)null);
+                });
+
+            modelBuilder.Entity("KoodaamoJukebox.Models.HlsPlaylist", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DownloadUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WebpageUrlHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WebpageUrlHash")
+                        .IsUnique();
+
+                    b.ToTable("HlsPlaylists", (string)null);
+                });
+
+            modelBuilder.Entity("KoodaamoJukebox.Models.HlsSegment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DownloadUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DownloadUrlHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WebpageUrlHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DownloadUrlHash")
+                        .IsUnique();
+
+                    b.HasIndex("WebpageUrlHash");
+
+                    b.ToTable("HlsSegments", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.QueueItem", b =>
@@ -137,39 +188,6 @@ namespace server.Migrations
                     b.ToTable("Queues", (string)null);
                 });
 
-            modelBuilder.Entity("KoodaamoJukebox.Models.Segment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Path")
-                        .HasColumnType("text");
-
-                    b.Property<string>("TrackId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UrlHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TrackId");
-
-                    b.HasIndex("UrlHash")
-                        .IsUnique();
-
-                    b.ToTable("Segments", (string)null);
-                });
-
             modelBuilder.Entity("KoodaamoJukebox.Models.Track", b =>
                 {
                     b.Property<int>("Id")
@@ -178,27 +196,39 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AlbumArt")
+                    b.Property<string>("ThumbnailHigh")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ThumbnailLow")
                         .HasColumnType("text");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("TrackId")
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Uploader")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WebpageUrl")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Uploader")
+                    b.Property<string>("WebpageUrlHash")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TrackId")
+                    b.HasIndex("WebpageUrl")
                         .IsUnique();
 
-                    b.ToTable("Tracks", (string)null);
+                    b.HasIndex("WebpageUrlHash")
+                        .IsUnique();
+
+                    b.ToTable("Tracks");
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Models.User", b =>

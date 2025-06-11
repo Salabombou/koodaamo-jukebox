@@ -74,7 +74,7 @@ export default function App() {
       apiService.getTracks(Array.from(unknownTrackIds)).then((response) => {
         const newTracks = new Map(tracks);
         response.data.forEach((track) => {
-          newTracks.set(track.trackId, track);
+          newTracks.set(track.id, track);
         });
         setTracks(newTracks);
       });
@@ -125,8 +125,8 @@ export default function App() {
         hls.current.on(Hls.Events.MEDIA_ATTACHED, () => {
           console.log("HLS media attached");
           if (currentTrack) {
-            const newSrc = `/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`;
-            if (hls.current!.url?.includes(currentTrack.trackId)) {
+            const newSrc = `/.proxy/api/audio/${currentTrack.id}`;
+            if (hls.current!.url?.includes(currentTrack.id)) {
               console.log("Loading new track source:", newSrc);
               hls.current!.loadSource(newSrc);
             }
@@ -191,9 +191,9 @@ export default function App() {
       playTimeoutRef.current = null;
     }
     if (audioPlayer.current && currentTrack && hls.current) {
-      const src = `/.proxy/api/track/${currentTrack.trackId}/playlist.m3u8`;
-      if (!hls.current.url?.includes(currentTrack.trackId)) {
-        console.log("Loading new track source:", currentTrack.trackId);
+      const src = `/.proxy/api/audio/${currentTrack.id}`;
+      if (!hls.current.url?.includes(currentTrack.id)) {
+        console.log("Loading new track source:", currentTrack.id);
         hls.current.loadSource(src);
       }
       if (!paused && playingSince !== null) {

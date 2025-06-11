@@ -325,16 +325,16 @@ namespace KoodaamoJukebox.Services
                 }
 
                 // Deduplicate tracks by TrackId
-                var uniqueTracks = tracks.GroupBy(t => t.TrackId).Select(g => g.First()).ToList();
-                var trackIds = uniqueTracks.Select(t => t.TrackId).ToList();
+                var uniqueTracks = tracks.GroupBy(t => t.WebpageUrlHash).Select(g => g.First()).ToList();
+                var trackIds = uniqueTracks.Select(t => t.WebpageUrlHash).ToList();
 
                 var existingTracks = await _dbContext.Tracks
-                    .Where(t => trackIds.Contains(t.TrackId))
-                    .ToDictionaryAsync(t => t.TrackId);
+                    .Where(t => trackIds.Contains(t.WebpageUrlHash))
+                    .ToDictionaryAsync(t => t.WebpageUrlHash);
 
                 foreach (var track in uniqueTracks)
                 {
-                    if (existingTracks.TryGetValue(track.TrackId, out var existingTrack))
+                    if (existingTracks.TryGetValue(track.WebpageUrlHash, out var existingTrack))
                     {
                         bool updated = false;
                         if (existingTrack.Title != track.Title)
@@ -347,9 +347,19 @@ namespace KoodaamoJukebox.Services
                             existingTrack.Uploader = track.Uploader;
                             updated = true;
                         }
-                        if (existingTrack.AlbumArt != track.AlbumArt)
+                        if (existingTrack.ThumbnailHigh != track.ThumbnailHigh)
                         {
-                            existingTrack.AlbumArt = track.AlbumArt;
+                            existingTrack.ThumbnailHigh = track.ThumbnailHigh;
+                            updated = true;
+                        }
+                        if (existingTrack.ThumbnailLow != track.ThumbnailLow)
+                        {
+                            existingTrack.ThumbnailLow = track.ThumbnailLow;
+                            updated = true;
+                        }
+                        if (existingTrack.Type != track.Type)
+                        {
+                            existingTrack.Type = track.Type;
                             updated = true;
                         }
                         if (updated)
