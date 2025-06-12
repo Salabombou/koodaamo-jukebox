@@ -1,4 +1,4 @@
-import { useState, Ref } from "react";
+import { useState } from "react";
 
 import { FixedSizeList } from "react-window";
 
@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
-import { MemoizedQueueRow } from "./QueueRow";
+import QueueRow from "./QueueRow";
 import { QueueItem } from "../types/queue";
 
 const restrictToVerticalAxisCenterY: Modifier = ({
@@ -41,13 +41,12 @@ const restrictToVerticalAxisCenterY: Modifier = ({
 };
 
 interface QueueProps {
-  ref: Ref<HTMLDivElement>;
   height: number;
 
   tracks: Map<string, any>;
   queueList: QueueItem[];
   currentTrackIndex?: number;
-  dragging: boolean;
+  controlsDisabled?: boolean;
 
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
@@ -58,18 +57,10 @@ export default function Queue({
   tracks,
   queueList,
   currentTrackIndex,
-  dragging,
   onMove,
   onSkip,
-  ref,
+  controlsDisabled,
 }: QueueProps) {
-  /*if (
-    queueList.length === 0 ||
-    queueList.some((item) => !tracks.has(item.trackId))
-  ) {
-    return null;
-  }*/
-
   const [draggedIndex, setDraggedIndex] = useState<number>(0);
 
   return (
@@ -88,7 +79,7 @@ export default function Queue({
           typeof fromIndex === "number" &&
           typeof toIndex === "number" &&
           fromIndex !== toIndex &&
-          !dragging
+          !controlsDisabled
         ) {
           onMove(fromIndex, toIndex);
         }
@@ -99,7 +90,6 @@ export default function Queue({
         strategy={verticalListSortingStrategy}
       >
         <FixedSizeList
-          outerRef={ref}
           height={height}
           width="100%"
           className="hidden md:flex mx-6"
@@ -113,12 +103,12 @@ export default function Queue({
           }}
         >
           {(props) => (
-            <MemoizedQueueRow
+            <QueueRow
               {...props}
               tracks={tracks}
               currentTrackIndex={currentTrackIndex}
-              dragging={dragging}
               onSkip={onSkip}
+              controlsDisabled={controlsDisabled}
             />
           )}
         </FixedSizeList>
@@ -126,14 +116,14 @@ export default function Queue({
       <DragOverlay
         dropAnimation={null}
         children={
-          <MemoizedQueueRow
+          <QueueRow
             index={draggedIndex ?? 0}
             currentTrackIndex={currentTrackIndex}
-            dragging={dragging}
             onSkip={() => {}}
             style={{}}
             data={queueList}
             tracks={tracks}
+            controlsDisabled={controlsDisabled}
           />
         }
       ></DragOverlay>

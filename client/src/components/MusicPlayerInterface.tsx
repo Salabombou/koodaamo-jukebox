@@ -18,6 +18,7 @@ interface MusicPlayerInterfaceProps {
   timestamp: number;
   paused: boolean;
   looping: boolean;
+  disabled?: boolean;
   onShuffle: () => void;
   onBackward: () => void;
   onPlayToggle: () => void;
@@ -33,6 +34,7 @@ export default function MusicPlayerInterface({
   timestamp,
   paused,
   looping,
+  disabled = false,
   onShuffle,
   onBackward,
   onPlayToggle,
@@ -80,6 +82,7 @@ export default function MusicPlayerInterface({
                   value={timestamp}
                   className="range range-sm w-full"
                   onChange={(e) => onSeek(Number(e.target.value))}
+                  disabled={disabled}
                 />
                 <div className="flex justify-between select-none">
                   <label children={<Timestamp timestamp={timestamp} />} />
@@ -91,26 +94,31 @@ export default function MusicPlayerInterface({
                   className="btn btn-xl btn-ghost btn-circle"
                   onClick={onShuffle}
                   children={<FaShuffle />}
+                  disabled={disabled}
                 />
                 <button
                   className="btn btn-xl btn-ghost btn-circle"
                   onClick={onBackward}
                   children={<FaBackwardStep />}
+                  disabled={disabled}
                 />
                 <button
                   className="btn btn-xl btn-ghost btn-circle"
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
+                  disabled={disabled}
                 />
                 <button
                   className="btn btn-xl btn-ghost btn-circle"
                   onClick={onForward}
                   children={<FaForwardStep />}
+                  disabled={disabled}
                 />
                 <button
                   className={`btn btn-xl btn-ghost btn-circle ${looping ? "btn-accent" : ""}`}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -141,6 +149,7 @@ export default function MusicPlayerInterface({
                 onVolumeChange(0);
               }
             }}
+            disabled={disabled}
           />
         </div>
         <div className="w-full">
@@ -157,6 +166,7 @@ export default function MusicPlayerInterface({
               onVolumeChange(e.target.valueAsNumber);
             }}
             defaultValue={1}
+            disabled={disabled}
           />
         </div>
       </div>

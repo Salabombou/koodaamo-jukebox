@@ -9,12 +9,9 @@ import * as apiService from "./services/apiService";
 import { QueueItem } from "./types/queue";
 import { RoomInfo } from "./types/room";
 
-//import { useDiscordSDK } from "./hooks/useDiscordSdk";
-//import { useDiscordAuth } from "./hooks/useDiscordAuth";
-//import VolumeSlider from "./components/VolumeSlider";
 
 export default function App() {
-  const queue = useRef<HTMLDivElement>(null);
+  //const queue = useRef<HTMLDivElement>(null);
 
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
   const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
@@ -24,14 +21,7 @@ export default function App() {
     [number, QueueItem][]
   >([]); // buffer for items that are being updated
   const [queueList, setQueueList] = useState<QueueItem[]>([]);
-  const [dragging, setDragging] = useState<boolean>(false);
-
-  /*useEffect(() => {
-    apiService.getQueueItems()
-      .then((response) => {
-        setQueueItemsBuffer(response.data.map((item) => [item.id, item]));
-      });
-  }, []);*/
+  const [controlsDisabled, setControlsDisabled] = useState<boolean>(false);
 
   useEffect(() => {
     if (queueItemsBuffer.length === 0) return;
@@ -146,6 +136,13 @@ export default function App() {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 console.error("Network error encountered:", data);
+                console.error("Skipping to next track due to network error");
+                console.log(currentTrackIndex);
+                connection.current?.invoke(
+                  "Skip",
+                  Date.now(),
+                  currentTrackIndex + 1,
+                );
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 console.error("Media error encountered:", data);
@@ -323,63 +320,66 @@ export default function App() {
         timestamp={timestamp}
         paused={paused}
         looping={looping}
+        disabled={controlsDisabled}
         onShuffle={() => {
-          console.log("Shuffle toggle", !shuffled);
-          connection.current?.invoke("ShuffleToggle", Date.now(), !shuffled);
+          setControlsDisabled(true);
+          connection.current?.invoke("ShuffleToggle", Date.now(), !shuffled)
+            .finally(() => setControlsDisabled(false));
         }}
         onBackward={() => {
-          console.log("Backward skip", currentTrackIndex - 1);
-          connection.current?.invoke("Skip", Date.now(), currentTrackIndex - 1);
+          setControlsDisabled(true);
+          connection.current?.invoke("Skip", Date.now(), currentTrackIndex - 1)
+            .finally(() => setControlsDisabled(false));
         }}
         onForward={() => {
-          console.log("Forward skip", currentTrackIndex + 1);
-          connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1);
+          setControlsDisabled(true);
+          connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1)
+            .finally(() => setControlsDisabled(false));
         }}
         onPlayToggle={() => {
-          console.log("Play toggle", !paused);
-          connection.current?.invoke("PauseToggle", Date.now(), !paused);
+          setControlsDisabled(true);
+          connection.current?.invoke("PauseToggle", Date.now(), !paused)
+            .finally(() => setControlsDisabled(false));
         }}
         onLoopToggle={() => {
-          console.log("Loop toggle", !looping);
-          connection.current?.invoke("LoopToggle", Date.now(), !looping);
+          setControlsDisabled(true);
+          connection.current?.invoke("LoopToggle", Date.now(), !looping)
+            .finally(() => setControlsDisabled(false));
         }}
         onSeek={(seekTime) => {
+          setControlsDisabled(true);
           seeking.current = true;
           audioPlayer.current!.currentTime = seekTime;
           audioPlayer.current!.pause();
           setTimestamp(seekTime);
-          console.log("Seeking to", seekTime);
           connection.current
             ?.invoke("Seek", Date.now(), seekTime)
             .catch((err) => {
               console.error("Error seeking:", err);
               seeking.current = false;
-            });
+            })
+            .finally(() => setControlsDisabled(false));
         }}
         onVolumeChange={(volume) => {
-          console.log("onVolumeChange", volume);
           audioPlayer.current!.volume = volume;
         }}
       />
       <Queuee
-        ref={queue}
         height={listHeight}
         tracks={tracks}
         queueList={queueList}
         currentTrackIndex={currentTrackIndex}
-        dragging={dragging}
+        controlsDisabled={controlsDisabled}
         onSkip={(index) => {
-          console.log("onSkip", index);
-          connection.current?.invoke("Skip", Date.now(), index);
+          setControlsDisabled(true);
+          connection.current?.invoke("Skip", Date.now(), index)
+            .finally(() => setControlsDisabled(false));
         }}
         onMove={(fromIndex, toIndex) => {
-          console.log("onMove", fromIndex, toIndex);
-          setDragging(true);
+          setControlsDisabled(true);
           connection.current
             ?.invoke("Move", Date.now(), fromIndex, toIndex)
-            .finally(() => {
-              setDragging(false);
-            });
+            .finally(() => setControlsDisabled(false));
         }}
       />
     </div>
