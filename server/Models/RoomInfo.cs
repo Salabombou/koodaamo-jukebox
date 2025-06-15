@@ -6,16 +6,19 @@ using Microsoft.EntityFrameworkCore;
 namespace KoodaamoJukebox.Models
 {
     [Table("Queues")]
-    [Index(nameof(InstanceId), IsUnique = true)]
+    [Index(nameof(RoomCode), IsUnique = true)]
     public class RoomInfo
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        public required string InstanceId { get; set; }
+        public required string RoomCode { get; set; }
 
-        public bool isPaused { get; set; } = true;
+        [Required]
+        public required bool IsEmbedded { get; set; }
+
+        public bool IsPaused { get; set; } = true;
 
         public bool IsLooping { get; set; } = false;
 
@@ -32,15 +35,15 @@ namespace KoodaamoJukebox.Models
     {
         public RoomInfoDto(RoomInfo queue)
         {
-            InstanceId = queue.InstanceId;
-            IsPaused = queue.isPaused;
+            RoomCode = queue.RoomCode;
+            IsPaused = queue.IsPaused;
             IsLooping = queue.IsLooping;
             IsShuffled = queue.IsShuffled;
             CurrentTrackIndex = queue.CurrentTrackIndex;
             PlayingSince = queue.PlayingSince;
         }
         
-        public string InstanceId { get; set; }
+        public string RoomCode { get; set; }
         public bool IsPaused { get; set; }
         public bool IsLooping { get; set; }
         public bool IsShuffled { get; set; }

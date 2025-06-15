@@ -5,12 +5,14 @@ import {
   FaPause,
   FaRepeat,
   FaShuffle,
-  FaQuestion,
 } from "react-icons/fa6";
 import Timestamp from "./Timestamp";
 import { FaVolumeMute, FaVolumeUp } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
 import { Track } from "../types/track";
+import { useDiscordSDK } from "../hooks/useDiscordSdk";
+import { thumbnailUrlCacheHigh } from "../services/thumbnailCache";
+import * as colorService from "../services/colorService";
 
 interface MusicPlayerInterfaceProps {
   track: Track | null;
@@ -26,6 +28,7 @@ interface MusicPlayerInterfaceProps {
   onLoopToggle: () => void;
   onVolumeChange: (volume: number) => void;
   onSeek: (seekTime: number) => void; // Added prop
+  onPrimaryColorChange: (color: string) => void;
 }
 
 export default function MusicPlayerInterface({
@@ -42,32 +45,73 @@ export default function MusicPlayerInterface({
   onLoopToggle,
   onVolumeChange,
   onSeek, // Added prop
+  onPrimaryColorChange,
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(1);
+  const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
 
-  useEffect(() => {}, [volume]);
+  const discordSDK = useDiscordSDK();
+
+  let thumbUrl = "/black.jpg";
+  if (track?.id) {
+    if (thumbnailUrlCacheHigh.has(track.id)) {
+      thumbUrl = thumbnailUrlCacheHigh.get(track.id)!;
+    } else {
+      thumbUrl = `/api/track/${track.id}/thumbnail-high`;
+      thumbnailUrlCacheHigh.set(track.id, thumbUrl);
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+    let objectUrl: string | null = null;
+    async function fetchImage() {
+      if (!thumbUrl) return;
+      try {
+        const response = await fetch(
+          `${discordSDK.isEmbedded ? "/.proxy/" : ""}${thumbUrl}`,
+        );
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (isMounted) setImageBlobUrl(objectUrl);
+      } catch (e) {
+        setImageBlobUrl(null);
+      }
+    }
+    fetchImage();
+    return () => {
+      isMounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [thumbUrl, discordSDK.isEmbedded]);
 
   return (
-    <div className="flex flex-col ml-6">
-      <div className="card h-180 bg-base-200 rounded-none">
-        <figure className="select-none bg-base-300 dark:bg-black">
-          <div className="w-240 h-135 flex align-middle justify-center">
-            {track?.id ? (
+    <div className="flex flex-col md:ml-6 w-full md:max-w-150 md:min-w-150">
+      <div className="card bg-music-player-interface h-38  xs:h-auto rounded-none">
+        <figure className="select-none dark:bg-black">
+          <div className="w-200 flex align-middle justify-center">
+            <div className="hidden xs:flex w-full h-full items-center justify-center">
               <img
-                src={`/.proxy/api/track/${track.id}/thumbnail-high`}
+                src={imageBlobUrl || ""}
                 width="100%"
                 height="100%"
+                className="object-cover"
+                onLoad={(e) => {
+                  colorService
+                    .getProminentColorFromUrl(e.currentTarget.src)
+                    .then((color) => {
+                      onPrimaryColorChange(color);
+                    });
+                }}
               />
-            ) : (
-              <FaQuestion size="100%" />
-            )}
+            </div>
           </div>
         </figure>
-        <div className="card-body x-10 h-50">
+        <div className="card-body h-50">
           <div>
-            <h2 className="card-title font-bold truncate">
+            <h2 className="card-title font-bold truncate ">
               {track?.title ?? "???"}
             </h2>
             <h4 className="text-sm truncate">{track?.uploader ?? "???"}</h4>
@@ -89,9 +133,9 @@ export default function MusicPlayerInterface({
                   <label children={<Timestamp timestamp={duration ?? 0} />} />
                 </div>
               </div>
-              <div className="flex justify-center items-center space-x-8">
+              <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className="btn btn-xl btn-ghost btn-circle"
+                  className="btn btn-xl btn-ghost btn-circle hover:bg-button-hover"
                   onClick={onShuffle}
                   children={<FaShuffle />}
                   disabled={disabled}
@@ -115,7 +159,9 @@ export default function MusicPlayerInterface({
                   disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle ${looping ? "btn-accent" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle ${
+                    looping ? "btn-accent" : ""
+                  }`}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
                   disabled={disabled}
@@ -125,7 +171,7 @@ export default function MusicPlayerInterface({
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-center w-full mt-2 px-4 bg-base-200">
+      <div className="hidden xs:flex items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
             className="btn btn-xl btn-ghost btn-circle"

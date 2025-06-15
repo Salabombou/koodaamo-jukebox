@@ -13,7 +13,7 @@ namespace KoodaamoJukebox.Models
         public int Id { get; set; }
 
         [Required]
-        public required string InstanceId { get; set; }
+        public required string RoomCode { get; set; }
 
         [Required]
         public required string TrackId { get; set; }

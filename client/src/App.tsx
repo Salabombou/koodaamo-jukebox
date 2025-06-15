@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import Queuee from "./components/Queue";
+import { useEffect, useRef, useState, useMemo } from "react";
+import Queue from "./components/Queue";
 import MusicPlayerInterface from "./components/MusicPlayerInterface";
 import { Track } from "./types/track";
 import Hls from "hls.js";
 import * as signalR from "@microsoft/signalr";
 import * as apiService from "./services/apiService";
+import * as timeService from "./services/timeService";
 
 import { QueueItem } from "./types/queue";
 import { RoomInfo } from "./types/room";
-
+import { useDiscordSDK } from "./hooks/useDiscordSdk";
 
 export default function App() {
-  //const queue = useRef<HTMLDivElement>(null);
+  const discordSDK = useDiscordSDK();
 
+  //const queue = useRef<HTMLDivElement>(null);
+  const roomInfo = useRef<RoomInfo | null>(null);
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
   const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
     new Map(),
@@ -20,8 +23,27 @@ export default function App() {
   const [queueItemsBuffer, setQueueItemsBuffer] = useState<
     [number, QueueItem][]
   >([]); // buffer for items that are being updated
-  const [queueList, setQueueList] = useState<QueueItem[]>([]);
   const [controlsDisabled, setControlsDisabled] = useState<boolean>(false);
+
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
+  const [playingSince, setPlayingSince] = useState<number | null>(null);
+
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+
+  //const [timestamp, setTimestamp] = useState<number>(0);
+  const [paused, setPaused] = useState<boolean>(true);
+  const [looping, setLooping] = useState<boolean>(false);
+  const [shuffled, setShuffled] = useState<boolean>(false);
+
+  const queueList = useMemo(() => {
+    const list = Array.from(queueItems.values());
+    if (shuffled) {
+      list.sort((a, b) => a.shuffledIndex - b.shuffledIndex);
+    } else {
+      list.sort((a, b) => a.index - b.index);
+    }
+    return list;
+  }, [queueItems, shuffled]);
 
   useEffect(() => {
     if (queueItemsBuffer.length === 0) return;
@@ -69,27 +91,7 @@ export default function App() {
         setTracks(newTracks);
       });
     }
-
-    setQueueList(() => {
-      const list = Array.from(queueItems.values());
-      if (shuffled) {
-        list.sort((a, b) => a.shuffledIndex - b.shuffledIndex);
-      } else {
-        list.sort((a, b) => a.index - b.index);
-      }
-      return list;
-    });
   }, [queueItems]);
-
-  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
-  const [playingSince, setPlayingSince] = useState<number | null>(null);
-
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-
-  //const [timestamp, setTimestamp] = useState<number>(0);
-  const [paused, setPaused] = useState<boolean>(true);
-  const [looping, setLooping] = useState<boolean>(false);
-  const [shuffled, setShuffled] = useState<boolean>(false);
 
   const audioPlayer = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
@@ -106,7 +108,7 @@ export default function App() {
             if (token) {
               xhr.setRequestHeader("Authorization", `Bearer ${token}`);
             }
-          },
+          }
         });
         hls.current.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
           const newDuration = data.levels?.[0]?.details?.totalduration ?? 0;
@@ -115,7 +117,7 @@ export default function App() {
         hls.current.on(Hls.Events.MEDIA_ATTACHED, () => {
           console.log("HLS media attached");
           if (currentTrack) {
-            const newSrc = `/.proxy/api/audio/${currentTrack.id}`;
+            const newSrc = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/audio/${currentTrack.id}/`;
             if (hls.current!.url?.includes(currentTrack.id)) {
               console.log("Loading new track source:", newSrc);
               hls.current!.loadSource(newSrc);
@@ -140,8 +142,8 @@ export default function App() {
                 console.log(currentTrackIndex);
                 connection.current?.invoke(
                   "Skip",
-                  Date.now(),
-                  currentTrackIndex + 1,
+                  Math.floor(timeService.getServerNow()),
+                  roomInfo.current!.currentTrackIndex + 1,
                 );
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
@@ -188,7 +190,7 @@ export default function App() {
       playTimeoutRef.current = null;
     }
     if (audioPlayer.current && currentTrack && hls.current) {
-      const src = `/.proxy/api/audio/${currentTrack.id}`;
+      const src = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/audio/${currentTrack.id}/`;
       if (!hls.current.url?.includes(currentTrack.id)) {
         console.log("Loading new track source:", currentTrack.id);
         hls.current.loadSource(src);
@@ -200,12 +202,15 @@ export default function App() {
               hls.current!.media?.paused &&
               !paused &&
               playingSince !== null &&
-              playingSince <= Date.now()
+              playingSince <= timeService.getServerNow()
             ) {
               audioPlayer.current!.play();
             }
           },
-          Math.max(0, playingSince ? playingSince - Date.now() : 0),
+          Math.max(
+            0,
+            playingSince ? playingSince - timeService.getServerNow() : 0,
+          ),
         );
       } else {
         audioPlayer.current.pause();
@@ -216,7 +221,7 @@ export default function App() {
   const connection = useRef<signalR.HubConnection | null>(null);
   useEffect(() => {
     connection.current = new signalR.HubConnectionBuilder()
-      .withUrl("/.proxy/api/hubs/queue", {
+      .withUrl(`${discordSDK.isEmbedded ? "/.proxy" : ""}/api/hubs/queue`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("authToken") ?? ""}`,
         },
@@ -230,6 +235,7 @@ export default function App() {
       "QueueUpdate",
       (queue: RoomInfo, updatedItems: QueueItem[]) => {
         console.log("QueueUpdate received", queue, updatedItems);
+        roomInfo.current = queue;
         setQueueItemsBuffer(updatedItems.map((item) => [item.id, item]));
 
         setPlayingSince(queue.playingSince);
@@ -256,6 +262,10 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    timeService.syncServerTime(discordSDK.isEmbedded);
+  }, [discordSDK.isEmbedded]);
+
   const [listHeight, setListHeight] = useState<number>(window.innerHeight - 24);
   useEffect(() => {
     const handleResize = () => {
@@ -272,17 +282,29 @@ export default function App() {
     seeking.current = false;
   }, [playingSince]);
 
+  // Add a helper to end seeking after a short delay
+  const endSeeking = () => {
+    setTimeout(() => {
+      seeking.current = false;
+    }, 300); // 300ms delay, adjust as needed
+  };
+
+  const [backgroundColor, setBackgroundColor] =
+    useState<string>("rgba(0, 0, 0, 0.5)");
+
   return (
-    <div className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden">
+    <div
+      className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden"
+      style={{ backgroundColor }}
+    >
       <audio
         ref={audioPlayer}
         onTimeUpdate={() => {
-          const currentTime = Date.now();
-
+          if (seeking.current) return; // Prevent snap-back during seek
+          const currentTime = timeService.getServerNow();
           if (!seeking.current && typeof playingSince === "number") {
             const elapsedTime =
               ((currentTime - playingSince) % (duration * 1000)) / 1000;
-
             if (
               elapsedTime >= 1 &&
               Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
@@ -302,15 +324,19 @@ export default function App() {
             console.log("Skipping to next track");
             connection.current?.invoke(
               "Skip",
-              Date.now(),
-              currentTrackIndex + 1,
+              Math.floor(timeService.getServerNow()),
+              roomInfo.current!.currentTrackIndex + 1,
             );
           }
         }}
         onCanPlayThrough={() => {
           if (!paused && playingSince === null) {
             console.log("Starting playback");
-            connection.current?.invoke("PauseToggle", Date.now(), false);
+            connection.current?.invoke(
+              "PauseToggle",
+              Math.floor(timeService.getServerNow()),
+              false,
+            );
           }
         }}
       />
@@ -321,64 +347,105 @@ export default function App() {
         paused={paused}
         looping={looping}
         disabled={controlsDisabled}
+        onPrimaryColorChange={(color) => {
+          setBackgroundColor(color);
+        }}
         onShuffle={() => {
           setControlsDisabled(true);
-          connection.current?.invoke("ShuffleToggle", Date.now(), !shuffled)
+          connection.current
+            ?.invoke(
+              "ShuffleToggle",
+              Math.floor(timeService.getServerNow()),
+              !roomInfo.current!.isShuffled,
+            )
             .finally(() => setControlsDisabled(false));
         }}
         onBackward={() => {
           setControlsDisabled(true);
-          connection.current?.invoke("Skip", Date.now(), currentTrackIndex - 1)
+          connection.current
+            ?.invoke(
+              "Skip",
+              Math.floor(timeService.getServerNow()),
+              roomInfo.current!.currentTrackIndex - 1,
+            )
             .finally(() => setControlsDisabled(false));
         }}
         onForward={() => {
           setControlsDisabled(true);
-          connection.current?.invoke("Skip", Date.now(), currentTrackIndex + 1)
+          connection.current
+            ?.invoke(
+              "Skip",
+              Math.floor(timeService.getServerNow()),
+              roomInfo.current!.currentTrackIndex + 1,
+            )
             .finally(() => setControlsDisabled(false));
         }}
         onPlayToggle={() => {
           setControlsDisabled(true);
-          connection.current?.invoke("PauseToggle", Date.now(), !paused)
+          connection.current
+            ?.invoke(
+              "PauseToggle",
+              Math.floor(timeService.getServerNow()),
+              !roomInfo.current!.isPaused,
+            )
             .finally(() => setControlsDisabled(false));
         }}
         onLoopToggle={() => {
           setControlsDisabled(true);
-          connection.current?.invoke("LoopToggle", Date.now(), !looping)
+          connection.current
+            ?.invoke(
+              "LoopToggle",
+              Math.floor(timeService.getServerNow()),
+              !roomInfo.current!.isLooping,
+            )
             .finally(() => setControlsDisabled(false));
         }}
         onSeek={(seekTime) => {
+          if (seeking.current) return; // Prevent multiple seeks
           setControlsDisabled(true);
+          console.log("Seeking to:", seekTime);
           seeking.current = true;
           audioPlayer.current!.currentTime = seekTime;
           audioPlayer.current!.pause();
           setTimestamp(seekTime);
           connection.current
-            ?.invoke("Seek", Date.now(), seekTime)
+            ?.invoke("Seek", Math.floor(timeService.getServerNow()), seekTime)
             .catch((err) => {
               console.error("Error seeking:", err);
               seeking.current = false;
             })
-            .finally(() => setControlsDisabled(false));
+            .finally(() => {
+              setControlsDisabled(false);
+              endSeeking(); // End seeking after a short delay
+            });
         }}
         onVolumeChange={(volume) => {
           audioPlayer.current!.volume = volume;
         }}
       />
-      <Queuee
+      <Queue
         height={listHeight}
         tracks={tracks}
         queueList={queueList}
         currentTrackIndex={currentTrackIndex}
         controlsDisabled={controlsDisabled}
+        backgroundColor={backgroundColor}
         onSkip={(index) => {
           setControlsDisabled(true);
-          connection.current?.invoke("Skip", Date.now(), index)
+          console.log(timeService.getServerNow());
+          connection.current
+            ?.invoke("Skip", Math.floor(timeService.getServerNow()), index)
             .finally(() => setControlsDisabled(false));
         }}
         onMove={(fromIndex, toIndex) => {
           setControlsDisabled(true);
           connection.current
-            ?.invoke("Move", Date.now(), fromIndex, toIndex)
+            ?.invoke(
+              "Move",
+              Math.floor(timeService.getServerNow()),
+              fromIndex,
+              toIndex,
+            )
             .finally(() => setControlsDisabled(false));
         }}
       />

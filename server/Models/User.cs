@@ -6,7 +6,7 @@ namespace KoodaamoJukebox.Models
 {
     [Table("Users")]
     [Index(nameof(UserId), IsUnique = true)]
-    [Index(nameof(AssociatedInstanceId))]
+    [Index(nameof(AssociatedRoomCode))]
     [Index(nameof(ConnectionId))]
     public class User
     {
@@ -15,11 +15,13 @@ namespace KoodaamoJukebox.Models
 
         [Required]
         public required long UserId { get; set; }
+        [Required]
+        public required bool IsEmbedded { get; set; }
 
         [Required]
         public required string Username { get; set; }
 
-        public string? AssociatedInstanceId { get; set; }
+        public string? AssociatedRoomCode { get; set; }
 
         public string? ConnectionId { get; set; }
     }
@@ -30,11 +32,11 @@ namespace KoodaamoJukebox.Models
         {
             UserId = user.UserId;
             Username = user.Username;
-            AssociatedInstanceId = user.AssociatedInstanceId;
+            AssociatedRoomCode = user.AssociatedRoomCode;
         }
 
         public long UserId { get; set; }
         public string Username { get; set; }
-        public string? AssociatedInstanceId { get; set; }
+        public string? AssociatedRoomCode { get; set; }
     }
 }

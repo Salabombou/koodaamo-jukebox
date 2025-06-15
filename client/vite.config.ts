@@ -7,14 +7,20 @@ export default defineConfig(({ mode }) => ({
   plugins: [tailwindcss(), react()],
   envDir: mode !== "production" ? "../" : ".",
   server: {
-    allowedHosts: [".trycloudflare.com"],
+    strictPort: true,
+    allowedHosts: true,
+    hmr: {
+      path: "/.proxy/hmr",
+      clientPort: 443,
+    },
     proxy: {
       "/api": {
-        target: "http://localhost:5185",
+        target: "http://localhost:5000",
         changeOrigin: true,
         ws: true,
       },
     },
+    port: 8080,
   },
   build: {
     outDir: "build",

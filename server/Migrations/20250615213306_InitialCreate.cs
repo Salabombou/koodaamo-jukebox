@@ -49,7 +49,7 @@ namespace server.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    InstanceId = table.Column<string>(type: "text", nullable: false),
+                    RoomCode = table.Column<string>(type: "text", nullable: false),
                     TrackId = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<int>(type: "integer", nullable: false),
                     ShuffleIndex = table.Column<int>(type: "integer", nullable: true),
@@ -68,8 +68,9 @@ namespace server.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    InstanceId = table.Column<string>(type: "text", nullable: false),
-                    isPaused = table.Column<bool>(type: "boolean", nullable: false),
+                    RoomCode = table.Column<string>(type: "text", nullable: false),
+                    IsEmbedded = table.Column<bool>(type: "boolean", nullable: false),
+                    IsPaused = table.Column<bool>(type: "boolean", nullable: false),
                     IsLooping = table.Column<bool>(type: "boolean", nullable: false),
                     IsShuffled = table.Column<bool>(type: "boolean", nullable: false),
                     CurrentTrackIndex = table.Column<int>(type: "integer", nullable: true),
@@ -107,8 +108,9 @@ namespace server.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     UserId = table.Column<long>(type: "bigint", nullable: false),
+                    IsEmbedded = table.Column<bool>(type: "boolean", nullable: false),
                     Username = table.Column<string>(type: "text", nullable: false),
-                    AssociatedInstanceId = table.Column<string>(type: "text", nullable: true),
+                    AssociatedRoomCode = table.Column<string>(type: "text", nullable: true),
                     ConnectionId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
@@ -149,9 +151,9 @@ namespace server.Migrations
                 column: "CurrentTrackIndex");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Queues_InstanceId",
+                name: "IX_Queues_RoomCode",
                 table: "Queues",
-                column: "InstanceId",
+                column: "RoomCode",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -167,9 +169,9 @@ namespace server.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Users_AssociatedInstanceId",
+                name: "IX_Users_AssociatedRoomCode",
                 table: "Users",
-                column: "AssociatedInstanceId");
+                column: "AssociatedRoomCode");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_ConnectionId",

@@ -10,12 +10,8 @@ namespace KoodaamoJukebox
     {
         static void Main(string[] args)
         {
+            DotNetEnv.Env.Load();
             var builder = WebApplication.CreateBuilder(args);
-            if (!builder.Environment.IsProduction())
-            {
-                // Load environment variables from .env file in development
-                DotNetEnv.Env.Load("../.env");
-            }
 
             builder.Services.AddControllers();
             builder.Services.AddDbContext<AppDbContext>();
@@ -64,16 +60,16 @@ namespace KoodaamoJukebox
 
                             if (context.Principal.FindFirstValue("iss") == "jukebox-bot" &&
                                 string.IsNullOrEmpty(context.Principal.FindFirstValue("user_id")) &&
-                                string.IsNullOrEmpty(context.Principal.FindFirstValue("instance_id")))
+                                string.IsNullOrEmpty(context.Principal.FindFirstValue("room_code")))
                             {
                                 context.Success();
                                 return;
                             }
 
                             bool userIdIsValid = long.TryParse(context.Principal.FindFirstValue("user_id"), out long userId);
-                            string? associatedInstanceId = context.Principal.FindFirstValue("instance_id");
+                            string? associatedRoomCode = context.Principal.FindFirstValue("room_code");
 
-                            if (!userIdIsValid || string.IsNullOrWhiteSpace(associatedInstanceId))
+                            if (!userIdIsValid || string.IsNullOrWhiteSpace(associatedRoomCode))
                             {
                                 context.Fail("Unauthorized");
                                 return;
@@ -87,7 +83,7 @@ namespace KoodaamoJukebox
                                 return;
                             }
 
-                            if (user.AssociatedInstanceId != associatedInstanceId)
+                            if (user.AssociatedRoomCode != associatedRoomCode)
                             {
                                 context.Fail("Unauthorized");
                                 return;

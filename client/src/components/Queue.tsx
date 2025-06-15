@@ -1,7 +1,5 @@
 import { useState } from "react";
-
 import { FixedSizeList } from "react-window";
-
 import {
   DndContext,
   DragOverlay,
@@ -15,7 +13,9 @@ import {
 import { getEventCoordinates } from "@dnd-kit/utilities";
 import QueueRow from "./QueueRow";
 import { QueueItem } from "../types/queue";
+import { Track } from "../types/track";
 
+// Restrict drag to vertical axis
 const restrictToVerticalAxisCenterY: Modifier = ({
   transform,
   draggingNodeRect,
@@ -23,31 +23,24 @@ const restrictToVerticalAxisCenterY: Modifier = ({
 }) => {
   if (draggingNodeRect && activatorEvent) {
     const activatorCoordinates = getEventCoordinates(activatorEvent);
-
-    if (!activatorCoordinates) {
-      return transform;
-    }
-
+    if (!activatorCoordinates) return transform;
     const offsetY = activatorCoordinates.y - draggingNodeRect.top;
-
     return {
       ...transform,
       x: 0,
       y: transform.y + offsetY - draggingNodeRect.height / 2,
     };
   }
-
   return transform;
 };
 
 interface QueueProps {
   height: number;
-
-  tracks: Map<string, any>;
+  tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrackIndex?: number;
   controlsDisabled?: boolean;
-
+  backgroundColor: string;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
 }
@@ -57,24 +50,24 @@ export default function Queue({
   tracks,
   queueList,
   currentTrackIndex,
+  backgroundColor,
   onMove,
   onSkip,
   controlsDisabled,
 }: QueueProps) {
-  const [draggedIndex, setDraggedIndex] = useState<number>(0);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   return (
     <DndContext
       collisionDetection={closestCenter}
       modifiers={[restrictToVerticalAxisCenterY]}
       onDragStart={(e) => {
-        console.log("drag start", e.active.data.current?.sortable.index);
         setDraggedIndex(e.active.data.current?.sortable.index as number);
       }}
       onDragEnd={(e) => {
         const fromIndex = draggedIndex;
         const toIndex = e.over?.data.current?.sortable.index;
-        setDraggedIndex(0);
+        setDraggedIndex(null);
         if (
           typeof fromIndex === "number" &&
           typeof toIndex === "number" &&
@@ -95,7 +88,7 @@ export default function Queue({
           className="hidden md:flex mx-6"
           itemData={queueList}
           itemCount={queueList.length}
-          itemSize={50}
+          itemSize={56}
           style={{
             overflowX: "hidden",
             overflowY: "scroll",
@@ -107,26 +100,27 @@ export default function Queue({
               {...props}
               tracks={tracks}
               currentTrackIndex={currentTrackIndex}
+              backgroundColor={backgroundColor}
               onSkip={onSkip}
               controlsDisabled={controlsDisabled}
             />
           )}
         </FixedSizeList>
       </SortableContext>
-      <DragOverlay
-        dropAnimation={null}
-        children={
+      <DragOverlay dropAnimation={null}>
+        {draggedIndex !== null && (
           <QueueRow
-            index={draggedIndex ?? 0}
+            index={draggedIndex}
             currentTrackIndex={currentTrackIndex}
+            backgroundColor={backgroundColor}
             onSkip={() => {}}
             style={{}}
             data={queueList}
             tracks={tracks}
             controlsDisabled={controlsDisabled}
           />
-        }
-      ></DragOverlay>
+        )}
+      </DragOverlay>
     </DndContext>
   );
 }

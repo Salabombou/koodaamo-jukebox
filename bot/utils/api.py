@@ -13,13 +13,18 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     raise RuntimeError("JWT_SECRET environment variable is not set")
 
+API_BASE_URL = os.getenv("API_BASE_URL")
+if not API_BASE_URL:
+    raise RuntimeError("API_BASE_URL environment variable is not set")
+
+
 API_KEY = jwt.encode({
     "iss": "jukebox-bot",
     "exp": datetime.now() + timedelta(weeks=9999),
 }, JWT_SECRET, algorithm="HS256")
 
 _client = httpx.AsyncClient(
-    base_url=os.getenv("API_BASE_URL"),
+    base_url=API_BASE_URL,
 )
 
 async def _get_instance_id_from_context(ctx: commands.Context) -> str | None:
@@ -27,14 +32,14 @@ async def _get_instance_id_from_context(ctx: commands.Context) -> str | None:
     resp = await _client.get(f"/api/user/{user_id}", headers={"Authorization": f"Bearer {API_KEY}"})
     resp.raise_for_status()
 
-    return resp.json()["associatedInstanceId"]
+    return resp.json()["associatedRoomCode"]
 
 async def get_token_from_context(ctx: commands.Context) -> str:
-    instance_id = await _get_instance_id_from_context(ctx)
+    room_code = await _get_instance_id_from_context(ctx)
 
     payload = {
         "user_id": str(ctx.author.id),
-        "instance_id": instance_id,
+        "room_code": room_code,
         "exp": datetime.now() + timedelta(days=7),
         "iss": "jukebox-bot"
     }

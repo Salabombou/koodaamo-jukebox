@@ -10,56 +10,105 @@ import {
 import type { TAuthenticateResponse } from "../types/discord";
 import type { AuthResponse } from "../types/auth";
 import { useDiscordSDK } from "./useDiscordSdk";
+import { useRoomCode } from "./useRoomCode";
+import { useOAuth2Code } from "./useOAuth2Code";
 
 const DiscordAuthContext = createContext<TAuthenticateResponse | null>(null);
 
 export function useDiscordAuth() {
-  return useContext(DiscordAuthContext)! as TAuthenticateResponse;
+  return useContext(DiscordAuthContext);
 }
 
 export function DiscordAuthProvider({ children }: { children: ReactNode }) {
+  const discordSDK = useDiscordSDK();
+  const roomCode = useRoomCode();
+  const oAuth2Code = useOAuth2Code();
+
   async function setupDiscordAuth() {
-    const { code } = await discordSdk.commands.authorize({
-      client_id: import.meta.env.VITE_DISCORD_APPLICATION_ID,
-      response_type: "code",
-      state: "",
-      prompt: "none",
-      scope: ["identify"],
-    });
+    let accessToken = localStorage.getItem("accessToken");
+    let authToken = localStorage.getItem("authToken");
+    let refreshToken = localStorage.getItem("refreshToken");
+    let expiresAt = localStorage.getItem("expiresAt");
 
-    const response = await fetch("/.proxy/api/auth", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ code, instanceId: discordSdk.instanceId }),
-    }).then((res) => res.json() as Promise<AuthResponse>);
+    let responsePromise: Promise<Response>;
+    if (
+      !accessToken ||
+      !authToken ||
+      !refreshToken ||
+      !expiresAt ||
+      Date.now() >= parseInt(expiresAt)
+    ) {
+      responsePromise = fetch(
+        `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            oAuth2Code,
+            roomCode,
+            isEmbedded: discordSDK.isEmbedded,
+          }),
+        },
+      );
+    } else {
+      responsePromise = fetch(
+        `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth/refresh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            refreshToken,
+            roomCode,
+            isEmbedded: discordSDK.isEmbedded,
+          }),
+        },
+      );
+    }
 
-    const { accessToken, authToken } = response;
+    const response = await responsePromise
+      .then((res) => res.json() as Promise<AuthResponse>)
+      .catch((err) => {
+        console.error("Failed to fetch auth response:", err);
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("expiresAt");
+        window.location.reload();
+        throw err;
+      });
 
+    accessToken = response.accessToken;
+    authToken = response.authToken;
+    refreshToken = response.refreshToken;
+    expiresAt = String(Date.now() + response.expiresIn * 1000);
+
+    localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("authToken", authToken);
+    localStorage.setItem("refreshToken", refreshToken);
+    localStorage.setItem("expiresAt", expiresAt);
 
-    const newAuth = await discordSdk.commands.authenticate({
+    const newAuth = await discordSDK.commands.authenticate({
       access_token: accessToken,
     });
-
     setAuth(newAuth);
   }
 
   const [auth, setAuth] = useState<TAuthenticateResponse | null>(null);
 
-  const discordSdk = useDiscordSDK();
-
   const settingUp = useRef(false);
   useEffect(() => {
-    if (!settingUp.current) {
+    if (!settingUp.current && typeof oAuth2Code === "string") {
       settingUp.current = true;
       setupDiscordAuth();
     }
-  }, [discordSdk]);
+  }, [discordSDK, oAuth2Code]);
 
   if (auth === null) {
-    return <p>Authenticating...</p>;
+    return <p>Loading...</p>;
   }
 
   return (

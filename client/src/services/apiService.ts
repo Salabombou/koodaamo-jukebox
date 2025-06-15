@@ -4,7 +4,7 @@ import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
 
 const apiClient = axios.create({
-  baseURL: "/.proxy/",
+  baseURL: localStorage.getItem("isEmbedded") === "true" ? "/.proxy/" : "",
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -40,5 +40,7 @@ export function getQueueItemsHash() {
 }
 
 export function getTracks(trackIds: string[]) {
-  return apiClient.post<Map<string, Track>>(`/api/track`, { webpageUrlHashes: trackIds });
+  return apiClient.post<Map<string, Track>>(`/api/track`, {
+    webpageUrlHashes: trackIds,
+  });
 }

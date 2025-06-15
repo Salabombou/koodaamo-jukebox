@@ -31,7 +31,7 @@ namespace KoodaamoJukebox.Controllers
 
         }
 
-        [HttpGet("{webpageUrlHash}")]
+        [HttpGet("{webpageUrlHash}/")]
         public async Task<IActionResult> GetAudioTrack(string webpageUrlHash)
         {
             if (string.IsNullOrWhiteSpace(webpageUrlHash))
@@ -208,7 +208,7 @@ namespace KoodaamoJukebox.Controllers
                             _dbContext.HlsSegments.Add(segment);
                         }
                     }
-                    hlsPlaylistLines[i] = $"{webpageUrlHash}/playlist/segment-{segment.DownloadUrlHash}";
+                    hlsPlaylistLines[i] = $"playlist/segment-{segment.DownloadUrlHash}";
                 }
 
                 hlsPlaylistContent = string.Join("\n", hlsPlaylistLines);

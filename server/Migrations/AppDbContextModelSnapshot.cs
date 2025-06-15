@@ -98,12 +98,12 @@ namespace server.Migrations
                     b.Property<int>("Index")
                         .HasColumnType("integer");
 
-                    b.Property<string>("InstanceId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("RoomCode")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<int?>("ShuffleIndex")
                         .HasColumnType("integer");
@@ -135,11 +135,13 @@ namespace server.Migrations
                     b.Property<int?>("CurrentTrackIndex")
                         .HasColumnType("integer");
 
-                    b.Property<string>("InstanceId")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<bool>("IsEmbedded")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsLooping")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPaused")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsShuffled")
@@ -151,14 +153,15 @@ namespace server.Migrations
                     b.Property<long?>("PlayingSince")
                         .HasColumnType("bigint");
 
-                    b.Property<bool>("isPaused")
-                        .HasColumnType("boolean");
+                    b.Property<string>("RoomCode")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CurrentTrackIndex");
 
-                    b.HasIndex("InstanceId")
+                    b.HasIndex("RoomCode")
                         .IsUnique();
 
                     b.ToTable("Queues", (string)null);
@@ -215,11 +218,14 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AssociatedInstanceId")
+                    b.Property<string>("AssociatedRoomCode")
                         .HasColumnType("text");
 
                     b.Property<string>("ConnectionId")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsEmbedded")
+                        .HasColumnType("boolean");
 
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
@@ -230,7 +236,7 @@ namespace server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssociatedInstanceId");
+                    b.HasIndex("AssociatedRoomCode");
 
                     b.HasIndex("ConnectionId");
 

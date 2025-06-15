@@ -6,14 +6,14 @@ namespace KoodaamoJukebox.Services
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _semaphores = new();
 
-        public SemaphoreSlim GetSemaphore(string instanceId)
+        public SemaphoreSlim GetSemaphore(string roomCode)
         {
-            return _semaphores.GetOrAdd(instanceId, _ => new SemaphoreSlim(1, 1));
+            return _semaphores.GetOrAdd(roomCode, _ => new SemaphoreSlim(1, 1));
         }
 
-        public void RemoveSemaphore(string instanceId)
+        public void RemoveSemaphore(string roomCode)
         {
-            if (_semaphores.TryRemove(instanceId, out var semaphore))
+            if (_semaphores.TryRemove(roomCode, out var semaphore))
             {
                 semaphore.Dispose();
             }

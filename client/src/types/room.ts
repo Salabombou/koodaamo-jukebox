@@ -1,5 +1,5 @@
 export interface RoomInfo {
-  instanceId: string;
+  roomCode: string;
   isPaused: boolean;
   isLooping: boolean;
   isShuffled: boolean;

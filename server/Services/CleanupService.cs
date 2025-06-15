@@ -80,7 +80,7 @@ namespace KoodaamoJukebox.Services
         private async Task DeleteIsolatedQueues(CancellationToken stoppingToken)
         {
             var isolatedQueues = await _dbContext.RoomInfos
-                .Where(q => _dbContext.Users.Any(u => u.AssociatedInstanceId != q.InstanceId))
+                .Where(q => _dbContext.Users.Any(u => u.AssociatedRoomCode != q.RoomCode))
                 .ToListAsync(stoppingToken);
 
             if (isolatedQueues.Count == 0)
@@ -90,8 +90,8 @@ namespace KoodaamoJukebox.Services
 
             foreach (var queue in isolatedQueues)
             {
-                _logger.LogInformation("Deleting isolated queue: {InstanceId}", queue.InstanceId);
-                _queueService.RemoveSemaphore(queue.InstanceId);
+                _logger.LogInformation("Deleting isolated queue: {RoomCode}", queue.RoomCode);
+                _queueService.RemoveSemaphore(queue.RoomCode);
                 _dbContext.RoomInfos.Remove(queue);
             }
             await _dbContext.SaveChangesAsync(stoppingToken);
@@ -101,7 +101,7 @@ namespace KoodaamoJukebox.Services
         private async Task DeleteIsolatedQueueItemsAsync(CancellationToken stoppingToken)
         {
             var isolatedQueueItems = await _dbContext.QueueItems
-                .Where(qi => _dbContext.RoomInfos.Any(q => q.InstanceId != qi.InstanceId))
+                .Where(qi => _dbContext.RoomInfos.Any(q => q.RoomCode != qi.RoomCode))
                 .ToListAsync(stoppingToken);
 
             if (isolatedQueueItems.Count == 0)

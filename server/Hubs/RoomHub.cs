@@ -49,10 +49,10 @@ namespace KoodaamoJukebox.Hubs
                 throw new UnauthorizedAccessException("UserId not found in user claims.");
             }
 
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
 
             var user = await _dbContext.Users
@@ -67,23 +67,23 @@ namespace KoodaamoJukebox.Hubs
             user.ConnectionId = Context.ConnectionId;
             await _dbContext.SaveChangesAsync();
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, instanceId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
 
             var roomInfo = await _dbContext.RoomInfos
-                .Where(q => q.InstanceId == instanceId)
+                .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync();
             if (roomInfo == null)
             {
-                throw new UnauthorizedAccessException("RoomInfo not found for the specified instance.");
+                throw new UnauthorizedAccessException("RoomInfo not found for the specified room code");
             }
 
             var queueItems = await _dbContext.QueueItems
-                .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .Select(qi => new QueueItemDto(qi))
                 .ToListAsync();
             if (queueItems == null)
             {
-                throw new UnauthorizedAccessException("QueueItems not found for the specified instance.");
+                throw new UnauthorizedAccessException("QueueItems not found for the specified room code");
             }
 
             await base.OnConnectedAsync();
@@ -97,10 +97,10 @@ namespace KoodaamoJukebox.Hubs
                 throw new UnauthorizedAccessException("UserId not found in user claims.");
             }
 
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
 
             var user = await _dbContext.Users
@@ -113,7 +113,7 @@ namespace KoodaamoJukebox.Hubs
                 await _dbContext.SaveChangesAsync();
             }
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, instanceId);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
 
             await base.OnDisconnectedAsync(exception);
         }
@@ -125,13 +125,13 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
 
-            await _queueService.Pause(instanceId, paused);
+            await _queueService.Pause(roomCode, paused);
         }
 
         public async Task LoopToggle(long sentAt, bool loop)
@@ -141,12 +141,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Loop(instanceId, loop);
+            await _queueService.Loop(roomCode, loop);
         }
 
         public async Task ShuffleToggle(long sentAt, bool shuffled)
@@ -156,12 +156,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Shuffle(instanceId, shuffled);
+            await _queueService.Shuffle(roomCode, shuffled);
         }
 
         public async Task Seek(long sentAt, int seekTime)
@@ -171,12 +171,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Seek(instanceId, seekTime);
+            await _queueService.Seek(roomCode, seekTime);
         }
 
         public async Task Skip(long sentAt, int index)
@@ -186,13 +186,13 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Skip(instanceId, index);
-            //await _queueService.Pause(instanceId, false); // Unpause after skipping
+            await _queueService.Skip(roomCode, index);
+            //await _queueService.Pause(roomCode, false); // Unpause after skipping
         }
 
         public async Task Move(long sentAt, int from, int to)
@@ -202,12 +202,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Move(instanceId, from, to);
+            await _queueService.Move(roomCode, from, to);
         }
 
         public async Task Add(long sentAt, string videoId)
@@ -217,12 +217,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Add(instanceId, videoId);
+            await _queueService.Add(roomCode, videoId);
         }
 
         public async Task Remove(long sentAt, int index)
@@ -232,12 +232,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Remove(instanceId, index);
+            await _queueService.Remove(roomCode, index);
         }
 
         /*public async Task Clear(long sentAt)
@@ -247,12 +247,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
             }
-            var instanceId = Context.User?.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("InstanceId not found in user claims.");
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Clear(instanceId);
+            await _queueService.Clear(roomCode);
         }*/
     }
 }

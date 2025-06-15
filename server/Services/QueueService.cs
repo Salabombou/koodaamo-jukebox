@@ -20,42 +20,42 @@ namespace KoodaamoJukebox.Services
             _hubContext = hubContext;
         }
 
-        private SemaphoreSlim GetSemaphore(string instanceId)
+        private SemaphoreSlim GetSemaphore(string roomCode)
         {
-            return _semaphores.GetOrAdd(instanceId, _ => new SemaphoreSlim(1, 1));
+            return _semaphores.GetOrAdd(roomCode, _ => new SemaphoreSlim(1, 1));
         }
 
-        public void RemoveSemaphore(string instanceId)
+        public void RemoveSemaphore(string roomCode)
         {
-            if (_semaphores.TryRemove(instanceId, out var semaphore))
+            if (_semaphores.TryRemove(roomCode, out var semaphore))
             {
                 semaphore.Dispose();
             }
         }
 
-        public async Task Pause(string instanceId, bool paused)
+        public async Task Pause(string roomCode, bool paused)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
                 var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
-                else if (queue.isPaused == paused && queue.PlayingSince.HasValue)
+                else if (queue.IsPaused == paused && queue.PlayingSince.HasValue)
                 {
                     // If the state is already the same, do nothing
                     return;
                 }
 
-                queue.isPaused = paused;
+                queue.IsPaused = paused;
                 if (paused)
                 {
                     queue.PausedAt = currentTime;
@@ -71,7 +71,7 @@ namespace KoodaamoJukebox.Services
                 }
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -79,9 +79,9 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Seek(string instanceId, int seekTime)
+        public async Task Seek(string roomCode, int seekTime)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
@@ -93,19 +93,19 @@ namespace KoodaamoJukebox.Services
                 long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 var roomInfo = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (roomInfo == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 if (!roomInfo.PlayingSince.HasValue)
                 {
                     roomInfo.PlayingSince = currentTime;
                 }
-                if (roomInfo.isPaused) {
+                if (roomInfo.IsPaused) {
                     roomInfo.PausedAt = currentTime;
                 }
 
@@ -113,7 +113,7 @@ namespace KoodaamoJukebox.Services
                 roomInfo.PlayingSince += elapsedTime - seekTime * 1000;
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -121,19 +121,19 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Loop(string instanceId, bool loop)
+        public async Task Loop(string roomCode, bool loop)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
                 if (queue.IsLooping == loop)
                 {
@@ -144,7 +144,7 @@ namespace KoodaamoJukebox.Services
                 queue.IsLooping = loop;
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -152,9 +152,9 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Skip(string instanceId, int index)
+        public async Task Skip(string roomCode, int index)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
@@ -164,12 +164,12 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 if (queue.CurrentTrackIndex == index)
@@ -178,19 +178,19 @@ namespace KoodaamoJukebox.Services
                     return;
                 }
 
-                var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.InstanceId == instanceId && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
+                var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
                 if (!indexIsValid)
                 {
                     throw new ArgumentOutOfRangeException(nameof(index), "Index is not valid for the current queue.");
                 }
 
                 queue.CurrentTrackIndex = index;
-                queue.isPaused = false;
+                queue.IsPaused = false;
                 queue.PlayingSince = null;
                 
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -198,9 +198,9 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Move(string instanceId, int from, int to)
+        public async Task Move(string roomCode, int from, int to)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
@@ -210,16 +210,16 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 var queueList = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                     .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                     .ToListAsync();
 
@@ -288,7 +288,7 @@ namespace KoodaamoJukebox.Services
                 var updatedItems = queueList.Select(i => new QueueItemDto(i)).ToList();
 
                 // Send move command to the group
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -296,9 +296,9 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Add(string instanceId, string urlOrQuery)
+        public async Task Add(string roomCode, string urlOrQuery)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
@@ -308,12 +308,12 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 var updatedItems = new List<QueueItemDto>();
@@ -378,7 +378,7 @@ namespace KoodaamoJukebox.Services
 
                 // insert new items into the queue to be played next
                 var queueItems = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                     .ToListAsync();
 
                 int insertIndex = queue.CurrentTrackIndex ?? -1;
@@ -428,7 +428,7 @@ namespace KoodaamoJukebox.Services
                     var track = uniqueTracks[i];
                     var queueItem = new QueueItem
                     {
-                        InstanceId = instanceId,
+                        RoomCode = roomCode,
                         TrackId = track.WebpageUrlHash,
                         IsDeleted = false,
                         Index = (queue.IsShuffled ? insertUnshuffledIndex : insertIndex) + 1 + i,
@@ -452,7 +452,7 @@ namespace KoodaamoJukebox.Services
                 updatedItems.AddRange(newQueueItems.Select(i => new QueueItemDto(i)));
                 updatedItems.AddRange(queueItems.Select(i => new QueueItemDto(i)));
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -460,9 +460,9 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Remove(string instanceId, int id)
+        public async Task Remove(string roomCode, int id)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
@@ -472,11 +472,11 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 var item = await _dbContext.QueueItems.FindAsync(id);
@@ -485,9 +485,9 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Item not found.", nameof(id));
                 }
-                else if (item.InstanceId != instanceId)
+                else if (item.RoomCode != roomCode)
                 {
-                    throw new ArgumentException("Item does not belong to the specified instance.", nameof(instanceId));
+                    throw new ArgumentException("Item does not belong to the specified room code", nameof(roomCode));
                 }
                 else if (queue.IsShuffled
                     ? item.ShuffleIndex == queue.CurrentTrackIndex
@@ -505,7 +505,7 @@ namespace KoodaamoJukebox.Services
 
                 // Only update indices of items to the right of the deleted item
                 var itemsToUpdate = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId &&
+                    .Where(qi => qi.RoomCode == roomCode &&
                         (queue.IsShuffled ? qi.ShuffleIndex > item.ShuffleIndex : qi.Index > item.Index) &&
                         !qi.IsDeleted)
                     .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
@@ -529,7 +529,7 @@ namespace KoodaamoJukebox.Services
                 updatedItems.Insert(0, new QueueItemDto(item)); // Include the removed item in the update
 
                 // Send remove command to the group
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -537,19 +537,19 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Shuffle(string instanceId, bool shuffled)
+        public async Task Shuffle(string roomCode, bool shuffled)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
                 var roomInfo = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (roomInfo == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
                 if (roomInfo.IsShuffled == shuffled)
                 {
@@ -558,7 +558,7 @@ namespace KoodaamoJukebox.Services
                 }
 
                 var queueItems = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                     .ToListAsync();
 
                 if (queueItems.Count == 0)
@@ -615,7 +615,7 @@ namespace KoodaamoJukebox.Services
                 await _dbContext.SaveChangesAsync();
 
                 var updatedItems = queueItems.Select(i => new QueueItemDto(i)).ToList();
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), updatedItems);
             }
             finally
             {
@@ -623,32 +623,32 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Clear(string instanceId)
+        public async Task Clear(string roomCode)
         {
-            var semaphore = GetSemaphore(instanceId);
+            var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
                 var queue = await _dbContext.RoomInfos
-                    .Where(q => q.InstanceId == instanceId)
+                    .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync();
 
                 if (queue == null)
                 {
-                    throw new ArgumentException("Instance not found.", nameof(instanceId));
+                    throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
 
                 var items = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
+                    .Where(qi => qi.RoomCode == roomCode && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
                     .ToListAsync();
 
                 var currentItem = await _dbContext.QueueItems
-                    .Where(qi => qi.InstanceId == instanceId && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
+                    .Where(qi => qi.RoomCode == roomCode && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
                     .FirstOrDefaultAsync();
 
                 if (currentItem == null)
                 {
-                    throw new ArgumentException("Current track not found.", nameof(instanceId));
+                    throw new ArgumentException("Current track not found.", nameof(roomCode));
                 }
 
                 foreach (var item in items)
@@ -679,7 +679,7 @@ namespace KoodaamoJukebox.Services
                     updatedItems.Add(new QueueItemDto(item));
                 }
 
-                await _hubContext.Clients.Group(instanceId).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {

@@ -25,15 +25,15 @@ namespace server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<RoomInfoDto>> GetQueue(string instanceId)
+        public async Task<ActionResult<RoomInfoDto>> GetQueue(string roomCode)
         {
             var queue = await _dbContext.RoomInfos
-                .Where(q => q.InstanceId == instanceId)
+                .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync();
 
             if (queue == null)
             {
-                return NotFound("Queue not found for the specified instance.");
+                return NotFound("Queue not found for the specified room code");
             }
 
             return Ok(new RoomInfoDto(queue));
@@ -42,10 +42,10 @@ namespace server.Controllers
         [HttpGet("items")]
         public async Task<ActionResult<QueueItemDto[]>> GetQueueItems([FromQuery] long? start = null, [FromQuery] long? end = null)
         {
-            var instanceId = User.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = User.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                return Unauthorized("InstanceId not found in user claims.");
+                return Unauthorized("RoomCode not found in user claims.");
             }
 
             var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -75,19 +75,19 @@ namespace server.Controllers
             }
 
             var queue = await _dbContext.RoomInfos
-            .Where(q => q.InstanceId == instanceId)
+            .Where(q => q.RoomCode == roomCode)
             .FirstOrDefaultAsync();
 
             if (queue == null)
             {
-                return NotFound("Queue not found for the specified instance.");
+                return NotFound("Queue not found for the specified room code");
             }
 
             long startDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(start.Value).ToUnixTimeMilliseconds();
             long endDateTime = DateTimeOffset.UnixEpoch.AddMilliseconds(end.Value).ToUnixTimeMilliseconds();
 
             var queueItems = await _dbContext.QueueItems
-            .Where(qi => qi.InstanceId == instanceId
+            .Where(qi => qi.RoomCode == roomCode
                 && qi.UpdatedAt >= startDateTime
                 && qi.UpdatedAt <= endDateTime
                 && !qi.IsDeleted)
@@ -106,21 +106,21 @@ namespace server.Controllers
         [HttpGet("items/hash")]
         public async Task<ActionResult<string>> GetQueueItemsHash()
         {
-            var instanceId = User.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = User.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                return Unauthorized("InstanceId not found in user claims.");
+                return Unauthorized("RoomCode not found in user claims.");
             }
             var queue = await _dbContext.RoomInfos
-                .Where(q => q.InstanceId == instanceId)
+                .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync();
             if (queue == null)
             {
-                return NotFound("Queue not found for the specified instance.");
+                return NotFound("Queue not found for the specified room code");
             }
 
             var queueItems = await _dbContext.QueueItems
-                .Where(qi => qi.InstanceId == instanceId && !qi.IsDeleted)
+                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                 .ToListAsync();
 
@@ -141,26 +141,26 @@ namespace server.Controllers
         [HttpDelete("items/{id}")]
         public async Task<IActionResult> DeleteQueueItem(int id)
         {
-            var instanceId = User.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = User.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                return Unauthorized("InstanceId not found in user claims.");
+                return Unauthorized("RoomCode not found in user claims.");
             }
 
-            await _queueService.Remove(instanceId, id);
+            await _queueService.Remove(roomCode, id);
             return NoContent();
         }
 
         [HttpPost("items")]
         public async Task<IActionResult> AddQueueItems([FromQuery] string urlOrQuery)
         {
-            var instanceId = User.FindFirstValue("instance_id");
-            if (string.IsNullOrEmpty(instanceId))
+            var roomCode = User.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
             {
-                return Unauthorized("InstanceId not found in user claims.");
+                return Unauthorized("RoomCode not found in user claims.");
             }
 
-            await _queueService.Add(instanceId, urlOrQuery);
+            await _queueService.Add(roomCode, urlOrQuery);
             return NoContent();
         }
     }

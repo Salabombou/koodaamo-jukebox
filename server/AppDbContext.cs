@@ -21,8 +21,6 @@ namespace KoodaamoJukebox
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-
-
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("Users");
@@ -34,10 +32,10 @@ namespace KoodaamoJukebox
             modelBuilder.Entity<RoomInfo>(entity =>
             {
                 entity.ToTable("Queues");
-                entity.HasIndex(q => q.InstanceId).IsUnique();
+                entity.HasIndex(q => q.RoomCode).IsUnique();
                 entity.HasIndex(q => q.CurrentTrackIndex);
-                entity.Property(q => q.InstanceId).IsRequired();
-                entity.Property(q => q.isPaused).IsRequired();
+                entity.Property(q => q.RoomCode).IsRequired();
+                entity.Property(q => q.IsPaused).IsRequired();
                 entity.Property(q => q.IsLooping).IsRequired();
             });
 
@@ -46,7 +44,7 @@ namespace KoodaamoJukebox
                 entity.ToTable("QueueItems");
                 entity.HasIndex(qi => qi.TrackId);
                 entity.HasIndex(qi => qi.Index);
-                entity.Property(qi => qi.InstanceId).IsRequired();
+                entity.Property(qi => qi.RoomCode).IsRequired();
                 entity.Property(qi => qi.TrackId).IsRequired();
                 entity.Property(qi => qi.Index).IsRequired();
                 entity.Property(qi => qi.CreatedAt).IsRequired();
