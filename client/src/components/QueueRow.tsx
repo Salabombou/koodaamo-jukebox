@@ -1,9 +1,9 @@
+import React, { useMemo } from "react";
 import type { ListChildComponentProps } from "react-window";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Track } from "../types/track";
 import { QueueItem } from "../types/queue";
-import React from "react";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { thumbnailUrlCacheLow } from "../services/thumbnailCache";
 
@@ -39,25 +39,25 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(function QueueRow({
   } = useSortable({
     id: item.id,
   });
-
   const highlighted = currentTrackIndex === index;
   const isLastItem = index === data.length - 1;
-
   const discordSDK = useDiscordSDK();
 
-  // Get thumbnail URL from cache or generate and cache it
-  let thumbUrl = "/black.jpg";
-  if (track?.id) {
-    if (thumbnailUrlCacheLow.has(track.id)) {
-      thumbUrl = thumbnailUrlCacheLow.get(track.id)!;
-    } else {
-      thumbUrl = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/track/${track.id}/thumbnail-low`;
-      thumbnailUrlCacheLow.set(track.id, thumbUrl);
+  const thumbUrl = useMemo(() => {
+    if (!track?.id) return "/black.jpg";
+    // Use both track.id and embed state as cache key
+    const cacheKey = `${track.id}:${discordSDK.isEmbedded ? "1" : "0"}`;
+    if (thumbnailUrlCacheLow.has(cacheKey)) {
+      return thumbnailUrlCacheLow.get(cacheKey)!;
     }
-  }
+    const url = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/track/${track.id}/thumbnail-low`;
+    thumbnailUrlCacheLow.set(cacheKey, url);
+    return url;
+  }, [track?.id, discordSDK.isEmbedded]);
 
   return (
     <div
+      key={item.id}
       ref={setNodeRef}
       style={{
         backgroundColor: backgroundColor.replace(
@@ -70,7 +70,6 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(function QueueRow({
         visibility: isDragging || !track ? "hidden" : "visible",
         pointerEvents: controlsDisabled ? "none" : "auto",
       }}
-      data-index={index}
     >
       <div
         className={[
@@ -88,6 +87,7 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(function QueueRow({
             <img
               src={thumbUrl}
               className="w-full h-full object-cover bg-black"
+              alt={track?.title || "thumbnail"}
             />
           </div>
           <div

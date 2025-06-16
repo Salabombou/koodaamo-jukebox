@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo, useEffect } from "react";
 import { FixedSizeList } from "react-window";
 import {
   DndContext,
@@ -35,7 +35,6 @@ const restrictToVerticalAxisCenterY: Modifier = ({
 };
 
 interface QueueProps {
-  height: number;
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrackIndex?: number;
@@ -45,8 +44,7 @@ interface QueueProps {
   onSkip: (index: number) => void;
 }
 
-export default function Queue({
-  height,
+const Queue = memo(function Queue({
   tracks,
   queueList,
   currentTrackIndex,
@@ -56,6 +54,17 @@ export default function Queue({
   controlsDisabled,
 }: QueueProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const [listHeight, setListHeight] = useState<number>(window.innerHeight - 24);
+  useEffect(() => {
+    const handleResize = () => {
+      setListHeight(window.innerHeight - 24);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   return (
     <DndContext
@@ -83,12 +92,13 @@ export default function Queue({
         strategy={verticalListSortingStrategy}
       >
         <FixedSizeList
-          height={height}
+          height={listHeight}
           width="100%"
           className="hidden md:flex mx-6"
           itemData={queueList}
           itemCount={queueList.length}
           itemSize={56}
+          itemKey={(index, data) => data[index].id}
           style={{
             overflowX: "hidden",
             overflowY: "scroll",
@@ -123,4 +133,6 @@ export default function Queue({
       </DragOverlay>
     </DndContext>
   );
-}
+});
+
+export default Queue;

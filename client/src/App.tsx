@@ -13,27 +13,27 @@ import { useDiscordSDK } from "./hooks/useDiscordSdk";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
-
   //const queue = useRef<HTMLDivElement>(null);
   const roomInfo = useRef<RoomInfo | null>(null);
+  const audioPlayer = useRef<HTMLAudioElement>(null);
+  const hls = useRef<Hls | null>(null);
+  
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
-  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
-    new Map(),
-  ); // key is the id of the said item
-  const [queueItemsBuffer, setQueueItemsBuffer] = useState<
-    [number, QueueItem][]
-  >([]); // buffer for items that are being updated
+  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(new Map()); // key is the id of the said item
+  const [queueItemsBuffer, setQueueItemsBuffer] = useState<[
+    number,
+    QueueItem
+  ][]>([]); // buffer for items that are being updated
   const [controlsDisabled, setControlsDisabled] = useState<boolean>(false);
-
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
   const [playingSince, setPlayingSince] = useState<number | null>(null);
-
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-
   //const [timestamp, setTimestamp] = useState<number>(0);
   const [paused, setPaused] = useState<boolean>(true);
   const [looping, setLooping] = useState<boolean>(false);
   const [shuffled, setShuffled] = useState<boolean>(false);
+  const [duration, setDuration] = useState<number>(0);
+  const [timestamp, setTimestamp] = useState<number>(0);
 
   const queueList = useMemo(() => {
     const list = Array.from(queueItems.values());
@@ -92,12 +92,6 @@ export default function App() {
       });
     }
   }, [queueItems]);
-
-  const audioPlayer = useRef<HTMLAudioElement>(null);
-  const hls = useRef<Hls | null>(null);
-
-  const [duration, setDuration] = useState<number>(0);
-  const [timestamp, setTimestamp] = useState<number>(0);
 
   useEffect(() => {
     if (audioPlayer.current) {
@@ -266,17 +260,6 @@ export default function App() {
     timeService.syncServerTime(discordSDK.isEmbedded);
   }, [discordSDK.isEmbedded]);
 
-  const [listHeight, setListHeight] = useState<number>(window.innerHeight - 24);
-  useEffect(() => {
-    const handleResize = () => {
-      setListHeight(window.innerHeight - 24);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
   const seeking = useRef<boolean>(false);
   useEffect(() => {
     seeking.current = false;
@@ -424,7 +407,6 @@ export default function App() {
         }}
       />
       <Queue
-        height={listHeight}
         tracks={tracks}
         queueList={queueList}
         currentTrackIndex={currentTrackIndex}

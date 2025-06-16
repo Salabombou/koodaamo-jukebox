@@ -51,7 +51,6 @@ export default function MusicPlayerInterface({
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(1);
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
-
   const discordSDK = useDiscordSDK();
 
   let thumbUrl = "/black.jpg";
@@ -63,7 +62,7 @@ export default function MusicPlayerInterface({
       thumbnailUrlCacheHigh.set(track.id, thumbUrl);
     }
   }
-
+  
   useEffect(() => {
     let isMounted = true;
     let objectUrl: string | null = null;
