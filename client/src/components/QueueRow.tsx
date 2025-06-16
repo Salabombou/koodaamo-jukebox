@@ -16,93 +16,92 @@ interface QueueRowProps extends ListChildComponentProps {
   controlsDisabled?: boolean;
 }
 
-// Memoized for performance
-const QueueRow: React.FC<QueueRowProps> = React.memo(function QueueRow({
-  index,
-  style,
-  data,
-  tracks,
-  currentTrackIndex,
-  backgroundColor,
-  onSkip,
-  controlsDisabled = false,
-}) {
-  const item = data[index];
-  const track = tracks.get(item.trackId);
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging, // when the item itself is being dragged
-  } = useSortable({
-    id: item.id,
-  });
-  const highlighted = currentTrackIndex === index;
-  const isLastItem = index === data.length - 1;
-  const discordSDK = useDiscordSDK();
+const QueueRow: React.FC<QueueRowProps> = React.memo(
+  ({
+    index,
+    style,
+    data,
+    tracks,
+    currentTrackIndex,
+    backgroundColor,
+    onSkip,
+    controlsDisabled = false,
+  }) => {
+    const item = data[index];
+    const track = tracks.get(item.trackId);
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging, // when the item itself is being dragged
+    } = useSortable({
+      id: item.id,
+    });
+    const highlighted = currentTrackIndex === index;
+    const isLastItem = index === data.length - 1;
+    const discordSDK = useDiscordSDK();
+    const thumbUrl = useMemo(() => {
+      if (!track?.id) return "/black.jpg";
+      // Use both track.id and embed state as cache key
+      const cacheKey = `${track.id}:${discordSDK.isEmbedded ? "1" : "0"}`;
+      if (thumbnailUrlCacheLow.has(cacheKey))
+        return thumbnailUrlCacheLow.get(cacheKey)!;
+      const url = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/track/${track.id}/thumbnail-low`;
+      thumbnailUrlCacheLow.set(cacheKey, url);
+      return url;
+    }, [track?.id, discordSDK.isEmbedded]);
 
-  const thumbUrl = useMemo(() => {
-    if (!track?.id) return "/black.jpg";
-    // Use both track.id and embed state as cache key
-    const cacheKey = `${track.id}:${discordSDK.isEmbedded ? "1" : "0"}`;
-    if (thumbnailUrlCacheLow.has(cacheKey)) {
-      return thumbnailUrlCacheLow.get(cacheKey)!;
-    }
-    const url = `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/track/${track.id}/thumbnail-low`;
-    thumbnailUrlCacheLow.set(cacheKey, url);
-    return url;
-  }, [track?.id, discordSDK.isEmbedded]);
-
-  return (
-    <div
-      key={item.id}
-      ref={setNodeRef}
-      style={{
-        backgroundColor: backgroundColor.replace(
-          /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/,
-          "rgba($1, $2, $3, 1)",
-        ),
-        ...style,
-        transform: CSS.Transform.toString(transform),
-        transition,
-        visibility: isDragging || !track ? "hidden" : "visible",
-        pointerEvents: controlsDisabled ? "none" : "auto",
-      }}
-    >
+    return (
       <div
-        className={[
-          "flex h-14 max-h-14 w-full px-1",
-          `${highlighted ? "bg-queue-item-highlight text-text-black" : "bg-queue-item"}`,
-          `${!isLastItem && !isDragging ? " border-b-2 border-queue-item-border-bottom" : ""}`,
-        ].join(" ")}
+        key={item.id}
+        ref={setNodeRef}
+        style={{
+          backgroundColor: backgroundColor.replace(
+            /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/,
+            "rgba($1, $2, $3, 1)"
+          ),
+          ...style,
+          transform: CSS.Transform.toString(transform),
+          transition,
+          visibility: isDragging || !track ? "hidden" : "visible",
+          pointerEvents: controlsDisabled ? "none" : "auto",
+        }}
       >
-        <div className="flex flex-row items-center space-x-4 w-full">
-          <div
-            {...attributes}
-            {...listeners}
-            className="aspect-video h-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black"
-          >
-            <img
-              src={thumbUrl}
-              className="w-full h-full object-cover bg-black"
-              alt={track?.title || "thumbnail"}
-            />
-          </div>
-          <div
-            className="flex flex-col overflow-hidden"
-            onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
-          >
-            <label className="text-s font-bold truncate -mb-1">
-              {track?.title}
-            </label>
-            <label className="text-s truncate">{track?.uploader}</label>
+        <div
+          className={[
+            "flex h-14 max-h-14 w-full px-1",
+            `${highlighted ? "bg-queue-item-highlight text-text-black" : "bg-queue-item"}`,
+            `${!isLastItem && !isDragging ? " border-b-2 border-queue-item-border-bottom" : ""}`,
+          ].join(" ")}
+        >
+          <div className="flex flex-row items-center space-x-4 w-full">
+            <div
+              {...attributes}
+              {...listeners}
+              className="aspect-video h-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black"
+            >
+              <img
+                src={thumbUrl}
+                className="w-full h-full object-cover bg-black"
+                alt={track?.title || "thumbnail"}
+              />
+            </div>
+            <div
+              className="flex flex-col overflow-hidden"
+              onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
+            >
+              <label className="text-s font-bold truncate -mb-1">
+                {track?.title}
+              </label>
+              <label className="text-s truncate">{track?.uploader}</label>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 export default QueueRow;

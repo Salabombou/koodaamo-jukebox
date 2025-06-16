@@ -1,9 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-
 import "./index.css";
 import App from "./App";
-
 import { DiscordSDKProvider } from "./hooks/useDiscordSdk";
 import { DiscordAuthProvider } from "./hooks/useDiscordAuth";
 import { RoomCodeProvider } from "./hooks/useRoomCode";
@@ -20,5 +18,5 @@ createRoot(document.getElementById("root")!).render(
         </RoomCodeProvider>
       </OAuth2CodeProvider>
     </DiscordSDKProvider>
-  </StrictMode>,
+  </StrictMode>
 );
