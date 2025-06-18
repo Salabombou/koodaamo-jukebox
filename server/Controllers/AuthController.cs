@@ -8,6 +8,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.SignalR;
+using KoodaamoJukebox.Hubs;
 
 
 namespace KoodaamoJukebox.Controllers
@@ -18,16 +20,18 @@ namespace KoodaamoJukebox.Controllers
     {
         private readonly AppDbContext _dbContext;
         private readonly ILogger<AuthController> _logger;
+        private readonly IHubContext<RoomHub> _hubContext;
 
         private readonly string discordClientId;
         private readonly string discordClientSecret;
         private readonly string discordRedirectUri;
         private readonly SymmetricSecurityKey jwtSecretKey;
 
-        public AuthController(AppDbContext dbContext, ILogger<AuthController> logger)
+        public AuthController(AppDbContext dbContext, ILogger<AuthController> logger, IHubContext<RoomHub> hubContext)
         {
             _dbContext = dbContext;
             _logger = logger;
+            _hubContext = hubContext;
 
             discordClientId = Environment.GetEnvironmentVariable("DISCORD_CLIENT_ID") ?? throw new InvalidOperationException("DISCORD_CLIENT_ID is not set");
             discordClientSecret = Environment.GetEnvironmentVariable("DISCORD_CLIENT_SECRET") ?? throw new InvalidOperationException("DISCORD_CLIENT_SECRET is not set");
@@ -116,13 +120,14 @@ namespace KoodaamoJukebox.Controllers
                 userResponse.EnsureSuccessStatusCode();
 
                 var user = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
-                var userIdString = user.GetProperty("id").GetString();
+
+                string? userIdString = user.GetProperty("id").GetString();
                 if (string.IsNullOrWhiteSpace(userIdString) || !long.TryParse(userIdString, out var userId))
                 {
                     return StatusCode(500, "Failed to parse user id");
                 }
-                var username = user.GetProperty("username").GetString();
 
+                string? username = user.GetProperty("username").GetString();
                 if (string.IsNullOrWhiteSpace(username))
                 {
                     return StatusCode(500, "Failed to get user data");
@@ -158,11 +163,19 @@ namespace KoodaamoJukebox.Controllers
                 {
                     return BadRequest("Room code does not match the embedded status");
                 }
+
                 dbUser.IsEmbedded = dto.IsEmbedded;
                 dbUser.Username = username;
                 dbUser.AssociatedRoomCode = queue.RoomCode;
-                dbUser.ConnectionId = null;
 
+                if (dbUser.ConnectionId != null)
+                {
+                    // remove user from the previous room
+                    await _hubContext.Groups.RemoveFromGroupAsync(dbUser.ConnectionId, dbUser.AssociatedRoomCode);
+                    dbUser.ConnectionId = null;
+                }
+
+                _dbContext.Users.Update(dbUser);
                 await _dbContext.SaveChangesAsync();
 
                 return Ok(new AuthResponseDto
@@ -172,7 +185,6 @@ namespace KoodaamoJukebox.Controllers
                     RefreshToken = refreshToken,
                     ExpiresIn = expiresIn
                 });
-
             }
             catch (Exception e)
             {
@@ -219,13 +231,14 @@ namespace KoodaamoJukebox.Controllers
                 userResponse.EnsureSuccessStatusCode();
 
                 var user = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
-                var userIdString = user.GetProperty("id").GetString();
+
+                string? userIdString = user.GetProperty("id").GetString();
                 if (string.IsNullOrWhiteSpace(userIdString) || !long.TryParse(userIdString, out var userId))
                 {
                     return StatusCode(500, "Failed to parse user id");
                 }
 
-                var username = user.GetProperty("username").GetString();
+                string? username = user.GetProperty("username").GetString();
                 if (string.IsNullOrWhiteSpace(username))
                 {
                     return StatusCode(500, "Failed to get user data");
@@ -240,7 +253,7 @@ namespace KoodaamoJukebox.Controllers
                 var roomInfo = await _dbContext.RoomInfos.FirstOrDefaultAsync(r => r.RoomCode == dto.RoomCode);
                 if (roomInfo == null)
                 {
-                    if (dto.IsEmbedded && !Regex.IsMatch(dto.RoomCode, @"^[0-9]{6}$"))
+                    if (!dto.IsEmbedded && !Regex.IsMatch(dto.RoomCode, @"^[0-9]{6}$"))
                     {
                         return BadRequest("Invalid room code format. It should be a 6-digit number.");
                     }
@@ -260,7 +273,15 @@ namespace KoodaamoJukebox.Controllers
                 dbUser.IsEmbedded = dto.IsEmbedded;
                 dbUser.Username = username;
                 dbUser.AssociatedRoomCode = roomInfo.RoomCode;
-                dbUser.ConnectionId = null;
+
+                if (dbUser.ConnectionId != null)
+                {
+                    // remove user from the previous room
+                    await _hubContext.Groups.RemoveFromGroupAsync(dbUser.ConnectionId, dbUser.AssociatedRoomCode);
+                    dbUser.ConnectionId = null;
+                }
+
+                _dbContext.Users.Update(dbUser);
                 await _dbContext.SaveChangesAsync();
 
                 return Ok(new AuthResponseDto

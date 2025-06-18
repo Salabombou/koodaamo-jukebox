@@ -18,5 +18,5 @@ createRoot(document.getElementById("root")!).render(
         </RoomCodeProvider>
       </OAuth2CodeProvider>
     </DiscordSDKProvider>
-  </StrictMode>
+  </StrictMode>,
 );

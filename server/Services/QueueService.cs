@@ -71,7 +71,7 @@ namespace KoodaamoJukebox.Services
                 }
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -94,13 +94,7 @@ namespace KoodaamoJukebox.Services
 
                 var roomInfo = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (roomInfo == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 if (!roomInfo.PlayingSince.HasValue)
                 {
                     roomInfo.PlayingSince = currentTime;
@@ -113,7 +107,7 @@ namespace KoodaamoJukebox.Services
                 roomInfo.PlayingSince += elapsedTime - seekTime * 1000;
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -129,12 +123,7 @@ namespace KoodaamoJukebox.Services
             {
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 if (queue.IsLooping == loop)
                 {
                     // If the state is already the same, do nothing
@@ -144,7 +133,7 @@ namespace KoodaamoJukebox.Services
                 queue.IsLooping = loop;
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -165,13 +154,7 @@ namespace KoodaamoJukebox.Services
 
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 if (queue.CurrentTrackIndex == index)
                 {
                     // If the current track index is already the same, do nothing
@@ -190,7 +173,7 @@ namespace KoodaamoJukebox.Services
                 
                 await _dbContext.SaveChangesAsync();
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
             }
             finally
             {
@@ -211,13 +194,7 @@ namespace KoodaamoJukebox.Services
 
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 var queueList = await _dbContext.QueueItems
                     .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                     .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
@@ -288,7 +265,7 @@ namespace KoodaamoJukebox.Services
                 var updatedItems = queueList.Select(i => new QueueItemDto(i)).ToList();
 
                 // Send move command to the group
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -309,13 +286,7 @@ namespace KoodaamoJukebox.Services
 
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 var updatedItems = new List<QueueItemDto>();
 
                 var tracks = await YtDlp.GetTracks(urlOrQuery);
@@ -452,7 +423,7 @@ namespace KoodaamoJukebox.Services
                 updatedItems.AddRange(newQueueItems.Select(i => new QueueItemDto(i)));
                 updatedItems.AddRange(queueItems.Select(i => new QueueItemDto(i)));
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -473,12 +444,7 @@ namespace KoodaamoJukebox.Services
 
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 var item = await _dbContext.QueueItems.FindAsync(id);
 
                 if (item == null)
@@ -529,7 +495,7 @@ namespace KoodaamoJukebox.Services
                 updatedItems.Insert(0, new QueueItemDto(item)); // Include the removed item in the update
 
                 // Send remove command to the group
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {
@@ -545,12 +511,7 @@ namespace KoodaamoJukebox.Services
             {
                 var roomInfo = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (roomInfo == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 if (roomInfo.IsShuffled == shuffled)
                 {
                     // If the state is already the same, do nothing
@@ -615,7 +576,7 @@ namespace KoodaamoJukebox.Services
                 await _dbContext.SaveChangesAsync();
 
                 var updatedItems = queueItems.Select(i => new QueueItemDto(i)).ToList();
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), updatedItems);
             }
             finally
             {
@@ -631,26 +592,14 @@ namespace KoodaamoJukebox.Services
             {
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
-                    .FirstOrDefaultAsync();
-
-                if (queue == null)
-                {
-                    throw new ArgumentException("Instance not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
                 var items = await _dbContext.QueueItems
                     .Where(qi => qi.RoomCode == roomCode && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
                     .ToListAsync();
 
                 var currentItem = await _dbContext.QueueItems
                     .Where(qi => qi.RoomCode == roomCode && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
-                    .FirstOrDefaultAsync();
-
-                if (currentItem == null)
-                {
-                    throw new ArgumentException("Current track not found.", nameof(roomCode));
-                }
-
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Current track not found.", nameof(roomCode));
                 foreach (var item in items)
                 {
                     item.IsDeleted = true;
@@ -679,7 +628,7 @@ namespace KoodaamoJukebox.Services
                     updatedItems.Add(new QueueItemDto(item));
                 }
 
-                await _hubContext.Clients.Group(roomCode).SendAsync("QueueUpdate", new RoomInfoDto(queue), updatedItems);
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
             }
             finally
             {

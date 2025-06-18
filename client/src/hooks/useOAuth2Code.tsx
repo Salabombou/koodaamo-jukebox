@@ -1,8 +1,17 @@
-import { type ReactNode, createContext, useContext, useState, useRef, useEffect } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import { useDiscordSDK } from "./useDiscordSdk";
 
 const OAuth2CodeContext = createContext<string | null>(null);
-export function useOAuth2Code() { return useContext(OAuth2CodeContext); }
+export function useOAuth2Code() {
+  return useContext(OAuth2CodeContext);
+}
 
 export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
   const discordSdk = useDiscordSDK();
@@ -12,13 +21,22 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
     if (settingUp.current) return;
     settingUp.current = true;
     (async () => {
+      if (import.meta.env.DEV) {
+        console.log(localStorage);
+        console.log(new URLSearchParams(window.location.search));
+      }
       if (!discordSdk.isEmbedded) {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
         if (code) setOAuth2Code(code);
-        else if (Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")) {
+        else if (
+          Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")
+        ) {
           const oAuth2Url = new URL("https://discord.com/oauth2/authorize");
-          oAuth2Url.searchParams.set("client_id", import.meta.env.VITE_DISCORD_APPLICATION_ID);
+          oAuth2Url.searchParams.set(
+            "client_id",
+            import.meta.env.VITE_DISCORD_APPLICATION_ID,
+          );
           oAuth2Url.searchParams.set("response_type", "code");
           oAuth2Url.searchParams.set("redirect_uri", window.location.origin);
           oAuth2Url.searchParams.set("scope", "identify");
@@ -40,5 +58,9 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
     })();
   }, [discordSdk]);
   if (oAuth2Code === null) return <p>Loading...</p>;
-  return <OAuth2CodeContext.Provider value={oAuth2Code}>{children}</OAuth2CodeContext.Provider>;
+  return (
+    <OAuth2CodeContext.Provider value={oAuth2Code}>
+      {children}
+    </OAuth2CodeContext.Provider>
+  );
 }

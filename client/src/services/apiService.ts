@@ -3,8 +3,13 @@ import type { QueueItem } from "../types/queue";
 import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
 
-const apiClient = axios.create({
-  baseURL: localStorage.getItem("isEmbedded") === "true" ? "/.proxy/" : "",
+const apiClient = axios.create();
+
+apiClient.interceptors.request.use((config) => {
+  if (localStorage.getItem("isEmbedded") === "true") {
+    config.baseURL = "/.proxy";
+  }
+  return config;
 });
 
 apiClient.interceptors.request.use((config) => {

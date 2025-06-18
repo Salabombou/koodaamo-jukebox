@@ -1,4 +1,11 @@
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { TAuthenticateResponse } from "../types/discord";
 import type { AuthResponse } from "../types/auth";
 import { useDiscordSDK } from "./useDiscordSdk";
@@ -6,7 +13,9 @@ import { useRoomCode } from "./useRoomCode";
 import { useOAuth2Code } from "./useOAuth2Code";
 
 const DiscordAuthContext = createContext<TAuthenticateResponse | null>(null);
-export function useDiscordAuth() { return useContext(DiscordAuthContext); }
+export function useDiscordAuth() {
+  return useContext(DiscordAuthContext);
+}
 
 export function DiscordAuthProvider({ children }: { children: ReactNode }) {
   const discordSDK = useDiscordSDK();
@@ -23,20 +32,45 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       let refreshToken = localStorage.getItem("refreshToken");
       let expiresAt = localStorage.getItem("expiresAt");
       let responsePromise: Promise<Response>;
-      if (!accessToken || !authToken || !refreshToken || !expiresAt || Date.now() >= parseInt(expiresAt)) {
-        responsePromise = fetch(`${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ oAuth2Code, roomCode, isEmbedded: discordSDK.isEmbedded }),
-        });
+      if (
+        !accessToken ||
+        !authToken ||
+        !refreshToken ||
+        !expiresAt ||
+        Date.now() >= parseInt(expiresAt)
+      ) {
+        responsePromise = fetch(
+          `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              oAuth2Code,
+              roomCode,
+              isEmbedded: discordSDK.isEmbedded,
+            }),
+          },
+        );
       } else {
-        responsePromise = fetch(`${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth/refresh`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken, roomCode, isEmbedded: discordSDK.isEmbedded }),
-        });
+        responsePromise = fetch(
+          `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth/refresh`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              refreshToken,
+              roomCode,
+              isEmbedded: discordSDK.isEmbedded,
+            }),
+          },
+        );
       }
-      const response = await responsePromise.then(res => res.json() as Promise<AuthResponse>).catch(err => {
-        localStorage.clear(); window.location.reload(); throw err;
-      });
+      const response = await responsePromise
+        .then((res) => res.json() as Promise<AuthResponse>)
+        .catch((err) => {
+          localStorage.clear();
+          throw err;
+        });
       accessToken = response.accessToken;
       authToken = response.authToken;
       refreshToken = response.refreshToken;
@@ -45,10 +79,16 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("authToken", authToken);
       localStorage.setItem("refreshToken", refreshToken);
       localStorage.setItem("expiresAt", expiresAt);
-      const newAuth = await discordSDK.commands.authenticate({ access_token: accessToken });
+      const newAuth = await discordSDK.commands.authenticate({
+        access_token: accessToken,
+      });
       setAuth(newAuth);
     })();
   }, [discordSDK, oAuth2Code]);
   if (auth === null) return <p>Loading...</p>;
-  return <DiscordAuthContext.Provider value={auth}>{children}</DiscordAuthContext.Provider>;
+  return (
+    <DiscordAuthContext.Provider value={auth}>
+      {children}
+    </DiscordAuthContext.Provider>
+  );
 }

@@ -57,37 +57,21 @@ namespace KoodaamoJukebox.Hubs
 
             var user = await _dbContext.Users
                 .Where(u => u.UserId == userId)
-                .FirstOrDefaultAsync();
-
-            if (user == null)
-            {
-                throw new UnauthorizedAccessException("User not found in the database.");
-            }
-
-            user.ConnectionId = Context.ConnectionId;
-            await _dbContext.SaveChangesAsync();
-
-            await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
-
+                .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("User not found in the database.");
             var roomInfo = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
-                .FirstOrDefaultAsync();
-            if (roomInfo == null)
-            {
-                throw new UnauthorizedAccessException("RoomInfo not found for the specified room code");
-            }
-
+                .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("RoomInfo not found for the specified room code");
             var queueItems = await _dbContext.QueueItems
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .Select(qi => new QueueItemDto(qi))
-                .ToListAsync();
-            if (queueItems == null)
-            {
-                throw new UnauthorizedAccessException("QueueItems not found for the specified room code");
-            }
-
+                .ToListAsync() ?? throw new UnauthorizedAccessException("QueueItems not found for the specified room code");
             await base.OnConnectedAsync();
-            await Clients.Caller.SendAsync("QueueUpdate", new RoomInfoDto(roomInfo), queueItems);
+
+            user.ConnectionId = Context.ConnectionId;
+            await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
+            await _dbContext.SaveChangesAsync();
+
+            await Clients.Caller.SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), queueItems);
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)

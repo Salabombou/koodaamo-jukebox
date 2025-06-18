@@ -10,7 +10,7 @@ import { thumbnailUrlCacheLow } from "../services/thumbnailCache";
 interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
   tracks: Map<string, Track>;
-  currentTrackIndex?: number;
+  currentTrackIndex?: number | null;
   backgroundColor: string;
   onSkip: (index: number) => void;
   controlsDisabled?: boolean;
@@ -60,7 +60,7 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
         style={{
           backgroundColor: backgroundColor.replace(
             /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/,
-            "rgba($1, $2, $3, 1)"
+            "rgba($1, $2, $3, 1)",
           ),
           ...style,
           transform: CSS.Transform.toString(transform),
@@ -73,7 +73,7 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
           className={[
             "flex h-14 max-h-14 w-full px-1",
             `${highlighted ? "bg-queue-item-highlight text-text-black" : "bg-queue-item"}`,
-            `${!isLastItem && !isDragging ? " border-b-2 border-queue-item-border-bottom" : ""}`,
+            `${!isLastItem && !isDragging ? "border-b-2 border-queue-item-border-bottom" : ""}`,
           ].join(" ")}
         >
           <div className="flex flex-row items-center space-x-4 w-full">
@@ -101,7 +101,7 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 export default QueueRow;

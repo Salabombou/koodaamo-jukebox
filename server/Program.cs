@@ -115,7 +115,7 @@ namespace KoodaamoJukebox
             }
 
             app.MapControllers();
-            app.MapHub<Hubs.RoomHub>("/api/hubs/queue");
+            app.MapHub<Hubs.RoomHub>("/api/hubs/room");
 
             app.Run();
         }

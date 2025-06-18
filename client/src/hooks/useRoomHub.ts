@@ -1,0 +1,110 @@
+import { useEffect, useRef, useCallback, useState, useTransition } from "react";
+import * as signalR from "@microsoft/signalr";
+import * as timeService from "../services/timeService";
+import { QueueItem } from "../types/queue";
+import { RoomInfo } from "../types/room";
+import { useDiscordSDK } from "./useDiscordSdk";
+
+export default function useRoomHub() {
+  const discordSDK = useDiscordSDK();
+
+  const [playingSince, setPlayingSince] = useState<number | null>(null);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(
+    null,
+  );
+  const [isLooping, setIsLooping] = useState<boolean | undefined>(undefined);
+  const [isPaused, setIsPaused] = useState<boolean | undefined>(undefined);
+  const [isShuffled, setIsShuffled] = useState<boolean | undefined>(undefined);
+
+  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
+    new Map(),
+  );
+
+  const connection = useRef<signalR.HubConnection | null>(null);
+
+  const [invokeError, setInvokeError] = useState<string | null>(null);
+  const [invokePending, startTransition] = useTransition();
+
+  // Setup SignalR connection
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    connection.current = new signalR.HubConnectionBuilder()
+      .withUrl(`${discordSDK.isEmbedded ? "/.proxy" : ""}/api/hubs/room`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .withAutomaticReconnect()
+      .withHubProtocol(new signalR.JsonHubProtocol())
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
+    connection.current.on(
+      "RoomUpdate",
+      (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
+        setPlayingSince(roomInfo.playingSince ?? null);
+        setCurrentTrackIndex(roomInfo.currentTrackIndex ?? null);
+        setIsLooping(roomInfo.isLooping);
+        setIsPaused(roomInfo.isPaused);
+        setIsShuffled(roomInfo.isShuffled);
+        setQueueItems((prev) => {
+          const items = new Map(prev);
+          updatedItems.forEach((item) => {
+            if (item.isDeleted) {
+              items.delete(item.id);
+            } else {
+              items.set(item.id, item);
+            }
+          });
+          return items;
+        });
+      },
+    );
+    connection.current.on("Error", (error: string) => {
+      console.error("Room hub error:", error);
+      setInvokeError(error);
+    });
+    connection.current.start().catch((err) => {
+      console.error("Failed to connect to room hub:", err);
+      setInvokeError("Failed to connect to room hub");
+    });
+    return () => {
+      connection.current?.stop();
+    };
+  }, [discordSDK.isEmbedded]);
+
+  const invokeRoomAction = useCallback((action: string, ...args: any[]) => {
+    startTransition(async () => {
+      if (invokePending) {
+        setInvokeError("Another action is already in progress");
+        return;
+      }
+      if (
+        !connection.current?.state ||
+        connection.current.state !== signalR.HubConnectionState.Connected
+      ) {
+        setInvokeError("Not connected to the room hub");
+        return;
+      }
+      const error = await connection.current
+        .invoke(action, Math.floor(timeService.getServerNow()), ...args)
+        .then(() => null)
+        .catch(
+          (err) => err.message || "Unknown error happened in the room action",
+        );
+      if (error) {
+        setInvokeError(error);
+      }
+    });
+  }, []);
+
+  return {
+    playingSince,
+    currentTrackIndex,
+    isLooping,
+    isPaused,
+    isShuffled,
+    queueItems,
+    invokeRoomAction,
+    invokeError,
+    invokePending,
+  };
+}

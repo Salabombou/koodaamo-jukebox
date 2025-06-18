@@ -1,26 +1,58 @@
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from "react";
-import { DiscordSDK, DiscordSDKMock, RPCCloseCodes } from "@discord/embedded-app-sdk";
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  DiscordSDK,
+  DiscordSDKMock,
+  RPCCloseCodes,
+} from "@discord/embedded-app-sdk";
 
-const DiscordSDKContext = createContext<((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null>(null);
-export function useDiscordSDK() { return useContext(DiscordSDKContext)!; }
+const DiscordSDKContext = createContext<
+  ((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null
+>(null);
+export function useDiscordSDK() {
+  return useContext(DiscordSDKContext)!;
+}
 
 export function DiscordSDKProvider({ children }: { children: ReactNode }) {
-  const [sdk, setSdk] = useState<((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null>(null);
+  const [sdk, setSdk] = useState<
+    ((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null
+  >(null);
   const settingUp = useRef(false);
   useEffect(() => {
     if (settingUp.current) return;
     settingUp.current = true;
     (async () => {
       let newSdk: DiscordSDK | DiscordSDKMock;
-      const isEmbedded = location.hostname === `${import.meta.env.VITE_DISCORD_APPLICATION_ID}.discordsays.com`;
+      const isEmbedded =
+        location.hostname ===
+        `${import.meta.env.VITE_DISCORD_APPLICATION_ID}.discordsays.com`;
       if (isEmbedded) {
-        newSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_APPLICATION_ID, { disableConsoleLogOverride: true });
+        newSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_APPLICATION_ID, {
+          disableConsoleLogOverride: true,
+        });
       } else {
-        newSdk = new DiscordSDKMock(import.meta.env.VITE_DISCORD_APPLICATION_ID, null, null, null);
+        newSdk = new DiscordSDKMock(
+          import.meta.env.VITE_DISCORD_APPLICATION_ID,
+          null,
+          null,
+          null,
+        );
         newSdk._updateCommandMocks({
-          async authenticate({ access_token }: { access_token?: string | null }) {
+          async authenticate({
+            access_token,
+          }: {
+            access_token?: string | null;
+          }) {
             if (!access_token) throw new Error("Missing access_token");
-            const user = await fetch("https://discord.com/api/users/@me", { headers: { Authorization: `Bearer ${access_token}` } }).then(res => res.json());
+            const user = await fetch("https://discord.com/api/users/@me", {
+              headers: { Authorization: `Bearer ${access_token}` },
+            }).then((res) => res.json());
             return {
               access_token,
               user: {
@@ -47,8 +79,14 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
       await newSdk.ready();
       setSdk(Object.assign(newSdk, { isEmbedded }));
     })();
-    return () => { if (sdk) sdk.close(RPCCloseCodes.CLOSE_NORMAL, "unmount"); };
+    return () => {
+      if (sdk) sdk.close(RPCCloseCodes.CLOSE_NORMAL, "unmount");
+    };
   }, []);
   if (sdk === null) return <p>Loading...</p>;
-  return <DiscordSDKContext.Provider value={sdk}>{children}</DiscordSDKContext.Provider>;
+  return (
+    <DiscordSDKContext.Provider value={sdk}>
+      {children}
+    </DiscordSDKContext.Provider>
+  );
 }
