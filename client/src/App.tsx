@@ -61,22 +61,23 @@ export default function App() {
 
   useEffect(() => {
     setCurrentTrack(() => {
-      if (typeof currentTrackIndex !== "number" || queueList.length === 0)
+      if (typeof currentTrackIndex !== "number" || queueList.length === 0) {
         return null;
+      }
 
-      const item = queueList[currentTrackIndex];
-      if (
-        !item ||
-        (isShuffled ? item.shuffledIndex : item.index) !== currentTrackIndex
+      const item = [...queueItems.values()].find(
+        (item) => (isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex,
       )
+      if (!item) {
         return null;
+      }
 
       const track = tracks.get(item.trackId);
       if (!track) return null;
 
       return track;
     });
-  }, [queueList, tracks, currentTrackIndex, isShuffled]);
+  }, [queueItems, tracks, currentTrackIndex, isShuffled]);
 
   useEffect(() => {
     // update page title with current track name

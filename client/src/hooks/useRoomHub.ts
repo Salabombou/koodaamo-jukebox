@@ -12,9 +12,9 @@ export default function useRoomHub() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(
     null,
   );
-  const [isLooping, setIsLooping] = useState<boolean | undefined>(undefined);
-  const [isPaused, setIsPaused] = useState<boolean | undefined>(undefined);
-  const [isShuffled, setIsShuffled] = useState<boolean | undefined>(undefined);
+  const [isLooping, setIsLooping] = useState<boolean | null>(null);
+  const [isPaused, setIsPaused] = useState<boolean | null>(null);
+  const [isShuffled, setIsShuffled] = useState<boolean | null>(null);
 
   const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
     new Map(),

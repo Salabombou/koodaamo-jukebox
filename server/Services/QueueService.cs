@@ -530,45 +530,49 @@ namespace KoodaamoJukebox.Services
                 roomInfo.IsShuffled = shuffled;
                 if (shuffled)
                 {
-                    var currentTrack = queueItems
-                        .FirstOrDefault(qi => qi.Index == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
-                    if (currentTrack != null)
+                    // Find the current track by Index (unshuffled)
+                    var currentTrack = queueItems.FirstOrDefault(qi => qi.Index == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
+                    if (currentTrack == null)
                     {
-                        queueItems.Remove(currentTrack);
+                        // If not found, just shuffle all
+                        var rng = new Random();
+                        var shuffledItems = queueItems.OrderBy(x => rng.Next()).ToList();
+                        for (int i = 0; i < shuffledItems.Count; i++)
+                        {
+                            shuffledItems[i].ShuffleIndex = i;
+                        }
+                        roomInfo.CurrentTrackIndex = 0;
+                        _dbContext.QueueItems.UpdateRange(shuffledItems);
                     }
-
-                    var rng = new Random();
-                    var shuffledItems = queueItems
-                        .OrderBy(x => rng.Next())
-                        .ToList();
-                    if (currentTrack != null)
+                    else
                     {
-                        shuffledItems.Insert(0, currentTrack);
+                        // Remove current track from list, shuffle the rest
+                        var otherTracks = queueItems.Where(qi => qi.Id != currentTrack.Id).OrderBy(x => Guid.NewGuid()).ToList();
+                        // Set current track ShuffleIndex = 0
+                        currentTrack.ShuffleIndex = 0;
+                        // Assign ShuffleIndex to others starting from 1
+                        for (int i = 0; i < otherTracks.Count; i++)
+                        {
+                            otherTracks[i].ShuffleIndex = i + 1;
+                        }
+                        // Set CurrentTrackIndex to 0
+                        roomInfo.CurrentTrackIndex = 0;
+                        _dbContext.QueueItems.Update(currentTrack);
+                        _dbContext.QueueItems.UpdateRange(otherTracks);
                     }
-
-                    for (int i = 0; i < shuffledItems.Count; i++)
-                    {
-                        shuffledItems[i].ShuffleIndex = i;
-                    }
-
-                    roomInfo.CurrentTrackIndex = 0;
-                    _dbContext.QueueItems.UpdateRange(shuffledItems);
                 }
                 else
                 {
-                    var currentTrack = queueItems
-                        .FirstOrDefault(qi => qi.ShuffleIndex == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
-
+                    // Find the current track by ShuffleIndex
+                    var currentTrack = queueItems.FirstOrDefault(qi => qi.ShuffleIndex == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
                     for (int i = 0; i < queueItems.Count; i++)
                     {
                         queueItems[i].ShuffleIndex = null;
                     }
-
                     if (currentTrack != null)
                     {
                         roomInfo.CurrentTrackIndex = currentTrack.Index;
                     }
-
                     _dbContext.QueueItems.UpdateRange(queueItems);
                 }
                 _dbContext.RoomInfos.Update(roomInfo);
