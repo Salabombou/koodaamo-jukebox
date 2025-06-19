@@ -66,8 +66,9 @@ export default function App() {
       }
 
       const item = [...queueItems.values()].find(
-        (item) => (isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex,
-      )
+        (item) =>
+          (isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex,
+      );
       if (!item) {
         return null;
       }
@@ -173,7 +174,11 @@ export default function App() {
       },
       abortController.signal,
     );
-  }, [currentTrack, currentTrackIndex]);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [currentTrack, currentTrackIndex, duration]);
 
   const playTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
@@ -220,40 +225,113 @@ export default function App() {
   }, [playingSince, isPaused, currentTrack]);
 
   const seeking = useRef(false);
+  // Track the last seeked time and previous time
+  const lastSeek = useRef<{requested: number|null, previous: number|null}>({requested: null, previous: null});
+
+  // When playingSince changes, clear seeking if it matches the last seek and resume playback if not paused
   useEffect(() => {
-    seeking.current = false;
-  }, [playingSince]);
+    if (
+      lastSeek.current.requested !== null &&
+      typeof playingSince === "number" &&
+      Math.abs(playingSince / 1000 - lastSeek.current.requested) < 2 // allow 2s tolerance
+    ) {
+      seeking.current = false;
+      lastSeek.current = {requested: null, previous: null};
+      // Resume playback if not paused
+      if (audioPlayer.current && !isPaused) {
+        audioPlayer.current.play();
+      }
+    }
+  }, [playingSince, isPaused]);
+
+  // If invokeError occurs after a seek, revert to previous timestamp
+  useEffect(() => {
+    if (invokeError && seeking.current && lastSeek.current.previous !== null) {
+      if (audioPlayer.current) {
+        audioPlayer.current.currentTime = lastSeek.current.previous;
+        setTimestamp(lastSeek.current.previous);
+        audioPlayer.current.pause();
+      }
+      seeking.current = false;
+      lastSeek.current = {requested: null, previous: null};
+    }
+  }, [invokeError]);
+
+  
 
   // Only update backgroundColor if it actually changes
   const [backgroundColor, setBackgroundColorRaw] =
-    useState("rgba(0, 0, 0, 0.5)");
+    useState("#000000");
   const setBackgroundColor = useCallback((color: string) => {
     setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
   }, []);
 
-  // Memoize onSkip and onMove
-  const onSkip = useCallback(
+
+  const onSkip = useCallback((index: number) => {
+    invokeRoomAction("Skip", index);
+  }, []);
+
+  const onMove = useCallback((fromIndex: number, toIndex: number) => {
+    console.log("Moving from", fromIndex, "to", toIndex);
+    invokeRoomAction("Move", fromIndex, toIndex);
+  }, []);
+
+  const onDelete = useCallback(
     (index: number) => {
-      if (typeof currentTrackIndex === "number") {
-        invokeRoomAction("Skip", index);
+      if (index === currentTrackIndex) {
+        return;
       }
+      invokeRoomAction("Delete", index);
     },
-    [currentTrackIndex, invokeRoomAction],
+    [currentTrackIndex],
   );
 
-  const onMove = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      if (typeof currentTrackIndex === "number" && fromIndex !== toIndex) {
-        invokeRoomAction("Move", fromIndex, toIndex);
+  const onPlayNext = useCallback(
+    (index: number) => {
+      if (currentTrackIndex) {
+        if (index < currentTrackIndex) {
+          invokeRoomAction("Move", index, currentTrackIndex);
+        } else if (index > currentTrackIndex) {
+          invokeRoomAction("Move", index, currentTrackIndex + 1);
+        }
       }
+      
     },
-    [currentTrackIndex, invokeRoomAction],
+    [currentTrackIndex],
   );
+
+  useEffect(() => {
+    seeking.current = invokePending;
+  }, [invokePending]);
+
+  useEffect(() => {
+    function handleContextMenu(e: MouseEvent) {
+      // Allow context menu only if inside custom context menu
+      const path = e.composedPath ? e.composedPath() : (e as any).path || [];
+      if (
+        path.some(
+          (el: EventTarget) =>
+            el instanceof HTMLElement &&
+            el.hasAttribute &&
+            el.hasAttribute("data-custom-context-menu")
+        )
+      ) {
+        return; // Allow custom context menu
+      }
+      e.preventDefault();
+    }
+    document.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
 
   return (
     <div
       className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden"
-      style={{ backgroundColor }}
+      style={{
+        backgroundColor: backgroundColor + "cc"
+      }}
     >
       <audio
         ref={audioPlayer}
@@ -295,6 +373,7 @@ export default function App() {
         looping={isLooping ?? false}
         disabled={invokePending}
         onPrimaryColorChange={setBackgroundColor}
+        backgroundColor={backgroundColor}
         onShuffle={() => {
           if (typeof isShuffled === "undefined") return;
           invokeRoomAction("ShuffleToggle", !isShuffled);
@@ -314,13 +393,14 @@ export default function App() {
         onSeek={(seekTime) => {
           if (seeking.current) return;
           seeking.current = true;
+          lastSeek.current = {
+            requested: seekTime,
+            previous: audioPlayer.current!.currentTime,
+          };
           audioPlayer.current!.currentTime = seekTime;
-          audioPlayer.current!.pause();
+          audioPlayer.current!.pause(); // Always pause on seek
           setTimestamp(seekTime);
           invokeRoomAction("Seek", seekTime);
-          setTimeout(() => {
-            seeking.current = false;
-          }, 300);
         }}
         onVolumeChange={(volume) => {
           audioPlayer.current!.volume = volume;
@@ -334,6 +414,8 @@ export default function App() {
         backgroundColor={backgroundColor}
         onSkip={onSkip}
         onMove={onMove}
+        onDelete={onDelete}
+        onPlayNext={onPlayNext}
       />
     </div>
   );

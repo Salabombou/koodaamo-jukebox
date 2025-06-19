@@ -224,6 +224,21 @@ namespace KoodaamoJukebox.Hubs
             await _queueService.Remove(roomCode, index);
         }
 
+        public async Task Delete(long sentAt, int index)
+        {
+            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (Math.Abs(currentTime - sentAt) > 5000)
+            {
+                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
+            }
+            var roomCode = Context.User?.FindFirstValue("room_code");
+            if (string.IsNullOrEmpty(roomCode))
+            {
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
+            }
+            await _queueService.Delete(roomCode, index);
+        }
+
         /*public async Task Clear(long sentAt)
         {
             long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

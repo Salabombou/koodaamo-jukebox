@@ -216,19 +216,17 @@ namespace KoodaamoJukebox.Services
                     return;
                 }
 
+                // Update CurrentTrackIndex correctly when moving items
                 if (queue.CurrentTrackIndex == from)
                 {
-                    // If the current track index is being moved, update it to the new index
                     queue.CurrentTrackIndex = to;
                 }
-                else if (queue.CurrentTrackIndex > from && queue.CurrentTrackIndex <= to)
+                else if (from < queue.CurrentTrackIndex && to >= queue.CurrentTrackIndex)
                 {
-                    // If the current track index is between the from and to indices, decrement it
                     queue.CurrentTrackIndex--;
                 }
-                else if (queue.CurrentTrackIndex < from && queue.CurrentTrackIndex >= to)
+                else if (from > queue.CurrentTrackIndex && to <= queue.CurrentTrackIndex)
                 {
-                    // If the current track index is between the to and from indices, increment it
                     queue.CurrentTrackIndex++;
                 }
 
@@ -631,6 +629,73 @@ namespace KoodaamoJukebox.Services
                 {
                     updatedItems.Add(new QueueItemDto(item));
                 }
+
+                await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        public async Task Delete(string roomCode, int index)
+        {
+            var semaphore = GetSemaphore(roomCode);
+            await semaphore.WaitAsync();
+            try
+            {
+                if (index < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index must be a non-negative integer.");
+                }
+
+                var queue = await _dbContext.RoomInfos
+                    .Where(q => q.RoomCode == roomCode)
+                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
+                var queueItems = await _dbContext.QueueItems
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                    .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
+                    .ToListAsync();
+
+                if (index >= queueItems.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range of the current queue.");
+                }
+
+                var item = queueItems[index];
+                if (queue.IsShuffled ? item.ShuffleIndex == queue.CurrentTrackIndex : item.Index == queue.CurrentTrackIndex)
+                {
+                    throw new InvalidOperationException("Cannot delete the current track from the queue.");
+                }
+                item.IsDeleted = true;
+                _dbContext.QueueItems.Update(item);
+                await _dbContext.SaveChangesAsync();
+
+                // Move currentTrackIndex back if deleting from behind the current track
+                if (queue.CurrentTrackIndex != null && index < queue.CurrentTrackIndex)
+                {
+                    queue.CurrentTrackIndex--;
+                    _dbContext.RoomInfos.Update(queue);
+                }
+
+                // Update indices of items to the right of the deleted item
+                var itemsToUpdate = queueItems.Skip(index + 1).ToList();
+                for (int i = 0; i < itemsToUpdate.Count; i++)
+                {
+                    if (queue.IsShuffled && itemsToUpdate[i].ShuffleIndex.HasValue)
+                    {
+                        itemsToUpdate[i].ShuffleIndex--;
+                    }
+                    else
+                    {
+                        itemsToUpdate[i].Index--;
+                    }
+                }
+                _dbContext.QueueItems.UpdateRange(itemsToUpdate);
+                await _dbContext.SaveChangesAsync();
+
+                var updatedItems = itemsToUpdate.Select(i => new QueueItemDto(i)).ToList();
+                updatedItems.Insert(0, new QueueItemDto(item)); // Include the deleted item in the update
 
                 await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
             }

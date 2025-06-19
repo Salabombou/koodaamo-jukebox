@@ -72,6 +72,7 @@ export default function useRoomHub() {
   }, [discordSDK.isEmbedded]);
 
   const invokeRoomAction = useCallback((action: string, ...args: any[]) => {
+    if (invokePending) return;
     startTransition(async () => {
       if (invokePending) {
         setInvokeError("Another action is already in progress");
@@ -93,6 +94,7 @@ export default function useRoomHub() {
       if (error) {
         setInvokeError(error);
       }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     });
   }, []);
 

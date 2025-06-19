@@ -13,6 +13,7 @@ import { Track } from "../types/track";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { thumbnailUrlCacheHigh } from "../services/thumbnailCache";
 import * as colorService from "../services/colorService";
+import ContextMenu from "./ContextMenu";
 
 interface MusicPlayerInterfaceProps {
   track: Track | null;
@@ -21,6 +22,7 @@ interface MusicPlayerInterfaceProps {
   paused: boolean;
   looping: boolean;
   disabled?: boolean;
+  backgroundColor: string;
   onShuffle: () => void;
   onBackward: () => void;
   onPlayToggle: () => void;
@@ -48,6 +50,8 @@ export default function MusicPlayerInterface({
   onPrimaryColorChange,
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
+  const figureRef = useRef<HTMLDivElement>(null);
+
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(1);
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
@@ -84,25 +88,34 @@ export default function MusicPlayerInterface({
     };
   }, [thumbUrl, discordSDK.isEmbedded]);
   return (
-    <div className="flex flex-col md:ml-6 w-full md:max-w-150 md:min-w-150">
+    <div className="flex flex-col md:ml-6 w-full xl:w-1/2 max-w-150">
       <div className="card bg-music-player-interface h-38 xs:h-auto rounded-none">
-        <figure className="select-none dark:bg-black">
-          <div className="w-200 flex align-middle justify-center">
-            <div className="hidden xs:flex items-center justify-center">
-              <img
-                src={imageBlobUrl || "/black.jpg"}
-                width="100%"
-                height="100%"
-                className="aspect-video object-cover"
-                onLoad={(e) =>
-                  colorService
-                    .getProminentColorFromUrl(e.currentTarget.src)
-                    .then(onPrimaryColorChange)
-                }
-              />
+        <ContextMenu
+          controlsDisabled={disabled}
+          onCopyUrl={() => {
+            if (track?.webpageUrl) {
+              navigator.clipboard.writeText(track.webpageUrl);
+            }
+          }}
+        >
+          <figure ref={figureRef} className="select-none dark:bg-black">
+            <div className="hidden xs:[@media(min-height:600px)]:flex w-200 align-middle justify-center aspect-video">
+              <div className="flex items-center justify-center relative">
+                <img
+                  src={imageBlobUrl || "/black.jpg"}
+                  width="100%"
+                  height="100%"
+                  className="object-cover"
+                  onLoad={(e) =>
+                    colorService
+                      .getProminentColorFromUrl(e.currentTarget.src)
+                      .then(onPrimaryColorChange)
+                  }
+                />
+              </div>
             </div>
-          </div>
-        </figure>
+          </figure>
+        </ContextMenu>
         <div className="card-body h-50">
           <div>
             <h2 className="card-title font-bold truncate ">

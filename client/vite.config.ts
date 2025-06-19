@@ -4,12 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [
-    tailwindcss(),
-    react({
-      jsxImportSource: "@welldone-software/why-did-you-render",
-    }),
-  ],
+  plugins: [tailwindcss(), react()],
   envDir: mode !== "production" ? "../" : ".",
   server: {
     strictPort: true,

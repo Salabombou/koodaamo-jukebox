@@ -42,6 +42,8 @@ interface QueueProps {
   backgroundColor: string;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
+  onDelete: (index: number) => void;
+  onPlayNext: (index: number) => void;
 }
 
 const Queue = memo(function Queue({
@@ -51,6 +53,8 @@ const Queue = memo(function Queue({
   backgroundColor,
   onMove,
   onSkip,
+  onDelete,
+  onPlayNext,
   controlsDisabled,
 }: QueueProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -86,11 +90,24 @@ const Queue = memo(function Queue({
         currentTrackIndex={currentTrackIndex}
         backgroundColor={backgroundColor}
         onSkip={onSkip}
+        onDelete={onDelete}
+        onPlayNext={onPlayNext}
         controlsDisabled={controlsDisabled}
       />
     ),
-    [tracks, currentTrackIndex, backgroundColor, onSkip, controlsDisabled],
+    [tracks, currentTrackIndex, onSkip, backgroundColor, controlsDisabled],
   );
+
+  const list = useRef<FixedSizeList>(null);
+
+  useEffect(() => {
+    // scroll where the current track is visible as first item
+    if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
+      if (list.current) {
+        list.current.scrollToItem(currentTrackIndex, "smart");
+      }
+    }
+  }, [currentTrackIndex]);
 
   return (
     <DndContext
@@ -114,12 +131,13 @@ const Queue = memo(function Queue({
     >
       <SortableContext items={queueList} strategy={verticalListSortingStrategy}>
         <FixedSizeList
+          ref={list}
           height={listHeight}
           width="100%"
           className="hidden md:flex mx-6"
           itemData={queueList}
           itemCount={queueList.length}
-          itemSize={56}
+          itemSize={60}
           itemKey={itemKey}
           style={{
             overflowX: "hidden",
@@ -133,10 +151,13 @@ const Queue = memo(function Queue({
       <DragOverlay dropAnimation={null}>
         {draggedIndex !== null && (
           <QueueRow
+            overlay={true}
             index={draggedIndex}
             currentTrackIndex={currentTrackIndex}
             backgroundColor={backgroundColor}
             onSkip={() => {}}
+            onDelete={() => {}}
+            onPlayNext={() => {}}
             style={{}}
             data={queueList}
             tracks={tracks}
