@@ -175,7 +175,10 @@ namespace KoodaamoJukebox.Controllers
                     dbUser.ConnectionId = null;
                 }
 
-                _dbContext.Users.Update(dbUser);
+                if (_dbContext.Entry(dbUser).State != EntityState.Added)
+                {
+                    _dbContext.Users.Update(dbUser);
+                }
                 await _dbContext.SaveChangesAsync();
 
                 return Ok(new AuthResponseDto

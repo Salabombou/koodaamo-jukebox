@@ -49,25 +49,31 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
-                else if (queue.IsPaused == paused && queue.PlayingSince.HasValue)
+                if (queue.IsPaused == paused)
                 {
                     // If the state is already the same, do nothing
                     return;
                 }
 
-                queue.IsPaused = paused;
                 if (paused)
                 {
+                    // Pausing: set PausedAt to now
                     queue.PausedAt = currentTime;
-                }
-                else if (!queue.PlayingSince.HasValue)
-                {
-                    queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500;
+                    queue.IsPaused = true;
                 }
                 else
                 {
-                    queue.PlayingSince += currentTime - queue.PausedAt ?? 0;
-                    queue.PlayingSince -= 250; // Adjust to account for the time it takes to process the request
+                    // Unpausing: adjust PlayingSince by paused duration
+                    if (queue.PausedAt.HasValue && queue.PlayingSince.HasValue)
+                    {
+                        queue.PlayingSince += currentTime - queue.PausedAt.Value;
+                    }
+                    else if (!queue.PlayingSince.HasValue)
+                    {
+                        queue.PlayingSince = currentTime + 500; // fallback for missing value
+                    }
+                    queue.PausedAt = null;
+                    queue.IsPaused = false;
                 }
                 await _dbContext.SaveChangesAsync();
 
@@ -168,9 +174,14 @@ namespace KoodaamoJukebox.Services
                 }
 
                 queue.CurrentTrackIndex = index;
-                queue.IsPaused = false;
+                // Set CurrentTrackId
+                var currentItem = await _dbContext.QueueItems.FirstOrDefaultAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
+                queue.CurrentTrackId = currentItem?.TrackId;
+                queue.IsPaused = true;
+                queue.PausedAt = null;
                 queue.PlayingSince = null;
-                
+                //queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500; // set to now + offset
+
                 await _dbContext.SaveChangesAsync();
 
                 await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
@@ -220,14 +231,17 @@ namespace KoodaamoJukebox.Services
                 if (queue.CurrentTrackIndex == from)
                 {
                     queue.CurrentTrackIndex = to;
+                    // We'll set CurrentTrackId after reordering
                 }
                 else if (from < queue.CurrentTrackIndex && to >= queue.CurrentTrackIndex)
                 {
                     queue.CurrentTrackIndex--;
+                    // We'll set CurrentTrackId after reordering
                 }
                 else if (from > queue.CurrentTrackIndex && to <= queue.CurrentTrackIndex)
                 {
                     queue.CurrentTrackIndex++;
+                    // We'll set CurrentTrackId after reordering
                 }
 
                 var movedItem = queueList[from];
@@ -254,6 +268,12 @@ namespace KoodaamoJukebox.Services
                     {
                         queueList[i].Index = i;
                     }
+                }
+
+                // Set CurrentTrackId to the item at CurrentTrackIndex after reordering
+                if (queue.CurrentTrackIndex != null && queue.CurrentTrackIndex >= 0 && queue.CurrentTrackIndex < queueList.Count)
+                {
+                    queue.CurrentTrackId = queueList[queue.CurrentTrackIndex.Value].TrackId;
                 }
 
                 _dbContext.RoomInfos.Update(queue);
@@ -413,6 +433,7 @@ namespace KoodaamoJukebox.Services
                 {
                     // If the queue was empty, set the current track to the first added item
                     queue.CurrentTrackIndex = newQueueItems[0].ShuffleIndex ?? newQueueItems[0].Index;
+                    queue.CurrentTrackId = newQueueItems[0].TrackId;
                 }
 
                 await _dbContext.SaveChangesAsync();
@@ -540,6 +561,7 @@ namespace KoodaamoJukebox.Services
                             shuffledItems[i].ShuffleIndex = i;
                         }
                         roomInfo.CurrentTrackIndex = 0;
+                        roomInfo.CurrentTrackId = null;
                         _dbContext.QueueItems.UpdateRange(shuffledItems);
                     }
                     else
@@ -555,6 +577,7 @@ namespace KoodaamoJukebox.Services
                         }
                         // Set CurrentTrackIndex to 0
                         roomInfo.CurrentTrackIndex = 0;
+                        roomInfo.CurrentTrackId = currentTrack.TrackId;
                         _dbContext.QueueItems.Update(currentTrack);
                         _dbContext.QueueItems.UpdateRange(otherTracks);
                     }
@@ -570,6 +593,7 @@ namespace KoodaamoJukebox.Services
                     if (currentTrack != null)
                     {
                         roomInfo.CurrentTrackIndex = currentTrack.Index;
+                        roomInfo.CurrentTrackId = currentTrack.TrackId;
                     }
                     _dbContext.QueueItems.UpdateRange(queueItems);
                 }
@@ -675,6 +699,9 @@ namespace KoodaamoJukebox.Services
                 if (queue.CurrentTrackIndex != null && index < queue.CurrentTrackIndex)
                 {
                     queue.CurrentTrackIndex--;
+                    // Set CurrentTrackId
+                    var newCurrent = queueItems[queue.CurrentTrackIndex.Value];
+                    queue.CurrentTrackId = newCurrent.TrackId;
                     _dbContext.RoomInfos.Update(queue);
                 }
 

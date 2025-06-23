@@ -7,13 +7,12 @@ import { QueueItem } from "../types/queue";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { thumbnailUrlCacheLow } from "../services/thumbnailCache";
 import ContextMenu from "./ContextMenu";
-import { FaBars } from "react-icons/fa";
-
+import { FaGripLines } from "react-icons/fa";
 
 interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
   tracks: Map<string, Track>;
-  currentTrackIndex?: number | null;
+  currentTrackId: string | null;
   backgroundColor: string;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
@@ -28,17 +27,17 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
     style,
     data,
     tracks,
-    currentTrackIndex,
+    currentTrackId,
     backgroundColor,
     onDelete,
     onSkip,
     onPlayNext,
     controlsDisabled = false,
-    overlay = false
+    overlay = false,
   }) => {
     const item = data[index];
     const track = tracks.get(item.trackId);
-    
+
     const {
       attributes,
       listeners,
@@ -46,17 +45,18 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
       transform,
       transition,
       isDragging, // when the item itself is being dragged
+      isSorting,
     } = useSortable({
       id: item.id,
     });
 
-    const highlighted = currentTrackIndex === index;
+    const highlighted = item.trackId === currentTrackId;
     const discordSDK = useDiscordSDK();
     const thumbUrl = useMemo(() => {
       if (!track?.id) return "/black.jpg";
       // Use both track.id and embed state as cache key
       const cacheKey = `${track.id}:${discordSDK.isEmbedded ? "1" : "0"}`;
-      if (thumbnailUrlCacheLow.has(cacheKey)){
+      if (thumbnailUrlCacheLow.has(cacheKey)) {
         return thumbnailUrlCacheLow.get(cacheKey)!;
       }
       const url = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-low`;
@@ -73,12 +73,47 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
       }
     };
 
+    // Utility to determine if a color is bright
+    function isColorBright(color: string): boolean {
+      // Accepts hex (#RRGGBB or #RGB) or rgb(a) strings
+      let r = 0,
+        g = 0,
+        b = 0;
+      if (color.startsWith("#")) {
+        let hex = color.slice(1);
+        if (hex.length === 3) {
+          r = parseInt(hex[0] + hex[0], 16);
+          g = parseInt(hex[1] + hex[1], 16);
+          b = parseInt(hex[2] + hex[2], 16);
+        } else if (hex.length === 6) {
+          r = parseInt(hex.slice(0, 2), 16);
+          g = parseInt(hex.slice(2, 4), 16);
+          b = parseInt(hex.slice(4, 6), 16);
+        }
+      } else if (color.startsWith("rgb")) {
+        const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (match) {
+          r = parseInt(match[1], 10);
+          g = parseInt(match[2], 10);
+          b = parseInt(match[3], 10);
+        }
+      }
+      // Perceived brightness formula
+      return (r * 299 + g * 587 + b * 114) / 1000 > 180;
+    }
+
     return (
       <div
         key={item.id}
         ref={setNodeRef}
         style={{
-          backgroundColor,
+          backgroundColor: highlighted ? backgroundColor : "transparent",
+          color: highlighted
+            ? isColorBright(backgroundColor)
+              ? "#000"
+              : "#fff"
+            : undefined,
+          //opacity: controlsDisabled ? 0.5 : 1,
           ...style,
           width: "100%",
           height: "56px",
@@ -95,11 +130,9 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
             `${highlighted && !overlay ? "bg-queue-item-highlight" : ""}`,
             `${!highlighted && !overlay ? "bg-queue-item" : ""}`,
             `${!highlighted && overlay ? "bg-queue-item-hover" : ""}`,
-            `${highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
+            `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
           ].join(" ")}
-          onDoubleClick={
-            controlsDisabled ? undefined : () => onSkip(index)
-          }
+          onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
         >
           <ContextMenu
             onPlayNext={handlePlayNext}
@@ -113,11 +146,9 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
                 {...listeners}
                 className="h-full px-4 flex items-center"
               >
-              <FaBars/>
+                <FaGripLines />
               </div>
-              <div
-                className="aspect-video h-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative"
-              >
+              <div className="aspect-video h-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative">
                 <img
                   src={thumbUrl}
                   loading="lazy"
@@ -125,9 +156,7 @@ const QueueRow: React.FC<QueueRowProps> = React.memo(
                   alt={track?.title || "thumbnail"}
                 />
               </div>
-              <div
-                className="flex flex-col overflow-hidden w-full pl-2"
-              >
+              <div className="flex flex-col overflow-hidden w-full pl-2">
                 <label className="text-s font-bold truncate -mb-1">
                   {track?.title}
                 </label>

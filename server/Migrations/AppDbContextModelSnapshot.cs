@@ -132,6 +132,9 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CurrentTrackId")
+                        .HasColumnType("text");
+
                     b.Property<int?>("CurrentTrackIndex")
                         .HasColumnType("integer");
 
@@ -158,6 +161,8 @@ namespace server.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CurrentTrackId");
 
                     b.HasIndex("CurrentTrackIndex");
 

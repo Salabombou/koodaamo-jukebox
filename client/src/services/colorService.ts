@@ -5,11 +5,11 @@ export function getProminentColorFromUrl(url: string): Promise<string> {
     .getPalette()
     .then((palette) => {
       console.log("Vibrant palette:", palette);
-      if (!palette.DarkVibrant) {
+      if (!palette.Vibrant) {
         console.warn("No vibrant color found for image");
-        return "#000000"
+        return "#000000";
       }
-      return palette.DarkVibrant.hex
+      return palette.Vibrant.hex;
     })
     .catch((e) => {
       console.error("Error getting vibrant color from URL:", url, e);

@@ -32,21 +32,28 @@ export default function ContextMenu({
     function handleScroll() {
       setVisible(false);
     }
+    function handleGlobalClose() {
+      setVisible(false);
+    }
 
     if (visible) {
       document.addEventListener("mousedown", handleClick);
       document.addEventListener("keydown", handleEsc);
       window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("closeAllContextMenus", handleGlobalClose);
     }
     return () => {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleEsc);
       window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("closeAllContextMenus", handleGlobalClose);
     };
   }, [visible]);
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
+    // Close all other context menus before opening this one
+    window.dispatchEvent(new Event("closeAllContextMenus"));
     console.log("Context menu opened at", e.clientX, e.clientY);
     setPos({ x: e.clientX, y: e.clientY });
     setVisible(true);
@@ -103,24 +110,36 @@ export default function ContextMenu({
             >
               {onPlayNext && (
                 <li>
-                  <button onClick={() => {
-                    onPlayNext();
-                    setVisible(false);
-                  }}>Play Next</button>
+                  <button
+                    onClick={() => {
+                      onPlayNext();
+                      setVisible(false);
+                    }}
+                  >
+                    Play Next
+                  </button>
                 </li>
               )}
               <li>
-                <button onClick={() => {
-                  onCopyUrl();
-                  setVisible(false);
-                }}>Copy URL</button>
+                <button
+                  onClick={() => {
+                    onCopyUrl();
+                    setVisible(false);
+                  }}
+                >
+                  Copy URL
+                </button>
               </li>
               {onDelete && (
                 <li className="text-red-500 hover:text-red-700">
-                  <button onClick={() => {
-                    onDelete();
-                    setVisible(false);
-                  }}>Delete</button>
+                  <button
+                    onClick={() => {
+                      onDelete();
+                      setVisible(false);
+                    }}
+                  >
+                    Delete
+                  </button>
                 </li>
               )}
             </ul>

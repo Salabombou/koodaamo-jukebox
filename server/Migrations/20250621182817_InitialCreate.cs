@@ -74,6 +74,7 @@ namespace server.Migrations
                     IsLooping = table.Column<bool>(type: "boolean", nullable: false),
                     IsShuffled = table.Column<bool>(type: "boolean", nullable: false),
                     CurrentTrackIndex = table.Column<int>(type: "integer", nullable: true),
+                    CurrentTrackId = table.Column<string>(type: "text", nullable: true),
                     PlayingSince = table.Column<long>(type: "bigint", nullable: true),
                     PausedAt = table.Column<long>(type: "bigint", nullable: true)
                 },
@@ -144,6 +145,11 @@ namespace server.Migrations
                 name: "IX_QueueItems_TrackId",
                 table: "QueueItems",
                 column: "TrackId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Queues_CurrentTrackId",
+                table: "Queues",
+                column: "CurrentTrackId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Queues_CurrentTrackIndex",

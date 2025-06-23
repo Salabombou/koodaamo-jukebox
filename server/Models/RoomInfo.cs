@@ -26,6 +26,8 @@ namespace KoodaamoJukebox.Models
 
         public int? CurrentTrackIndex { get; set; }
 
+        public string? CurrentTrackId { get; set; } // New property for current track id
+
         public long? PlayingSince { get; set; }
         
         public long? PausedAt { get; set; }
@@ -39,7 +41,11 @@ namespace KoodaamoJukebox.Models
             IsPaused = queue.IsPaused;
             IsLooping = queue.IsLooping;
             IsShuffled = queue.IsShuffled;
-            CurrentTrackIndex = queue.CurrentTrackIndex;
+            CurrentTrack = new CurrentTrackDto
+            {
+                index = queue.CurrentTrackIndex ?? -1,
+                id = queue.CurrentTrackId ?? string.Empty
+            };
             PlayingSince = queue.PlayingSince;
         }
         
@@ -47,7 +53,13 @@ namespace KoodaamoJukebox.Models
         public bool IsPaused { get; set; }
         public bool IsLooping { get; set; }
         public bool IsShuffled { get; set; }
-        public int? CurrentTrackIndex { get; set; }
+        public CurrentTrackDto CurrentTrack { get; set; }
         public long? PlayingSince { get; set; }
+    }
+
+    public class CurrentTrackDto
+    {
+        public int index { get; set; }
+        public string id { get; set; } = string.Empty;
     }
 }

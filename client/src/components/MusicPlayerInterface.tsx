@@ -20,6 +20,7 @@ interface MusicPlayerInterfaceProps {
   duration: number;
   timestamp: number;
   paused: boolean;
+  shuffled: boolean;
   looping: boolean;
   disabled?: boolean;
   backgroundColor: string;
@@ -39,6 +40,7 @@ export default function MusicPlayerInterface({
   timestamp,
   paused,
   looping,
+  shuffled,
   disabled = false,
   onShuffle,
   onBackward,
@@ -65,6 +67,13 @@ export default function MusicPlayerInterface({
       thumbnailUrlCacheHigh.set(track.id, thumbUrl);
     }
   }
+  const [seekValue, setSeekValue] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+
+  useEffect(() => {
+    if (!isSeeking) setSeekValue(timestamp % duration);
+  }, [timestamp, duration, isSeeking]);
+
   useEffect(() => {
     let isMounted = true,
       objectUrl: string | null = null;
@@ -72,7 +81,7 @@ export default function MusicPlayerInterface({
       if (!thumbUrl) return;
       try {
         const response = await fetch(
-          `${discordSDK.isEmbedded ? "/.proxy/" : ""}${thumbUrl}`,
+          `${discordSDK.isEmbedded ? "/.proxy" : ""}${thumbUrl}`,
         );
         const blob = await response.blob();
         objectUrl = URL.createObjectURL(blob);
@@ -118,7 +127,7 @@ export default function MusicPlayerInterface({
         </ContextMenu>
         <div className="card-body h-50">
           <div>
-            <h2 className="card-title font-bold truncate ">
+            <h2 className="card-title font-bold truncate">
               {track?.title ?? "???"}
             </h2>
             <h4 className="text-sm truncate">{track?.uploader ?? "???"}</h4>
@@ -130,10 +139,21 @@ export default function MusicPlayerInterface({
                   type="range"
                   min="0"
                   max={duration}
-                  value={timestamp}
+                  value={seekValue}
                   className="range range-sm w-full"
-                  onChange={(e) => onSeek(Number(e.target.value))}
-                  disabled={disabled}
+                  onChange={(e) => {
+                    setSeekValue(Number(e.target.value));
+                    setIsSeeking(true);
+                  }}
+                  onMouseUp={() => {
+                    onSeek(seekValue);
+                    setIsSeeking(false);
+                  }}
+                  onTouchEnd={() => {
+                    onSeek(seekValue);
+                    setIsSeeking(false);
+                  }}
+                  //disabled={disabled}
                 />
                 <div className="flex justify-between select-none">
                   <label children={<Timestamp timestamp={timestamp} />} />
@@ -142,41 +162,41 @@ export default function MusicPlayerInterface({
               </div>
               <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className="btn btn-xl btn-ghost btn-circle hover:bg-button-hover"
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover ${shuffled ? "btn-active" : ""}`}
                   onClick={onShuffle}
                   children={<FaShuffle />}
-                  disabled={disabled}
+                  //disabled={disabled}
                 />
                 <button
-                  className="btn btn-xl btn-ghost btn-circle"
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
                   onClick={onBackward}
                   children={<FaBackwardStep />}
-                  disabled={disabled}
+                  //disabled={disabled}
                 />
                 <button
-                  className="btn btn-xl btn-ghost btn-circle"
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
-                  disabled={disabled}
+                  //disabled={disabled}
                 />
                 <button
-                  className="btn btn-xl btn-ghost btn-circle"
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
                   onClick={onForward}
                   children={<FaForwardStep />}
-                  disabled={disabled}
+                  //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle ${looping ? "btn-accent" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover ${looping ? "btn-active" : ""}`}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
-                  disabled={disabled}
+                  //disabled={disabled}
                 />
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div className="hidden xs:flex items-center justify-center w-full mt-2 px-4 bg-volume-slider">
+      <div className="hidden xs:flex z-1 items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
             className="btn btn-xl btn-ghost btn-circle"
@@ -200,7 +220,6 @@ export default function MusicPlayerInterface({
                 onVolumeChange(0);
               }
             }}
-            disabled={disabled}
           />
         </div>
         <div className="w-full">
@@ -213,10 +232,11 @@ export default function MusicPlayerInterface({
             className="range range-sm w-full"
             onChange={(e) => {
               volumeRef.current = e.target.valueAsNumber;
+              localStorage.setItem("volume", e.target.value);
               setVolume(e.target.valueAsNumber);
               onVolumeChange(e.target.valueAsNumber);
             }}
-            defaultValue={1}
+            defaultValue={localStorage.getItem("volume") || "1"}
           />
         </div>
       </div>

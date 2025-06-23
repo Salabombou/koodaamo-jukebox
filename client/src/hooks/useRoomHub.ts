@@ -12,6 +12,7 @@ export default function useRoomHub() {
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(
     null,
   );
+  const [currentTrackId, setCurrentTrackId] = useState<string | null>(null);
   const [isLooping, setIsLooping] = useState<boolean | null>(null);
   const [isPaused, setIsPaused] = useState<boolean | null>(null);
   const [isShuffled, setIsShuffled] = useState<boolean | null>(null);
@@ -41,7 +42,6 @@ export default function useRoomHub() {
       "RoomUpdate",
       (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
         setPlayingSince(roomInfo.playingSince ?? null);
-        setCurrentTrackIndex(roomInfo.currentTrackIndex ?? null);
         setIsLooping(roomInfo.isLooping);
         setIsPaused(roomInfo.isPaused);
         setIsShuffled(roomInfo.isShuffled);
@@ -56,6 +56,8 @@ export default function useRoomHub() {
           });
           return items;
         });
+        setCurrentTrackIndex(roomInfo.currentTrack.index ?? null);
+        setCurrentTrackId(roomInfo.currentTrack.id ?? null);
       },
     );
     connection.current.on("Error", (error: string) => {
@@ -71,7 +73,7 @@ export default function useRoomHub() {
     };
   }, [discordSDK.isEmbedded]);
 
-  const invokeRoomAction = useCallback((action: string, ...args: any[]) => {
+  const invokeRoomAction = useCallback((action: string, ...args: unknown[]) => {
     if (invokePending) return;
     startTransition(async () => {
       if (invokePending) {
@@ -101,6 +103,7 @@ export default function useRoomHub() {
   return {
     playingSince,
     currentTrackIndex,
+    currentTrackId,
     isLooping,
     isPaused,
     isShuffled,

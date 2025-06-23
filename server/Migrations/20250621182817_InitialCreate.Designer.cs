@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250615213306_InitialCreate")]
+    [Migration("20250621182817_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -135,6 +135,9 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CurrentTrackId")
+                        .HasColumnType("text");
+
                     b.Property<int?>("CurrentTrackIndex")
                         .HasColumnType("integer");
 
@@ -161,6 +164,8 @@ namespace server.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CurrentTrackId");
 
                     b.HasIndex("CurrentTrackIndex");
 

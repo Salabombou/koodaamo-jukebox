@@ -34,6 +34,7 @@ namespace KoodaamoJukebox
                 entity.ToTable("Queues");
                 entity.HasIndex(q => q.RoomCode).IsUnique();
                 entity.HasIndex(q => q.CurrentTrackIndex);
+                entity.HasIndex(q => q.CurrentTrackId); // Add index for CurrentTrackId
                 entity.Property(q => q.RoomCode).IsRequired();
                 entity.Property(q => q.IsPaused).IsRequired();
                 entity.Property(q => q.IsLooping).IsRequired();

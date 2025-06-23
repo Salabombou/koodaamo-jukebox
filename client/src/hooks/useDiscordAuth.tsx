@@ -40,7 +40,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
         Date.now() >= parseInt(expiresAt)
       ) {
         responsePromise = fetch(
-          `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth`,
+          `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/auth`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -53,7 +53,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
         );
       } else {
         responsePromise = fetch(
-          `${discordSDK.isEmbedded ? "/.proxy/" : ""}/api/auth/refresh`,
+          `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/auth/refresh`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

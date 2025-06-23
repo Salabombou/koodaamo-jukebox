@@ -39,6 +39,42 @@ namespace KoodaamoJukebox.Controllers
                 return BadRequest("Webpage URL hash cannot be null or empty.");
             }
 
+            // Only use room_code from JWT
+            var roomCodeClaim = User.Claims.FirstOrDefault(c => c.Type == "room_code");
+            if (roomCodeClaim == null)
+            {
+                return Forbid("Missing room code claim.");
+            }
+            var roomCode = roomCodeClaim.Value;
+
+            // Find the room
+            var room = await _dbContext.RoomInfos.AsNoTracking().FirstOrDefaultAsync(r => r.RoomCode == roomCode);
+            if (room == null)
+            {
+                return Forbid("Room not found.");
+            }
+
+            // Only get the 3 relevant queue items
+            int? currentTrackIndex = room.CurrentTrackIndex;
+            if (currentTrackIndex.HasValue)
+            {
+                var queueItems = await _dbContext.QueueItems.AsNoTracking()
+                    .Where(q => q.RoomCode == room.RoomCode && Math.Abs((room.IsShuffled ? (int)q.ShuffleIndex! : q.Index) - currentTrackIndex.Value) <= 2)
+                    .ToListAsync();
+                if (queueItems.Count == 0)
+                {
+                    _logger.LogWarning("Queue is empty for room {RoomCode}", room.RoomCode);
+                    return Forbid();
+                }
+                // Allow only if requested webpageUrlHash is among these
+                var allowed = queueItems.Any(q => q.TrackId == webpageUrlHash);
+                if (!allowed)
+                {
+                    _logger.LogWarning("Requesting track with hash '{WebpageUrlHash}' is not within ±1 of the current track index {CurrentTrackIndex} in room {RoomCode}.", webpageUrlHash, currentTrackIndex.Value, room.RoomCode);
+                    return Forbid();
+                }
+            }
+
             var track = await _dbContext.Tracks
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.WebpageUrlHash == webpageUrlHash);

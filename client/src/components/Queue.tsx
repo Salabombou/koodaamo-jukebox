@@ -37,6 +37,7 @@ const restrictToVerticalAxisCenterY: Modifier = ({
 interface QueueProps {
   tracks: Map<string, Track>;
   queueList: QueueItem[];
+  currentTrackId: string | null;
   currentTrackIndex?: number | null;
   controlsDisabled?: boolean;
   backgroundColor: string;
@@ -49,6 +50,7 @@ interface QueueProps {
 const Queue = memo(function Queue({
   tracks,
   queueList,
+  currentTrackId,
   currentTrackIndex,
   backgroundColor,
   onMove,
@@ -61,12 +63,12 @@ const Queue = memo(function Queue({
 
   // Debounced resize handler to avoid rapid state updates
   const resizeTimeout = useRef<number | null>(null);
-  const [listHeight, setListHeight] = useState(window.innerHeight - 24);
+  const [listHeight, setListHeight] = useState(window.innerHeight);
   useEffect(() => {
     const handleResize = () => {
       if (resizeTimeout.current) clearTimeout(resizeTimeout.current);
       resizeTimeout.current = window.setTimeout(() => {
-        const newHeight = window.innerHeight - 24;
+        const newHeight = window.innerHeight - 48;
         setListHeight((prev) => (prev !== newHeight ? newHeight : prev));
       }, 100); // 100ms debounce
     };
@@ -87,7 +89,7 @@ const Queue = memo(function Queue({
       <QueueRow
         {...props}
         tracks={tracks}
-        currentTrackIndex={currentTrackIndex}
+        currentTrackId={currentTrackId}
         backgroundColor={backgroundColor}
         onSkip={onSkip}
         onDelete={onDelete}
@@ -95,7 +97,7 @@ const Queue = memo(function Queue({
         controlsDisabled={controlsDisabled}
       />
     ),
-    [tracks, currentTrackIndex, onSkip, backgroundColor, controlsDisabled],
+    [tracks, currentTrackId, onSkip, backgroundColor, controlsDisabled],
   );
 
   const list = useRef<FixedSizeList>(null);
@@ -153,7 +155,7 @@ const Queue = memo(function Queue({
           <QueueRow
             overlay={true}
             index={draggedIndex}
-            currentTrackIndex={currentTrackIndex}
+            currentTrackId={currentTrackId}
             backgroundColor={backgroundColor}
             onSkip={() => {}}
             onDelete={() => {}}
