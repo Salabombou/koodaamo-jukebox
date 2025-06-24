@@ -98,7 +98,7 @@ export default function MusicPlayerInterface({
   }, [thumbUrl, discordSDK.isEmbedded]);
   return (
     <div className="flex flex-col md:ml-6 w-full xl:w-1/2 max-w-150">
-      <div className="card bg-music-player-interface h-38 xs:h-auto rounded-none">
+      <div className="card bg-transparent xs:bg-music-player-interface h-38 xs:h-auto rounded-none">
         <ContextMenu
           controlsDisabled={disabled}
           onCopyUrl={() => {

@@ -49,12 +49,39 @@ export default function App() {
   useEffect(() => {
     console.log("Current track index:", currentTrackIndex);
   }, [currentTrackIndex]);
+  
   useEffect(() => {
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
+    } else {
+      const msSince = timeService.getServerNow() - playingSince
+      console.log("Milliseconds since playing started:", msSince);
+      if (msSince >= 0) {
+        const currentTime = msSince / 1000;
+        audioPlayer.current!.currentTime = currentTime;
+        setTimestamp(currentTime);
+        if (!isPaused) {
+          console.log("Resuming audio playback immediately");
+          audioPlayer.current.play();
+        }
+      } else {
+        setTimeout(() => {
+          if (!isPaused) {
+            console.log("Resuming audio playback after delay");
+            audioPlayer.current!.play();
+          }
+        }, Math.abs(msSince));
+        audioPlayer.current.currentTime = 0;
+        setTimestamp(0);
+      }
+
+      if (isPaused) {
+        console.log("Pausing audio playback");
+        audioPlayer.current!.pause();
+      }
     }
-  }, [playingSince]);
+  }, [playingSince, isPaused]);
 
   // Memoize queueList to avoid new array reference unless contents change
   const queueList = useMemo(() => {
@@ -147,40 +174,6 @@ export default function App() {
     }
   }, [currentTrackId]);
 
-  const playTimeoutRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (playTimeoutRef.current) clearTimeout(playTimeoutRef.current);
-    if (!isPaused && typeof playingSince === "number") {
-      const playAfter = Math.max(0, playingSince - timeService.getServerNow());
-      playTimeoutRef.current = setTimeout(() => {
-        if (
-          audioPlayer.current!.paused &&
-          !isPaused &&
-          playingSince !== null &&
-          Math.abs(playingSince - timeService.getServerNow()) < 1000
-        ) {
-          audioPlayer.current!.play();
-        }
-      }, playAfter);
-    } else {
-      if (typeof playingSince === "number") {
-        seeking.current = true;
-        const currentTime = (timeService.getServerNow() - playingSince) / 1000;
-        audioPlayer.current!.currentTime = currentTime;
-        setTimestamp(currentTime);
-      }
-      audioPlayer.current.pause();
-    }
-  }, [currentTrack, isPaused, playingSince, timestamp]);
-
-  /*useEffect(() => {
-    if (hls.current?.media?.paused && !isPaused && playingSince !== null) {
-      audioPlayer.current?.play();
-    } else if (hls.current?.media && isPaused) {
-      audioPlayer.current?.pause();
-    }
-  }, [playingSince, isPaused, currentTrack]);*/
-
   const seeking = useRef(true);
 
   const [backgroundColor, setBackgroundColorRaw] = useState("#000000");
@@ -209,7 +202,7 @@ export default function App() {
 
   const onPlayNext = useCallback(
     (index: number) => {
-      if (currentTrackIndex) {
+      if (typeof currentTrackIndex === "number") {
         if (index < currentTrackIndex) {
           invokeRoomAction("Move", index, currentTrackIndex);
         } else if (index > currentTrackIndex) {
@@ -219,10 +212,6 @@ export default function App() {
     },
     [currentTrackIndex],
   );
-
-  /*useEffect(() => {
-    seeking.current = invokePending;
-  }, [invokePending]);*/
 
   useEffect(() => {
     function handleContextMenu(e: MouseEvent) {
@@ -348,10 +337,7 @@ export default function App() {
         onCanPlayThrough={() => {
           if (!isPaused) {
             if (playingSince === null) {
-              console.log("Starting playback");
               invokeRoomAction("PauseToggle", false);
-            } else if (audioPlayer.current!.paused) {
-              audioPlayer.current!.play();
             }
           }
         }}

@@ -49,7 +49,7 @@ namespace KoodaamoJukebox.Services
                 {
                     throw new ArgumentException("Instance not found.", nameof(roomCode));
                 }
-                if (queue.IsPaused == paused)
+                if (queue.IsPaused == paused && queue.PlayingSince.HasValue)
                 {
                     // If the state is already the same, do nothing
                     return;
@@ -177,7 +177,6 @@ namespace KoodaamoJukebox.Services
                 // Set CurrentTrackId
                 var currentItem = await _dbContext.QueueItems.FirstOrDefaultAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
                 queue.CurrentTrackId = currentItem?.TrackId;
-                queue.IsPaused = true;
                 queue.PausedAt = null;
                 queue.PlayingSince = null;
                 //queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500; // set to now + offset
