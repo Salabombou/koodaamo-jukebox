@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  startTransition,
+} from "react";
 import Queue from "./components/Queue";
 import MusicPlayerInterface from "./components/MusicPlayerInterface";
 import { Track } from "./types/track";
@@ -27,7 +33,7 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioPlayer.current!.volume = Number(localStorage.getItem("volume")) ?? 1;
+    audioPlayer.current!.volume = Number(localStorage.getItem("volume") ?? "1")
   }, []);
 
   const {
@@ -49,13 +55,13 @@ export default function App() {
   useEffect(() => {
     console.log("Current track index:", currentTrackIndex);
   }, [currentTrackIndex]);
-  
+
   useEffect(() => {
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
     } else {
-      const msSince = timeService.getServerNow() - playingSince
+      const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
       if (msSince >= 0) {
         const currentTime = msSince / 1000;
@@ -82,15 +88,6 @@ export default function App() {
       }
     }
   }, [playingSince, isPaused]);
-
-  // Memoize queueList to avoid new array reference unless contents change
-  const queueList = useMemo(() => {
-    const list = [...queueItems.values()];
-    list.sort(
-      (a, b) => (a.shuffledIndex ?? a.index) - (b.shuffledIndex ?? b.index),
-    );
-    return list;
-  }, [queueItems]);
 
   useEffect(() => {
     if (invokeError) {
@@ -121,18 +118,21 @@ export default function App() {
     const unknownTrackIds = Array.from(queueItems.values())
       .filter((item) => !tracks.has(item.trackId))
       .map((item) => item.trackId);
-    if (unknownTrackIds.length)
-      apiService.getTracks(unknownTrackIds).then(({ data }) => {
-        let changed = false;
-        const newTracks = new Map(tracks);
-        data.forEach((track) => {
-          if (!newTracks.has(track.id)) {
-            changed = true;
-            newTracks.set(track.id, track);
-          }
+    if (unknownTrackIds.length > 0) {
+      startTransition(async () => {
+        await apiService.getTracks(unknownTrackIds).then(({ data }) => {
+          let changed = false;
+          const newTracks = new Map(tracks);
+          data.forEach((track) => {
+            if (!newTracks.has(track.id)) {
+              changed = true;
+              newTracks.set(track.id, track);
+            }
+          });
+          if (changed) setTracks(newTracks);
         });
-        if (changed) setTracks(newTracks);
       });
+    }
   }, [queueItems, tracks]);
 
   const lastHlsTrackId = useRef<string | null>(null);
@@ -289,10 +289,10 @@ export default function App() {
 
           if (
             typeof currentTrackIndex !== "number" ||
-            !queueList.length ||
+            queueItems.size === 0 ||
             duration === 0 ||
             currentTrackIndex < 0 ||
-            currentTrackIndex >= queueList.length - 1
+            currentTrackIndex >= queueItems.size
           )
             return; // No next track
 
@@ -393,7 +393,7 @@ export default function App() {
       />
       <Queue
         tracks={tracks}
-        queueList={queueList}
+        queueItems={queueItems}
         currentTrackId={currentTrackId}
         currentTrackIndex={currentTrackIndex}
         controlsDisabled={invokePending}

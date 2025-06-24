@@ -41,23 +41,27 @@ export default function useRoomHub() {
     connection.current.on(
       "RoomUpdate",
       (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
+        console.log("Room update received:", roomInfo, updatedItems);
         setPlayingSince(roomInfo.playingSince ?? null);
-        setIsLooping(roomInfo.isLooping);
         setIsPaused(roomInfo.isPaused);
-        setIsShuffled(roomInfo.isShuffled);
-        setQueueItems((prev) => {
-          const items = new Map(prev);
-          updatedItems.forEach((item) => {
-            if (item.isDeleted) {
-              items.delete(item.id);
-            } else {
-              items.set(item.id, item);
-            }
-          });
-          return items;
-        });
         setCurrentTrackIndex(roomInfo.currentTrack.index ?? null);
         setCurrentTrackId(roomInfo.currentTrack.id ?? null);
+        setIsLooping(roomInfo.isLooping);
+        setIsShuffled(roomInfo.isShuffled);
+        
+        startTransition(() => {
+          setQueueItems((prev) => {
+            const items = new Map(prev);
+            updatedItems.forEach((item) => {
+              if (item.isDeleted) {
+                items.delete(item.id);
+              } else {
+                items.set(item.id, item);
+              }
+            });
+            return items;
+          });
+        });
       },
     );
     connection.current.on("Error", (error: string) => {

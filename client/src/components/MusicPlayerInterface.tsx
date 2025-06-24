@@ -52,8 +52,7 @@ export default function MusicPlayerInterface({
   onPrimaryColorChange,
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
-  const figureRef = useRef<HTMLDivElement>(null);
-
+  const [activeButtonColor, setActiveButtonColor] = useState<string>("#ffffff");
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(1);
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
@@ -107,7 +106,7 @@ export default function MusicPlayerInterface({
             }
           }}
         >
-          <figure ref={figureRef} className="select-none dark:bg-black">
+          <figure className="select-none dark:bg-black">
             <div className="hidden xs:[@media(min-height:600px)]:flex w-200 align-middle justify-center aspect-video">
               <div className="flex items-center justify-center relative">
                 <img
@@ -118,7 +117,10 @@ export default function MusicPlayerInterface({
                   onLoad={(e) =>
                     colorService
                       .getProminentColorFromUrl(e.currentTarget.src)
-                      .then(onPrimaryColorChange)
+                      .then((color) => {
+                        onPrimaryColorChange(color);
+                        setActiveButtonColor(color);
+                      })
                   }
                 />
               </div>
@@ -162,7 +164,11 @@ export default function MusicPlayerInterface({
               </div>
               <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover ${shuffled ? "btn-active" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  style={{
+                    color: (shuffled && activeButtonColor) || undefined,
+                    backgroundColor: (shuffled && activeButtonColor + "33") || undefined,
+                  }}
                   onClick={onShuffle}
                   children={<FaShuffle />}
                   //disabled={disabled}
@@ -186,7 +192,11 @@ export default function MusicPlayerInterface({
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover ${looping ? "btn-active" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  style={{
+                    color: (looping && activeButtonColor) || undefined,
+                    backgroundColor: (looping && activeButtonColor + "33") || undefined,
+                  }}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
                   //disabled={disabled}
