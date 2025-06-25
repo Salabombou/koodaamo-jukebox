@@ -12,6 +12,7 @@ import {
   RPCCloseCodes,
 } from "@discord/embedded-app-sdk";
 
+
 const DiscordSDKContext = createContext<
   ((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null
 >(null);
@@ -71,8 +72,11 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
                 id: import.meta.env.VITE_DISCORD_APPLICATION_ID,
                 name: "Mock Application",
               },
-            };
+            }
           },
+            async setActivity(args) {
+              return args as any // not implemented yet
+            }
         });
       }
       localStorage.setItem("isEmbedded", String(isEmbedded));

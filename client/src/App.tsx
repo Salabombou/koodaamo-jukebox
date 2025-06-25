@@ -15,6 +15,7 @@ import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
 import useHlsAudio from "./hooks/useHlsAudio";
 
+
 export default function App() {
   const discordSDK = useDiscordSDK();
   const audioPlayer = useRef<HTMLAudioElement>(
@@ -36,6 +37,24 @@ export default function App() {
     audioPlayer.current!.volume = Number(localStorage.getItem("volume") ?? "1")
   }, []);
 
+  const users = useRef<Set<string>>(new Set(discordSDK.clientId));
+  useEffect(() => {
+    const handleParticipantsUpdate = (event: { participants: Array<{ id: string }> }) => {
+      users.current = new Set(
+        event.participants.map((p) => p.id),
+      );
+    };
+    if (discordSDK.isEmbedded) {
+      discordSDK.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+    }
+
+    return () => {
+      if (discordSDK.isEmbedded) {
+        discordSDK.unsubscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+      }
+    };
+  }, [discordSDK]);
+
   const {
     playingSince,
     currentTrackIndex,
@@ -48,6 +67,40 @@ export default function App() {
     invokePending,
     invokeError,
   } = useRoomHub();
+
+
+  useEffect(() => {
+    if (!currentTrack) return;
+    if (typeof playingSince !== "number") return;
+    if (duration <= 0) return;
+
+    console.log("Setting Discord activity for track:", currentTrack.title);
+
+    const startTime = playingSince;
+    const endTime = startTime + duration * 1000;
+
+    discordSDK.commands.setActivity({
+      activity: {
+        type: 2, // ActivityType.LISTENING
+        details: currentTrack.title,
+        state: currentTrack.uploader,
+        assets: {
+          large_image: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
+          small_text: !discordSDK.isEmbedded ?`Room Code: ${discordSDK.instanceId}`: undefined,
+        },
+        timestamps: {
+          start: startTime,
+          end: endTime,
+        },
+        party: discordSDK.isEmbedded ? {
+          id: discordSDK.instanceId,
+          size: [users.current.size, 99]
+        } : {}
+      }
+    }).catch((error) => {
+      console.error("Failed to set Discord activity:", error);
+    });
+  }, [currentTrack, playingSince, duration])
 
   useEffect(() => {
     console.log("Queue items updated:", queueItems);
@@ -63,6 +116,11 @@ export default function App() {
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
+      if (msSince >= (duration * 1000) && duration > 0) {
+        console.log("Invoking seek to normalize playback position");
+        invokeRoomAction("Seek", 0);
+        return;
+      }
       if (msSince >= 0) {
         const currentTime = msSince / 1000;
         audioPlayer.current!.currentTime = currentTime;
@@ -87,7 +145,7 @@ export default function App() {
         audioPlayer.current!.pause();
       }
     }
-  }, [playingSince, isPaused]);
+  }, [playingSince, isPaused, duration]);
 
   useEffect(() => {
     if (invokeError) {
@@ -270,7 +328,7 @@ export default function App() {
 
             do {
               if (timestamp > duration && duration > 0 && timestamp > 0) {
-                invokeRoomAction("Seek", elapsedTime);
+                invokeRoomAction("Seek", Math.floor(elapsedTime));
                 break;
               }
               if (
@@ -327,10 +385,16 @@ export default function App() {
           if (isLooping) {
             audioPlayer.current!.currentTime = 0;
             audioPlayer.current!.play();
+            invokeRoomAction("Seek", 0);
           } else {
             if (typeof currentTrackIndex === "number") {
-              console.log("Track ended, skipping to next track");
-              invokeRoomAction("Skip", currentTrackIndex + 1);
+              if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
+                console.log("Reached end of queue, looping back to start");
+                invokeRoomAction("Skip", 0);
+              } else {
+                console.log("Track ended, skipping to next track");
+                invokeRoomAction("Skip", currentTrackIndex + 1);
+              }
             }
           }
         }}
@@ -379,6 +443,7 @@ export default function App() {
         }}
         onSeek={(seekTime) => {
           if (invokePending || seeking.current) return;
+          seekTime = Math.floor(Math.max(0, Math.min(seekTime, duration)));
           seeking.current = true;
           audioPlayer.current!.currentTime = seekTime;
           audioPlayer.current!.pause(); // Always pause on seek

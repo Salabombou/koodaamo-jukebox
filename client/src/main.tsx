@@ -13,7 +13,7 @@ createRoot(document.getElementById("root")!).render(
       <OAuth2CodeProvider>
         <RoomCodeProvider>
           <DiscordAuthProvider>
-            <App />
+              <App />
           </DiscordAuthProvider>
         </RoomCodeProvider>
       </OAuth2CodeProvider>

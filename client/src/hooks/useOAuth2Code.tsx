@@ -32,15 +32,7 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
         else if (
           Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")
         ) {
-          const oAuth2Url = new URL("https://discord.com/oauth2/authorize");
-          oAuth2Url.searchParams.set(
-            "client_id",
-            import.meta.env.VITE_DISCORD_APPLICATION_ID,
-          );
-          oAuth2Url.searchParams.set("response_type", "code");
-          oAuth2Url.searchParams.set("redirect_uri", window.location.origin);
-          oAuth2Url.searchParams.set("scope", "identify");
-          window.location.href = oAuth2Url.toString();
+          window.location.href = import.meta.env.VITE_DISCORD_OAUTH2_URL;
         } else setOAuth2Code("");
         const url = new URL(window.location.href);
         url.searchParams.delete("code");
@@ -51,7 +43,7 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
           response_type: "code",
           state: "",
           prompt: "none",
-          scope: ["identify"],
+          scope: ["identify", "rpc.activities.write"],
         });
         setOAuth2Code(code);
       }
