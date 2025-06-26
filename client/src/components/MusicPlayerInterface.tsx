@@ -54,7 +54,11 @@ export default function MusicPlayerInterface({
   const volumeSlider = useRef<HTMLInputElement>(null);
   const [activeButtonColor, setActiveButtonColor] = useState<string>("#ffffff");
   const volumeRef = useRef(1);
-  const [volume, setVolume] = useState(1);
+  // Initialize volume from localStorage, fallback to 1
+  const [volume, setVolume] = useState(() => {
+    const stored = localStorage.getItem("volume");
+    return stored !== null ? Number(stored) : 1;
+  });
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
   const discordSDK = useDiscordSDK();
   let thumbUrl = "/black.jpg";
@@ -142,7 +146,7 @@ export default function MusicPlayerInterface({
                   min="0"
                   max={duration}
                   value={seekValue}
-                  className="range range-sm w-full"
+                  className="range range-sm w-full focus:outline-none focus:ring-0"
                   onChange={(e) => {
                     setSeekValue(Number(e.target.value));
                     setIsSeeking(true);
@@ -164,38 +168,40 @@ export default function MusicPlayerInterface({
               </div>
               <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
                   style={{
                     color: (shuffled && activeButtonColor) || undefined,
-                    backgroundColor: (shuffled && activeButtonColor + "33") || undefined,
+                    backgroundColor:
+                      (shuffled && activeButtonColor + "33") || undefined,
                   }}
                   onClick={onShuffle}
                   children={<FaShuffle />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
                   onClick={onBackward}
                   children={<FaBackwardStep />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
                   onClick={onForward}
                   children={<FaForwardStep />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
                   style={{
                     color: (looping && activeButtonColor) || undefined,
-                    backgroundColor: (looping && activeButtonColor + "33") || undefined,
+                    backgroundColor:
+                      (looping && activeButtonColor + "33") || undefined,
                   }}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
@@ -209,25 +215,23 @@ export default function MusicPlayerInterface({
       <div className="hidden xs:flex z-1 items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
-            className="btn btn-xl btn-ghost btn-circle"
+            className="btn btn-xl btn-ghost btn-circle focus:outline-none focus:ring-0"
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
             onClick={() => {
-              if (
-                volumeSlider.current!.valueAsNumber === 0 &&
-                volumeRef.current === 0
-              ) {
-                volumeSlider.current!.valueAsNumber = 0.05;
-                volumeRef.current = 0.05;
+              if (volume === 0 && volumeRef.current === 0) {
                 setVolume(0.05);
+                volumeRef.current = 0.05;
                 onVolumeChange(0.05);
-              } else if (volumeSlider.current!.valueAsNumber === 0) {
-                volumeSlider.current!.valueAsNumber = volumeRef.current;
+                localStorage.setItem("volume", "0.05");
+              } else if (volume === 0) {
                 setVolume(volumeRef.current);
                 onVolumeChange(volumeRef.current);
+                localStorage.setItem("volume", String(volumeRef.current));
               } else {
-                volumeSlider.current!.valueAsNumber = 0;
+                volumeRef.current = volume;
                 setVolume(0);
                 onVolumeChange(0);
+                localStorage.setItem("volume", "0");
               }
             }}
           />
@@ -239,14 +243,15 @@ export default function MusicPlayerInterface({
             min={0}
             max={1}
             step={0.01}
-            className="range range-sm w-full"
+            className="range range-sm w-full focus:outline-none focus:ring-0"
+            value={volume}
             onChange={(e) => {
-              volumeRef.current = e.target.valueAsNumber;
-              localStorage.setItem("volume", e.target.value);
-              setVolume(e.target.valueAsNumber);
-              onVolumeChange(e.target.valueAsNumber);
+              const newVolume = e.target.valueAsNumber;
+              volumeRef.current = newVolume;
+              setVolume(newVolume);
+              onVolumeChange(newVolume);
+              localStorage.setItem("volume", String(newVolume));
             }}
-            defaultValue={localStorage.getItem("volume") || "1"}
           />
         </div>
       </div>

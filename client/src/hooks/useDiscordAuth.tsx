@@ -81,7 +81,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("refreshToken", refreshToken);
       localStorage.setItem("expiresAt", expiresAt);
       const newAuth = await discordSDK.commands.authenticate({
-        access_token: accessToken
+        access_token: accessToken,
       });
       setAuth(newAuth);
     })();

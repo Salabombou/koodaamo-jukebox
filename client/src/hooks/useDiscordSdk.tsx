@@ -11,7 +11,7 @@ import {
   DiscordSDKMock,
   RPCCloseCodes,
 } from "@discord/embedded-app-sdk";
-
+import { Client } from "@xhayper/discord-rpc";
 
 const DiscordSDKContext = createContext<
   ((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null
@@ -24,6 +24,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
   const [sdk, setSdk] = useState<
     ((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null
   >(null);
+  const rpc = useRef<Client | null>(null);
   const settingUp = useRef(false);
   useEffect(() => {
     if (settingUp.current) return;
@@ -44,6 +45,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
           null,
           null,
         );
+
         newSdk._updateCommandMocks({
           async authenticate({
             access_token,
@@ -54,6 +56,31 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
             const user = await fetch("https://discord.com/api/users/@me", {
               headers: { Authorization: `Bearer ${access_token}` },
             }).then((res) => res.json());
+
+            if (!rpc.current || !rpc.current.isConnected) {
+              rpc.current?.destroy();
+              rpc.current = new Client({
+                clientId: import.meta.env.VITE_DISCORD_APPLICATION_ID,
+                transport: { type: "websocket" },
+                //clientSecret: access_token,
+              });
+
+
+              rpc.current.on("ready", () => {
+                console.log("Discord RPC client is ready");
+              });
+
+              try {
+                await rpc.current.login({
+                  accessToken: access_token,
+                  scopes: ["rpc.activities.write", "identify"]
+                });
+                console.log("Discord RPC is ready");
+              } catch (error) {
+                console.error("Failed to connect to Discord RPC:", error);
+              }
+            }
+
             return {
               access_token,
               user: {
@@ -72,11 +99,22 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
                 id: import.meta.env.VITE_DISCORD_APPLICATION_ID,
                 name: "Mock Application",
               },
+            };
+          },
+          async setActivity(args) {
+            if (!rpc.current || !rpc.current.isConnected || !rpc.current.user) {
+              throw new Error("RPC client not initialized");
+            }
+            try {
+              return await rpc.current.user.setActivity({
+                applicationId: import.meta.env.VITE_DISCORD_APPLICATION_ID,
+                ...args,
+              });
+            } catch (error) {
+              console.error("Failed to set activity:", error);
+              throw error;
             }
           },
-            async setActivity(args) {
-              return args as any // not implemented yet
-            }
         });
       }
       localStorage.setItem("isEmbedded", String(isEmbedded));

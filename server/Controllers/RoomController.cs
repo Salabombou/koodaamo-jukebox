@@ -128,7 +128,10 @@ namespace KoodaamoJukebox.Controllers
             }
 
             await _queueService.Seek(roomCode, request.Value);
-
+            if (request.Pause)
+            {
+                await _queueService.Pause(roomCode, true);
+            }
             return await GetRoom();
         }
 
@@ -239,6 +242,7 @@ namespace KoodaamoJukebox.Controllers
     {
         public long SentAt { get; set; }
         public int Value { get; set; }
+        public bool Pause { get; set; } = false; // Optional for pause requests
     }
 
     public class TimestampedStringRequest

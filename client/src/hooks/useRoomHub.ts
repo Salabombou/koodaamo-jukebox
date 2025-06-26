@@ -48,7 +48,7 @@ export default function useRoomHub() {
         setCurrentTrackId(roomInfo.currentTrack.id ?? null);
         setIsLooping(roomInfo.isLooping);
         setIsShuffled(roomInfo.isShuffled);
-        
+
         startTransition(() => {
           setQueueItems((prev) => {
             const items = new Map(prev);

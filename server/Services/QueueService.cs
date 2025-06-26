@@ -33,13 +33,13 @@ namespace KoodaamoJukebox.Services
             }
         }
 
-        public async Task Pause(string roomCode, bool paused)
+        public async Task Pause(string roomCode, bool paused, long? pausedAt = null)
         {
             var semaphore = GetSemaphore(roomCode);
             await semaphore.WaitAsync();
             try
             {
-                var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var currentTime = pausedAt ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
@@ -57,7 +57,7 @@ namespace KoodaamoJukebox.Services
 
                 if (paused)
                 {
-                    // Pausing: set PausedAt to now
+                    // Pausing: set PausedAt to sentAt (client time)
                     queue.PausedAt = currentTime;
                     queue.IsPaused = true;
                 }
@@ -101,6 +101,7 @@ namespace KoodaamoJukebox.Services
                 var roomInfo = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
+
                 if (!roomInfo.PlayingSince.HasValue)
                 {
                     roomInfo.PlayingSince = currentTime;

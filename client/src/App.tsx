@@ -15,7 +15,6 @@ import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
 import useHlsAudio from "./hooks/useHlsAudio";
 
-
 export default function App() {
   const discordSDK = useDiscordSDK();
   const audioPlayer = useRef<HTMLAudioElement>(
@@ -34,23 +33,52 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioPlayer.current!.volume = Number(localStorage.getItem("volume") ?? "1")
-  }, []);
+    audioPlayer.current!.volume = Number(localStorage.getItem("volume") ?? "1");
+  }, [audioPlayer]);
 
-  const users = useRef<Set<string>>(new Set(discordSDK.clientId));
   useEffect(() => {
-    const handleParticipantsUpdate = (event: { participants: Array<{ id: string }> }) => {
-      users.current = new Set(
-        event.participants.map((p) => p.id),
-      );
+    const handleParticipantsUpdate = (event: {
+      participants: Array<{ id: string }>;
+    }) => {
+      users.current = new Set(event.participants.map((p) => p.id));
     };
     if (discordSDK.isEmbedded) {
-      discordSDK.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+      discordSDK.subscribe(
+        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+        handleParticipantsUpdate,
+      );
     }
 
     return () => {
       if (discordSDK.isEmbedded) {
-        discordSDK.unsubscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+        discordSDK.unsubscribe(
+          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+          handleParticipantsUpdate,
+        );
+      }
+    };
+  }, [discordSDK]);
+
+  const users = useRef<Set<string>>(new Set(discordSDK.clientId));
+  useEffect(() => {
+    const handleParticipantsUpdate = (event: {
+      participants: Array<{ id: string }>;
+    }) => {
+      users.current = new Set(event.participants.map((p) => p.id));
+    };
+    if (discordSDK.isEmbedded) {
+      discordSDK.subscribe(
+        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+        handleParticipantsUpdate,
+      );
+    }
+
+    return () => {
+      if (discordSDK.isEmbedded) {
+        discordSDK.unsubscribe(
+          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+          handleParticipantsUpdate,
+        );
       }
     };
   }, [discordSDK]);
@@ -68,6 +96,204 @@ export default function App() {
     invokeError,
   } = useRoomHub();
 
+  const seeking = useRef(true);
+
+  const [backgroundColor, setBackgroundColorRaw] = useState("#000000");
+  const setBackgroundColor = useCallback((color: string) => {
+    setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
+  }, [setBackgroundColorRaw]);
+
+  const onSkip = useCallback((index: number) => {
+    invokeRoomAction("Skip", index);
+  }, [invokeRoomAction]);
+
+  const onMove = useCallback((fromIndex: number, toIndex: number) => {
+    console.log("Moving from", fromIndex, "to", toIndex);
+    invokeRoomAction("Move", fromIndex, toIndex);
+  }, [invokeRoomAction]);
+
+  const onDelete = useCallback(
+    (index: number) => {
+      if (index === currentTrackIndex) {
+        return;
+      }
+      invokeRoomAction("Delete", index);
+    },
+    [currentTrackIndex, invokeRoomAction],
+  );
+
+  const onPlayNext = useCallback(
+    (index: number) => {
+      if (typeof currentTrackIndex === "number") {
+        if (index < currentTrackIndex) {
+          invokeRoomAction("Move", index, currentTrackIndex);
+        } else if (index > currentTrackIndex) {
+          invokeRoomAction("Move", index, currentTrackIndex + 1);
+        }
+      }
+    },
+    [currentTrackIndex, invokeRoomAction],
+  );
+
+  useEffect(() => {
+    function handleContextMenu(e: MouseEvent) {
+      // Allow context menu only if inside custom context menu
+      const path = e.composedPath ? e.composedPath() : (e as any).path || [];
+      if (
+        path.some(
+          (el: EventTarget) =>
+            el instanceof HTMLElement &&
+            el.hasAttribute &&
+            el.hasAttribute("data-custom-context-menu"),
+        )
+      ) {
+        return; // Allow custom context menu
+      }
+      e.preventDefault();
+    }
+    document.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
+
+  useEffect(() => {
+    seeking.current = invokePending;
+  }, [invokePending, seeking]);
+
+  const onPlayToggle = useCallback(() => {
+    if (invokePending) return;
+    console.log("Toggling play/pause");
+    invokeRoomAction("PauseToggle", !isPaused);
+  }, [invokePending, isPaused, invokeRoomAction]);
+  const onBackward = useCallback(() => {
+    if (invokePending) return;
+    console.log("Skipping backward");
+    invokeRoomAction("Skip", (currentTrackIndex ?? 0) - 1);
+  }, [invokePending, currentTrackIndex, invokeRoomAction]);
+  const onForward = useCallback(() => {
+    if (invokePending) return;
+    console.log("Skipping forward");
+    invokeRoomAction("Skip", (currentTrackIndex ?? 0) + 1);
+  }, [invokePending, currentTrackIndex, invokeRoomAction]);
+
+  const onSeek = useCallback(
+    (seekTime: number, pause: boolean = false) => {
+      if (invokePending) return;
+      seekTime = Math.floor(Math.max(0, Math.min(seekTime, duration)));
+      seeking.current = true;
+      audioPlayer.current!.currentTime = seekTime;
+      audioPlayer.current!.pause();
+      setTimestamp(seekTime);
+      console.log("Seeking to", seekTime, "Pausing:", pause);
+      invokeRoomAction("Seek", seekTime, pause);
+    },
+    [invokePending, duration, invokeRoomAction, seeking, audioPlayer, setTimestamp],
+  );
+
+  const onShuffle = useCallback(() => {
+    if (invokePending || typeof isShuffled !== "boolean") return;
+    console.log("Toggling shuffle");
+    invokeRoomAction("ShuffleToggle", !isShuffled);
+  }, [invokePending, isShuffled, invokeRoomAction]);
+  const onLoopToggle = useCallback(() => {
+    if (invokePending || typeof isLooping !== "boolean") return;
+    console.log("Toggling loop");
+    invokeRoomAction("LoopToggle", !isLooping);
+  }, [invokePending, isLooping, invokeRoomAction]);
+
+  const onVolumeChange = useCallback((volume: number) => {
+    audioPlayer.current!.volume = volume;
+    localStorage.setItem("volume", String(volume));
+  }, [audioPlayer]);
+
+  const onCanPlayThrough = useCallback(() => {
+    if (!isPaused && playingSince === null) {
+      console.log("Resuming playback after can play through");
+      invokeRoomAction("PauseToggle", false);
+    }
+  }, [isPaused, playingSince, invokeRoomAction]);
+
+  const onEnded = useCallback(() => {
+    if (isLooping) {
+      audioPlayer.current!.currentTime = 0;
+      audioPlayer.current!.play();
+      invokeRoomAction("Seek", 0, false);
+    } else {
+      if (typeof currentTrackIndex === "number") {
+        if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
+          console.log("Reached end of queue, looping back to start");
+          invokeRoomAction("Skip", 0);
+        } else {
+          console.log("Track ended, skipping to next track");
+          invokeRoomAction("Skip", currentTrackIndex + 1);
+        }
+      }
+    }
+  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, audioPlayer]);
+
+  const onTimeUpdate = useCallback(() => {
+    if (seeking.current) return;
+    const currentTime = timeService.getServerNow();
+    if (typeof playingSince === "number") {
+      const elapsedTime =
+        ((currentTime - playingSince) % (duration * 1000)) / 1000;
+      
+      if (
+        elapsedTime >= 1 &&
+        Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
+      ) {
+        console.log("Fixing desync, setting currentTime to", elapsedTime);
+        audioPlayer.current!.currentTime = elapsedTime;
+      }
+    }
+    setTimestamp(Math.max(audioPlayer.current?.currentTime ?? 0, 0));
+
+    if (
+      typeof currentTrackIndex !== "number" ||
+      queueItems.size === 0 ||
+      duration === 0 ||
+      currentTrackIndex < 0 ||
+      currentTrackIndex >= queueItems.size
+    )
+      return; // No next track
+
+    let nextTrack: Track | null = null;
+    for (const item of queueItems.values()) {
+      if (
+        (isShuffled ? item.shuffledIndex : item.index) ===
+        (currentTrackIndex + 1)
+      ) {
+        nextTrack = tracks.get(item.trackId) ?? null;
+        break;
+      }
+    }
+    if (!nextTrack) return;
+    const timeLeft = duration - (audioPlayer.current?.currentTime ?? 0);
+    if (timeLeft <= 10 && timeLeft > 0) {
+      // Prefetch next track audio
+      const nextTrackId = nextTrack.id;
+      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
+      const token = localStorage.getItem("authToken");
+      if (preFetch.current) return;
+      preFetch.current = true;
+      fetch(src, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  }, [
+    audioPlayer,
+    seeking,
+    playingSince,
+    duration,
+    currentTrackIndex,
+    queueItems,
+    isShuffled,
+    tracks,
+    discordSDK.isEmbedded,
+    setTimestamp
+  ]);
 
   useEffect(() => {
     if (!currentTrack) return;
@@ -79,28 +305,83 @@ export default function App() {
     const startTime = playingSince;
     const endTime = startTime + duration * 1000;
 
-    discordSDK.commands.setActivity({
-      activity: {
-        type: 2, // ActivityType.LISTENING
-        details: currentTrack.title,
-        state: currentTrack.uploader,
-        assets: {
-          large_image: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
-          small_text: !discordSDK.isEmbedded ?`Room Code: ${discordSDK.instanceId}`: undefined,
+    discordSDK.commands
+      .setActivity({
+        activity: {
+          type: 2, // ActivityType.LISTENING
+          details: currentTrack.title,
+          state: currentTrack.uploader,
+          assets: {
+            large_image: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
+            small_text: !discordSDK.isEmbedded
+              ? `Room Code: ${discordSDK.instanceId}`
+              : undefined,
+          },
+          timestamps: {
+            start: startTime,
+            end: endTime,
+          },
+          party: discordSDK.isEmbedded
+            ? {
+                id: discordSDK.instanceId,
+                size: [users.current.size, 99],
+              }
+            : {},
         },
-        timestamps: {
-          start: startTime,
-          end: endTime,
-        },
-        party: discordSDK.isEmbedded ? {
-          id: discordSDK.instanceId,
-          size: [users.current.size, 99]
-        } : {}
-      }
-    }).catch((error) => {
-      console.error("Failed to set Discord activity:", error);
+      })
+      .catch((error) => {
+        console.error("Failed to set Discord activity:", error);
+      });
+  }, [currentTrack, playingSince, duration, discordSDK, users]);
+
+  // Media session API support
+  useEffect(() => {
+    navigator.mediaSession.setActionHandler("play", onPlayToggle);
+    navigator.mediaSession.setActionHandler("pause", onPlayToggle);
+    navigator.mediaSession.setActionHandler("stop", () => {
+      onSeek(0, true);
     });
-  }, [currentTrack, playingSince, duration])
+    navigator.mediaSession.setActionHandler("previoustrack", onBackward);
+    navigator.mediaSession.setActionHandler("nexttrack", onForward);
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (typeof details.seekTime === "number") {
+        console.log("Media session seek action triggered:", details.seekTime);
+        onSeek(details.seekTime, false);
+      }
+    });
+
+    return () => {
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("stop", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+      navigator.mediaSession.setActionHandler("seekto", null);
+    };
+  }, [onPlayToggle, onSeek, onBackward, onForward]);
+
+  useEffect(() => {
+    if (!currentTrack || !audioPlayer.current) return;
+
+    // Update media session metadata
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.uploader,
+      artwork: [
+        {
+          src: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
+          //sizes: "512x512",
+          //type: "image/jpeg",
+        },
+      ],
+    });
+
+    navigator.mediaSession.setPositionState({
+      duration: duration,
+      playbackRate: audioPlayer.current.playbackRate,
+      position: Math.min(duration, timestamp),
+    });
+  }, [currentTrack, timestamp, duration, discordSDK, audioPlayer]);
 
   useEffect(() => {
     console.log("Queue items updated:", queueItems);
@@ -108,6 +389,14 @@ export default function App() {
   useEffect(() => {
     console.log("Current track index:", currentTrackIndex);
   }, [currentTrackIndex]);
+  useEffect(() => {
+    if (playingSince === null) return;
+    const currentTime = timeService.getServerNow();
+    const elapsedTime =
+      ((currentTime - playingSince) % (duration * 1000)) / 1000;
+
+    setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
+  }, [playingSince, duration]);
 
   useEffect(() => {
     console.log("Playing since:", playingSince);
@@ -116,14 +405,17 @@ export default function App() {
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      if (msSince >= (duration * 1000) && duration > 0) {
+      if (msSince >= duration * 1000 && duration > 0) {
         console.log("Invoking seek to normalize playback position");
         invokeRoomAction("Seek", 0);
         return;
       }
       if (msSince >= 0) {
         const currentTime = msSince / 1000;
-        audioPlayer.current!.currentTime = currentTime;
+        if (Math.abs(audioPlayer.current!.currentTime - currentTime) > 1) {
+          console.log("Fixing desync, setting currentTime to", currentTime);
+          audioPlayer.current!.currentTime = currentTime;
+        }
         setTimestamp(currentTime);
         if (!isPaused) {
           console.log("Resuming audio playback immediately");
@@ -145,7 +437,7 @@ export default function App() {
         audioPlayer.current!.pause();
       }
     }
-  }, [playingSince, isPaused, duration]);
+  }, [playingSince, isPaused, duration, invokeRoomAction, audioPlayer, setTimestamp]);
 
   useEffect(() => {
     if (invokeError) {
@@ -160,7 +452,7 @@ export default function App() {
         setCurrentTrack(track);
       }
     }
-  }, [currentTrackId, currentTrack, tracks]);
+  }, [currentTrackId, currentTrack, tracks, setCurrentTrack]);
 
   useEffect(() => {
     // update page title with current track name
@@ -191,7 +483,7 @@ export default function App() {
         });
       });
     }
-  }, [queueItems, tracks]);
+  }, [queueItems, tracks, startTransition, apiService, setTracks]);
 
   const lastHlsTrackId = useRef<string | null>(null);
   const skipOnFatalError = useRef(false);
@@ -230,72 +522,7 @@ export default function App() {
       setDuration(0);
       setTimestamp(0);
     }
-  }, [currentTrackId]);
-
-  const seeking = useRef(true);
-
-  const [backgroundColor, setBackgroundColorRaw] = useState("#000000");
-  const setBackgroundColor = useCallback((color: string) => {
-    setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
-  }, []);
-
-  const onSkip = useCallback((index: number) => {
-    invokeRoomAction("Skip", index);
-  }, []);
-
-  const onMove = useCallback((fromIndex: number, toIndex: number) => {
-    console.log("Moving from", fromIndex, "to", toIndex);
-    invokeRoomAction("Move", fromIndex, toIndex);
-  }, []);
-
-  const onDelete = useCallback(
-    (index: number) => {
-      if (index === currentTrackIndex) {
-        return;
-      }
-      invokeRoomAction("Delete", index);
-    },
-    [currentTrackIndex],
-  );
-
-  const onPlayNext = useCallback(
-    (index: number) => {
-      if (typeof currentTrackIndex === "number") {
-        if (index < currentTrackIndex) {
-          invokeRoomAction("Move", index, currentTrackIndex);
-        } else if (index > currentTrackIndex) {
-          invokeRoomAction("Move", index, currentTrackIndex + 1);
-        }
-      }
-    },
-    [currentTrackIndex],
-  );
-
-  useEffect(() => {
-    function handleContextMenu(e: MouseEvent) {
-      // Allow context menu only if inside custom context menu
-      const path = e.composedPath ? e.composedPath() : (e as any).path || [];
-      if (
-        path.some(
-          (el: EventTarget) =>
-            el instanceof HTMLElement &&
-            el.hasAttribute &&
-            el.hasAttribute("data-custom-context-menu"),
-        )
-      ) {
-        return; // Allow custom context menu
-      }
-      e.preventDefault();
-    }
-    document.addEventListener("contextmenu", handleContextMenu);
-    return () => {
-      document.removeEventListener("contextmenu", handleContextMenu);
-    };
-  }, []);
-
-  useEffect(() => {
-    seeking.current = invokePending;
-  }, [invokePending]);
+  }, [currentTrackId, discordSDK.isEmbedded, loadSource, setDuration, setTimestamp]);
 
   return (
     <div
@@ -317,94 +544,12 @@ export default function App() {
       />
       <audio
         ref={audioPlayer}
+        className="hidden pointer-events-none select-none "
         autoPlay={true}
-        onTimeUpdate={() => {
-          if (seeking.current) return;
-
-          const currentTime = timeService.getServerNow();
-          if (!seeking.current && typeof playingSince === "number") {
-            const elapsedTime =
-              ((currentTime - playingSince) % (duration * 1000)) / 1000;
-
-            do {
-              if (timestamp > duration && duration > 0 && timestamp > 0) {
-                invokeRoomAction("Seek", Math.floor(elapsedTime));
-                break;
-              }
-              if (
-                elapsedTime >= 1 &&
-                Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
-              ) {
-                console.log(
-                  "Fixing desync, setting currentTime to",
-                  elapsedTime,
-                );
-                audioPlayer.current!.currentTime = elapsedTime;
-              }
-            } while (false);
-          }
-          setTimestamp(Math.max(audioPlayer.current?.currentTime ?? 0, 0));
-
-          if (
-            typeof currentTrackIndex !== "number" ||
-            queueItems.size === 0 ||
-            duration === 0 ||
-            currentTrackIndex < 0 ||
-            currentTrackIndex >= queueItems.size
-          )
-            return; // No next track
-
-          let nextTrack: Track | null = null;
-          for (const item of queueItems.values()) {
-            if (
-              (isShuffled ? item.shuffledIndex : item.index) ===
-              currentTrackIndex + 1
-            ) {
-              nextTrack = tracks.get(item.trackId) ?? null;
-              break;
-            }
-          }
-          if (!nextTrack) return;
-
-          const timeLeft = duration - (audioPlayer.current?.currentTime ?? 0);
-          if (timeLeft <= 10 && timeLeft > 0) {
-            // Prefetch next track audio
-            const nextTrackId = nextTrack.id;
-            const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
-            const token = localStorage.getItem("authToken");
-
-            if (preFetch.current) return;
-            preFetch.current = true;
-            fetch(src, {
-              method: "GET",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-          }
-        }}
-        onEnded={() => {
-          if (isLooping) {
-            audioPlayer.current!.currentTime = 0;
-            audioPlayer.current!.play();
-            invokeRoomAction("Seek", 0);
-          } else {
-            if (typeof currentTrackIndex === "number") {
-              if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
-                console.log("Reached end of queue, looping back to start");
-                invokeRoomAction("Skip", 0);
-              } else {
-                console.log("Track ended, skipping to next track");
-                invokeRoomAction("Skip", currentTrackIndex + 1);
-              }
-            }
-          }
-        }}
-        onCanPlayThrough={() => {
-          if (!isPaused) {
-            if (playingSince === null) {
-              invokeRoomAction("PauseToggle", false);
-            }
-          }
-        }}
+        controls={false}
+        onTimeUpdate={onTimeUpdate}
+        onEnded={onEnded}
+        onCanPlayThrough={onCanPlayThrough}
       />
       <MusicPlayerInterface
         track={currentTrack}
@@ -416,45 +561,13 @@ export default function App() {
         disabled={invokePending}
         onPrimaryColorChange={setBackgroundColor}
         backgroundColor={backgroundColor}
-        onShuffle={() => {
-          if (invokePending || typeof isShuffled === "undefined") return;
-          console.log("Toggling shuffle");
-          invokeRoomAction("ShuffleToggle", !isShuffled);
-        }}
-        onBackward={() => {
-          if (invokePending) return;
-          console.log("Skipping backward");
-          invokeRoomAction("Skip", (currentTrackIndex ?? 0) - 1);
-        }}
-        onForward={() => {
-          if (invokePending) return;
-          console.log("Skipping forward");
-          invokeRoomAction("Skip", (currentTrackIndex ?? 0) + 1);
-        }}
-        onPlayToggle={() => {
-          if (invokePending) return;
-          console.log("Toggling play/pause");
-          invokeRoomAction("PauseToggle", !isPaused);
-        }}
-        onLoopToggle={() => {
-          if (invokePending) return;
-          console.log("Toggling loop");
-          invokeRoomAction("LoopToggle", !isLooping);
-        }}
-        onSeek={(seekTime) => {
-          if (invokePending || seeking.current) return;
-          seekTime = Math.floor(Math.max(0, Math.min(seekTime, duration)));
-          seeking.current = true;
-          audioPlayer.current!.currentTime = seekTime;
-          audioPlayer.current!.pause(); // Always pause on seek
-          setTimestamp(seekTime);
-          console.log("Seeking to", seekTime);
-          invokeRoomAction("Seek", seekTime);
-        }}
-        onVolumeChange={(volume) => {
-          if (invokePending) return;
-          audioPlayer.current!.volume = volume;
-        }}
+        onShuffle={onShuffle}
+        onBackward={onBackward}
+        onForward={onForward}
+        onPlayToggle={onPlayToggle}
+        onLoopToggle={onLoopToggle}
+        onSeek={onSeek}
+        onVolumeChange={onVolumeChange}
       />
       <Queue
         tracks={tracks}

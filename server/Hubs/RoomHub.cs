@@ -115,7 +115,7 @@ namespace KoodaamoJukebox.Hubs
                 throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
 
-            await _queueService.Pause(roomCode, paused);
+            await _queueService.Pause(roomCode, paused, sentAt);
         }
 
         public async Task LoopToggle(long sentAt, bool loop)
@@ -148,7 +148,7 @@ namespace KoodaamoJukebox.Hubs
             await _queueService.Shuffle(roomCode, shuffled);
         }
 
-        public async Task Seek(long sentAt, int seekTime)
+        public async Task Seek(long sentAt, int seekTime, bool pause = false)
         {
             long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (Math.Abs(currentTime - sentAt) > 5000)
@@ -160,7 +160,12 @@ namespace KoodaamoJukebox.Hubs
             {
                 throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
+
             await _queueService.Seek(roomCode, seekTime);
+            if (pause)
+            {
+                await _queueService.Pause(roomCode, true);
+            }
         }
 
         public async Task Skip(long sentAt, int index)

@@ -125,12 +125,16 @@ const Queue = memo(function Queue({
   const list = useRef<FixedSizeList>(null);
 
   const scrolled = useRef(false);
+  const scrollTimeout = useRef<number | null>(null);
   useEffect(() => {
     // scroll where the current track is visible as first item
     if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
       if (list.current) {
         if (!scrolled.current) {
-          list.current.scrollToItem(Math.min(optimisticQueueList.length - 1, currentTrackIndex + 1), "smart");
+          list.current.scrollToItem(
+            Math.min(optimisticQueueList.length - 1, currentTrackIndex + 1),
+            "smart",
+          );
         }
         scrolled.current = false;
       }
@@ -173,6 +177,12 @@ const Queue = memo(function Queue({
           onScroll={(e) => {
             if (e.scrollUpdateWasRequested) return;
             scrolled.current = true;
+            if (scrollTimeout.current) {
+              clearTimeout(scrollTimeout.current);
+            }
+            scrollTimeout.current = window.setTimeout(() => {
+              scrolled.current = false;
+            }, 5000); 
           }}
           itemSize={58}
           itemKey={itemKey}

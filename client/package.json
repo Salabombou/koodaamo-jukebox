@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "packageManager": "pnpm@10.12.3",
+  "packageManager": "pnpm@10.12.4",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -20,6 +20,7 @@
     "@microsoft/signalr": "^8.0.7",
     "@tailwindcss/vite": "^4.1.10",
     "@types/discord-rpc": "^4.0.9",
+    "@xhayper/discord-rpc": "^1.2.2",
     "axios": "^1.10.0",
     "daisyui": "^5.0.43",
     "discord-rpc": "^4.0.1",
