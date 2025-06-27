@@ -177,14 +177,14 @@ export default function MusicPlayerInterface({
               style={{ width: "100%", overflow: "hidden" }}
             >
               {shouldMarqueeTitle ? (
-                <Marquee pauseOnHover style={{ width: `${titleScrollWidth*2}px` }}>
+                <Marquee pauseOnHover style={{ width: `${titleScrollWidth*1.5}px` }}>
                   <h2 ref={titleRef} className="card-title font-bold truncate">
-                    {track?.title}
+                    {track?.title?.trim() || "???"}
                   </h2>
                 </Marquee>
               ) : (
                 <h2 ref={titleRef} className="card-title font-bold truncate">
-                  {track?.title }
+                  {track?.title?.trim() || "???"}
                 </h2>
               )}
             </div>
@@ -193,14 +193,14 @@ export default function MusicPlayerInterface({
               style={{ width: "100%", overflow: "hidden" }}
             >
               {shouldMarqueeUploader ? (
-                <Marquee pauseOnHover style={{ width: `${uploaderScrollWidth*2}px` }}>
+                <Marquee pauseOnHover style={{ width: `${uploaderScrollWidth*1.5}px` }}>
                   <h4 ref={uploaderRef} className="text-sm">
-                    {track?.uploader ?? "???"}
+                    {track?.uploader?.trim() ?? "???"}
                   </h4>
                 </Marquee>
               ) : (
                 <h4 ref={uploaderRef} className="text-sm">
-                  {track?.uploader ?? "???"}
+                  {track?.uploader?.trim() ?? "???"}
                 </h4>
               )}
             </div>
