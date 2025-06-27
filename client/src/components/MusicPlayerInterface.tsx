@@ -14,6 +14,7 @@ import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { thumbnailUrlCacheHigh } from "../services/thumbnailCache";
 import * as colorService from "../services/colorService";
 import ContextMenu from "./ContextMenu";
+import Marquee from "react-fast-marquee";
 
 interface MusicPlayerInterfaceProps {
   track: Track | null;
@@ -73,6 +74,43 @@ export default function MusicPlayerInterface({
   const [seekValue, setSeekValue] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
 
+  // Refs for measuring text and container widths
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const titleContainerRef = useRef<HTMLDivElement>(null);
+  const uploaderRef = useRef<HTMLHeadingElement>(null);
+  const uploaderContainerRef = useRef<HTMLDivElement>(null);
+  const [shouldMarqueeTitle, setShouldMarqueeTitle] = useState(false);
+  const [shouldMarqueeUploader, setShouldMarqueeUploader] = useState(false);
+
+  const [titleScrollWidth, setTitleScrollWidth] = useState(0);
+  const [uploaderScrollWidth, setUploaderScrollWidth] = useState(0);
+
+  // Helper to check marquee conditions
+  const checkMarquee = () => {
+    if (titleRef.current && titleContainerRef.current) {
+      setShouldMarqueeTitle(
+        titleRef.current.scrollWidth > titleContainerRef.current.offsetWidth
+      );
+      setTitleScrollWidth(titleRef.current.scrollWidth);
+    }
+    if (uploaderRef.current && uploaderContainerRef.current) {
+      setShouldMarqueeUploader(
+        uploaderRef.current.scrollWidth > uploaderContainerRef.current.offsetWidth
+      );
+      setUploaderScrollWidth(uploaderRef.current.scrollWidth);
+    }
+  };
+
+  useEffect(() => {
+    checkMarquee();
+    window.addEventListener("resize", checkMarquee);
+    window.addEventListener("orientationchange", checkMarquee);
+    return () => {
+      window.removeEventListener("resize", checkMarquee);
+      window.removeEventListener("orientationchange", checkMarquee);
+    };
+  }, [track?.title, track?.uploader]);
+
   useEffect(() => {
     if (!isSeeking) setSeekValue(timestamp % duration);
   }, [timestamp, duration, isSeeking]);
@@ -99,6 +137,7 @@ export default function MusicPlayerInterface({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [thumbUrl, discordSDK.isEmbedded]);
+
   return (
     <div className="flex flex-col md:ml-6 w-full xl:w-1/2 max-w-150">
       <div className="card bg-transparent xs:bg-music-player-interface h-38 xs:h-auto rounded-none">
@@ -133,10 +172,38 @@ export default function MusicPlayerInterface({
         </ContextMenu>
         <div className="card-body h-50">
           <div>
-            <h2 className="card-title font-bold truncate">
-              {track?.title ?? "???"}
-            </h2>
-            <h4 className="text-sm truncate">{track?.uploader ?? "???"}</h4>
+            <div
+              ref={titleContainerRef}
+              style={{ width: "100%", overflow: "hidden" }}
+            >
+              {shouldMarqueeTitle ? (
+                <Marquee pauseOnHover style={{ width: `${titleScrollWidth*2}px` }}>
+                  <h2 ref={titleRef} className="card-title font-bold truncate">
+                    {track?.title}
+                  </h2>
+                </Marquee>
+              ) : (
+                <h2 ref={titleRef} className="card-title font-bold truncate">
+                  {track?.title }
+                </h2>
+              )}
+            </div>
+            <div
+              ref={uploaderContainerRef}
+              style={{ width: "100%", overflow: "hidden" }}
+            >
+              {shouldMarqueeUploader ? (
+                <Marquee pauseOnHover style={{ width: `${uploaderScrollWidth*2}px` }}>
+                  <h4 ref={uploaderRef} className="text-sm">
+                    {track?.uploader ?? "???"}
+                  </h4>
+                </Marquee>
+              ) : (
+                <h4 ref={uploaderRef} className="text-sm">
+                  {track?.uploader ?? "???"}
+                </h4>
+              )}
+            </div>
           </div>
           <div className="card-actions w-full">
             <div className="flex w-full justify-start flex-col ">
@@ -146,7 +213,7 @@ export default function MusicPlayerInterface({
                   min="0"
                   max={duration}
                   value={seekValue}
-                  className="range range-sm w-full focus:outline-none focus:ring-0"
+                  className="range range-sm w-full focus:outline-none focus:ring-0 focus:border-0"
                   onChange={(e) => {
                     setSeekValue(Number(e.target.value));
                     setIsSeeking(true);
@@ -168,7 +235,7 @@ export default function MusicPlayerInterface({
               </div>
               <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   style={{
                     color: (shuffled && activeButtonColor) || undefined,
                     backgroundColor:
@@ -179,25 +246,25 @@ export default function MusicPlayerInterface({
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onBackward}
                   children={<FaBackwardStep />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onForward}
                   children={<FaForwardStep />}
                   //disabled={disabled}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0`}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   style={{
                     color: (looping && activeButtonColor) || undefined,
                     backgroundColor:
@@ -215,7 +282,7 @@ export default function MusicPlayerInterface({
       <div className="hidden xs:flex z-1 items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
-            className="btn btn-xl btn-ghost btn-circle focus:outline-none focus:ring-0"
+            className="btn btn-xl btn-ghost btn-circle focus:outline-none focus:ring-0 focus:border-0"
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
             onClick={() => {
               if (volume === 0 && volumeRef.current === 0) {
@@ -243,7 +310,7 @@ export default function MusicPlayerInterface({
             min={0}
             max={1}
             step={0.01}
-            className="range range-sm w-full focus:outline-none focus:ring-0"
+            className="range range-sm w-full focus:outline-none focus:ring-0 focus:border-0"
             value={volume}
             onChange={(e) => {
               const newVolume = e.target.valueAsNumber;

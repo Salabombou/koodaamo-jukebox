@@ -65,7 +65,6 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
                 //clientSecret: access_token,
               });
 
-
               rpc.current.on("ready", () => {
                 console.log("Discord RPC client is ready");
               });
@@ -73,7 +72,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
               try {
                 await rpc.current.login({
                   accessToken: access_token,
-                  scopes: ["rpc.activities.write", "identify"]
+                  scopes: ["rpc.activities.write", "identify"],
                 });
                 console.log("Discord RPC is ready");
               } catch (error) {

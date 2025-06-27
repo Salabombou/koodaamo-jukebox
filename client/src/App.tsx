@@ -99,18 +99,27 @@ export default function App() {
   const seeking = useRef(true);
 
   const [backgroundColor, setBackgroundColorRaw] = useState("#000000");
-  const setBackgroundColor = useCallback((color: string) => {
-    setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
-  }, [setBackgroundColorRaw]);
+  const setBackgroundColor = useCallback(
+    (color: string) => {
+      setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
+    },
+    [setBackgroundColorRaw],
+  );
 
-  const onSkip = useCallback((index: number) => {
-    invokeRoomAction("Skip", index);
-  }, [invokeRoomAction]);
+  const onSkip = useCallback(
+    (index: number) => {
+      invokeRoomAction("Skip", index);
+    },
+    [invokeRoomAction],
+  );
 
-  const onMove = useCallback((fromIndex: number, toIndex: number) => {
-    console.log("Moving from", fromIndex, "to", toIndex);
-    invokeRoomAction("Move", fromIndex, toIndex);
-  }, [invokeRoomAction]);
+  const onMove = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      console.log("Moving from", fromIndex, "to", toIndex);
+      invokeRoomAction("Move", fromIndex, toIndex);
+    },
+    [invokeRoomAction],
+  );
 
   const onDelete = useCallback(
     (index: number) => {
@@ -188,7 +197,14 @@ export default function App() {
       console.log("Seeking to", seekTime, "Pausing:", pause);
       invokeRoomAction("Seek", seekTime, pause);
     },
-    [invokePending, duration, invokeRoomAction, seeking, audioPlayer, setTimestamp],
+    [
+      invokePending,
+      duration,
+      invokeRoomAction,
+      seeking,
+      audioPlayer,
+      setTimestamp,
+    ],
   );
 
   const onShuffle = useCallback(() => {
@@ -202,10 +218,13 @@ export default function App() {
     invokeRoomAction("LoopToggle", !isLooping);
   }, [invokePending, isLooping, invokeRoomAction]);
 
-  const onVolumeChange = useCallback((volume: number) => {
-    audioPlayer.current!.volume = volume;
-    localStorage.setItem("volume", String(volume));
-  }, [audioPlayer]);
+  const onVolumeChange = useCallback(
+    (volume: number) => {
+      audioPlayer.current!.volume = volume;
+      localStorage.setItem("volume", String(volume));
+    },
+    [audioPlayer],
+  );
 
   const onCanPlayThrough = useCallback(() => {
     if (!isPaused && playingSince === null) {
@@ -238,7 +257,7 @@ export default function App() {
     if (typeof playingSince === "number") {
       const elapsedTime =
         ((currentTime - playingSince) % (duration * 1000)) / 1000;
-      
+
       if (
         elapsedTime >= 1 &&
         Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
@@ -262,7 +281,7 @@ export default function App() {
     for (const item of queueItems.values()) {
       if (
         (isShuffled ? item.shuffledIndex : item.index) ===
-        (currentTrackIndex + 1)
+        currentTrackIndex + 1
       ) {
         nextTrack = tracks.get(item.trackId) ?? null;
         break;
@@ -292,7 +311,7 @@ export default function App() {
     isShuffled,
     tracks,
     discordSDK.isEmbedded,
-    setTimestamp
+    setTimestamp,
   ]);
 
   useEffect(() => {
@@ -437,7 +456,14 @@ export default function App() {
         audioPlayer.current!.pause();
       }
     }
-  }, [playingSince, isPaused, duration, invokeRoomAction, audioPlayer, setTimestamp]);
+  }, [
+    playingSince,
+    isPaused,
+    duration,
+    invokeRoomAction,
+    audioPlayer,
+    setTimestamp,
+  ]);
 
   useEffect(() => {
     if (invokeError) {
@@ -522,7 +548,13 @@ export default function App() {
       setDuration(0);
       setTimestamp(0);
     }
-  }, [currentTrackId, discordSDK.isEmbedded, loadSource, setDuration, setTimestamp]);
+  }, [
+    currentTrackId,
+    discordSDK.isEmbedded,
+    loadSource,
+    setDuration,
+    setTimestamp,
+  ]);
 
   return (
     <div

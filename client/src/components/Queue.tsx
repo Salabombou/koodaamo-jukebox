@@ -182,7 +182,7 @@ const Queue = memo(function Queue({
             }
             scrollTimeout.current = window.setTimeout(() => {
               scrolled.current = false;
-            }, 5000); 
+            }, 5000);
           }}
           itemSize={58}
           itemKey={itemKey}

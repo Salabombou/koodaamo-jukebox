@@ -50,6 +50,17 @@
   --color-context-menu: rgba(0, 0, 0, 0.2);
 
   --breakpoint-xs: 20rem;
+
+  /* Marquee animation for text scrolling */
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+  --animation-marquee: marquee 10s linear infinite;
 }
 
 html,
