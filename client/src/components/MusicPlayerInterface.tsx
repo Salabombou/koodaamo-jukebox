@@ -55,11 +55,7 @@ export default function MusicPlayerInterface({
   const volumeSlider = useRef<HTMLInputElement>(null);
   const [activeButtonColor, setActiveButtonColor] = useState<string>("#ffffff");
   const volumeRef = useRef(1);
-  // Initialize volume from localStorage, fallback to 1
-  const [volume, setVolume] = useState(() => {
-    const stored = localStorage.getItem("volume");
-    return stored !== null ? Number(stored) : 1;
-  });
+  const [volume, setVolume] = useState(0.5);
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
   const discordSDK = useDiscordSDK();
   let thumbUrl = "/black.jpg";
@@ -73,31 +69,35 @@ export default function MusicPlayerInterface({
   }
   const [seekValue, setSeekValue] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
-  // Refs for measuring text and container widths
   const titleRef = useRef<HTMLHeadingElement>(null);
   const titleContainerRef = useRef<HTMLDivElement>(null);
   const uploaderRef = useRef<HTMLHeadingElement>(null);
   const uploaderContainerRef = useRef<HTMLDivElement>(null);
+  
   const [shouldMarqueeTitle, setShouldMarqueeTitle] = useState(false);
   const [shouldMarqueeUploader, setShouldMarqueeUploader] = useState(false);
 
   const [titleScrollWidth, setTitleScrollWidth] = useState(0);
   const [uploaderScrollWidth, setUploaderScrollWidth] = useState(0);
 
-  // Helper to check marquee conditions
+  const [titleContainerOffsetWidth, setTitleContainerOffsetWidth] = useState(0);
+  const [uploaderContainerOffsetWidth, setUploaderContainerOffsetWidth] = useState(0);
+
+  const titleMarqueeWidth = titleScrollWidth + titleContainerOffsetWidth;
+  const uploaderMarqueeWidth = uploaderScrollWidth + uploaderContainerOffsetWidth;
+
   const checkMarquee = () => {
     if (titleRef.current && titleContainerRef.current) {
-      setShouldMarqueeTitle(
-        titleRef.current.scrollWidth > titleContainerRef.current.offsetWidth
-      );
+      setShouldMarqueeTitle(titleRef.current!.scrollWidth > titleContainerRef.current!.offsetWidth);
       setTitleScrollWidth(titleRef.current.scrollWidth);
+      setTitleContainerOffsetWidth(titleContainerRef.current.offsetWidth);
     }
     if (uploaderRef.current && uploaderContainerRef.current) {
-      setShouldMarqueeUploader(
-        uploaderRef.current.scrollWidth > uploaderContainerRef.current.offsetWidth
-      );
+      setShouldMarqueeUploader(uploaderRef.current!.scrollWidth > uploaderContainerRef.current!.offsetWidth);
       setUploaderScrollWidth(uploaderRef.current.scrollWidth);
+      setUploaderContainerOffsetWidth(uploaderContainerRef.current.offsetWidth);
     }
   };
 
@@ -176,33 +176,31 @@ export default function MusicPlayerInterface({
               ref={titleContainerRef}
               style={{ width: "100%", overflow: "hidden" }}
             >
-              {shouldMarqueeTitle ? (
-                <Marquee pauseOnHover style={{ width: `${titleScrollWidth*1.5}px` }}>
-                  <h2 ref={titleRef} className="card-title font-bold truncate">
-                    {track?.title?.trim() || "???"}
-                  </h2>
-                </Marquee>
-              ) : (
+              <Marquee
+                play={shouldMarqueeTitle}
+                pauseOnHover
+                key={shouldMarqueeTitle ? "marquee-on" : "marquee-off"}
+                style={{ width: shouldMarqueeTitle ? `${titleMarqueeWidth}px` : "auto" }}
+              >
                 <h2 ref={titleRef} className="card-title font-bold truncate">
                   {track?.title?.trim() || "???"}
                 </h2>
-              )}
+              </Marquee>
             </div>
             <div
               ref={uploaderContainerRef}
               style={{ width: "100%", overflow: "hidden" }}
             >
-              {shouldMarqueeUploader ? (
-                <Marquee pauseOnHover style={{ width: `${uploaderScrollWidth*1.5}px` }}>
-                  <h4 ref={uploaderRef} className="text-sm">
-                    {track?.uploader?.trim() ?? "???"}
-                  </h4>
-                </Marquee>
-              ) : (
-                <h4 ref={uploaderRef} className="text-sm">
+              <Marquee
+                play={shouldMarqueeUploader}
+                pauseOnHover
+                key={shouldMarqueeUploader ? "marquee-on" : "marquee-off"}
+                style={{ width: shouldMarqueeUploader ? `${uploaderMarqueeWidth}px` : "auto" }}
+              >
+                <h4 ref={uploaderRef} className="text-sm truncate">
                   {track?.uploader?.trim() ?? "???"}
                 </h4>
-              )}
+              </Marquee>
             </div>
           </div>
           <div className="card-actions w-full">
@@ -226,7 +224,6 @@ export default function MusicPlayerInterface({
                     onSeek(seekValue);
                     setIsSeeking(false);
                   }}
-                  //disabled={disabled}
                 />
                 <div className="flex justify-between select-none">
                   <label children={<Timestamp timestamp={timestamp} />} />
@@ -243,25 +240,21 @@ export default function MusicPlayerInterface({
                   }}
                   onClick={onShuffle}
                   children={<FaShuffle />}
-                  //disabled={disabled}
                 />
                 <button
                   className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onBackward}
                   children={<FaBackwardStep />}
-                  //disabled={disabled}
                 />
                 <button
                   className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
-                  //disabled={disabled}
                 />
                 <button
                   className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onForward}
                   children={<FaForwardStep />}
-                  //disabled={disabled}
                 />
                 <button
                   className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
@@ -272,7 +265,6 @@ export default function MusicPlayerInterface({
                   }}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
-                  //disabled={disabled}
                 />
               </div>
             </div>
@@ -286,19 +278,16 @@ export default function MusicPlayerInterface({
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
             onClick={() => {
               if (volume === 0 && volumeRef.current === 0) {
-                setVolume(0.05);
-                volumeRef.current = 0.05;
-                onVolumeChange(0.05);
-                localStorage.setItem("volume", "0.05");
+                setVolume(0.5);
+                volumeRef.current = 0.5;
+                onVolumeChange(0.5);
               } else if (volume === 0) {
                 setVolume(volumeRef.current);
                 onVolumeChange(volumeRef.current);
-                localStorage.setItem("volume", String(volumeRef.current));
               } else {
                 volumeRef.current = volume;
                 setVolume(0);
                 onVolumeChange(0);
-                localStorage.setItem("volume", "0");
               }
             }}
           />
@@ -310,15 +299,18 @@ export default function MusicPlayerInterface({
             min={0}
             max={1}
             step={0.01}
-            className="range range-sm w-full focus:outline-none focus:ring-0 focus:border-0"
+            className={`range range-sm w-full focus:outline-none focus:ring-0 focus:border-0${isDraggingVolume ? ' ring-2 ring-primary' : ''}`}
             value={volume}
             onChange={(e) => {
               const newVolume = e.target.valueAsNumber;
               volumeRef.current = newVolume;
               setVolume(newVolume);
               onVolumeChange(newVolume);
-              localStorage.setItem("volume", String(newVolume));
             }}
+            onMouseDown={() => setIsDraggingVolume(true)}
+            onMouseUp={() => setIsDraggingVolume(false)}
+            onTouchStart={() => setIsDraggingVolume(true)}
+            onTouchEnd={() => setIsDraggingVolume(false)}
           />
         </div>
       </div>

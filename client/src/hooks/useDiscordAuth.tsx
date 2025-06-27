@@ -69,7 +69,11 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       const response = await responsePromise
         .then((res) => res.json() as Promise<AuthResponse>)
         .catch((err) => {
-          localStorage.clear();
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("expiresAt");
+          console.error("Failed to authenticate:", err);
           throw err;
         });
       accessToken = response.accessToken;

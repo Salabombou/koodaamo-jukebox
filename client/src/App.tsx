@@ -33,7 +33,7 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioPlayer.current!.volume = Number(localStorage.getItem("volume") ?? "1");
+    audioPlayer.current!.volume = 0.5;
   }, [audioPlayer]);
 
   useEffect(() => {

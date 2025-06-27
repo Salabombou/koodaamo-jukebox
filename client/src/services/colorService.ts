@@ -5,11 +5,23 @@ export function getProminentColorFromUrl(url: string): Promise<string> {
     .getPalette()
     .then((palette) => {
       console.log("Vibrant palette:", palette);
-      if (!palette.Vibrant) {
-        console.warn("No vibrant color found for image");
+      
+      const swatches = [];
+      
+      if (palette.Vibrant) {
+        swatches.push(palette.Vibrant);
+      }
+      if (palette.Muted) {
+        swatches.push(palette.Muted);
+      }
+
+      if (swatches.length === 0) {
+        console.warn("No vibrant or muted swatches found in palette");
         return "#000000";
       }
-      return palette.Vibrant.hex;
+
+      let mostProminent = swatches.sort((a, b) => b.population - a.population)[0];
+      return mostProminent.hex;
     })
     .catch((e) => {
       console.error("Error getting vibrant color from URL:", url, e);
