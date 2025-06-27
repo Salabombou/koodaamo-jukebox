@@ -1,11 +1,4 @@
-import {
-  useState,
-  memo,
-  useEffect,
-  useCallback,
-  useRef,
-  useOptimistic,
-} from "react";
+import { useState, useEffect, useCallback, useRef, useOptimistic } from "react";
 import type { ListChildComponentProps } from "react-window";
 import { FixedSizeList } from "react-window";
 import {
@@ -22,6 +15,7 @@ import { getEventCoordinates } from "@dnd-kit/utilities";
 import QueueRow from "./QueueRow";
 import { QueueItem } from "../types/queue";
 import { Track } from "../types/track";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 
 const restrictToVerticalAxisCenterY: Modifier = ({
   transform,
@@ -53,8 +47,7 @@ interface QueueProps {
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
 }
-
-const Queue = memo(function Queue({
+export default function Queue({
   tracks,
   queueItems,
   currentTrackId,
@@ -130,90 +123,138 @@ const Queue = memo(function Queue({
     // scroll where the current track is visible as first item
     if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
       if (list.current) {
-        if (!scrolled.current) {
-          list.current.scrollToItem(
-            Math.min(optimisticQueueList.length - 1, currentTrackIndex + 1),
-            "smart",
-          );
+        const currentTrackItemVisible =
+          currentTrackIndex >= visibleRange.start &&
+          currentTrackIndex <= visibleRange.stop;
+        if (!scrolled.current && currentTrackItemVisible) {
+          list.current.scrollToItem(currentTrackIndex, "center");
         }
         scrolled.current = false;
       }
     }
   }, [currentTrackIndex]);
 
-  return (
-    <DndContext
-      collisionDetection={closestCenter}
-      modifiers={[restrictToVerticalAxisCenterY]}
-      onDragStart={(e) =>
-        setDraggedIndex(e.active.data.current?.sortable.index as number)
-      }
-      onDragEnd={(e) => {
-        const fromIndex = draggedIndex;
-        const toIndex = e.over?.data.current?.sortable.index;
-        setDraggedIndex(null);
-        if (
-          typeof fromIndex === "number" &&
-          typeof toIndex === "number" &&
-          fromIndex !== toIndex &&
-          !controlsDisabled
-        ) {
-          onMove(fromIndex, toIndex);
-          moveItem([fromIndex, toIndex]);
-        }
-      }}
-    >
-      <SortableContext
-        items={optimisticQueueList}
-        strategy={verticalListSortingStrategy}
-      >
-        <FixedSizeList
-          ref={list}
-          height={listHeight}
-          width="100%"
-          className="hidden md:flex mx-6"
-          itemData={optimisticQueueList}
-          itemCount={optimisticQueueList.length}
-          onScroll={(e) => {
-            if (e.scrollUpdateWasRequested) return;
-            scrolled.current = true;
-            if (scrollTimeout.current) {
-              clearTimeout(scrollTimeout.current);
-            }
-            scrollTimeout.current = window.setTimeout(() => {
-              scrolled.current = false;
-            }, 5000);
-          }}
-          itemSize={58}
-          itemKey={itemKey}
-          style={{
-            overflowX: "hidden",
-            overflowY: "scroll",
-            scrollbarWidth: "none",
-          }}
-        >
-          {rowRenderer}
-        </FixedSizeList>
-      </SortableContext>
-      <DragOverlay>
-        {draggedIndex !== null && (
-          <QueueRow
-            overlay={true}
-            index={draggedIndex}
-            currentTrackId={currentTrackId}
-            backgroundColor={backgroundColor}
-            onSkip={() => {}}
-            onDelete={() => {}}
-            onPlayNext={() => {}}
-            style={{}}
-            data={optimisticQueueList}
-            tracks={tracks}
-            controlsDisabled={controlsDisabled}
-          />
-        )}
-      </DragOverlay>
-    </DndContext>
-  );
-});
+  const [visibleRange, setVisibleRange] = useState<{
+    start: number;
+    stop: number;
+  }>({ start: 0, stop: 0 });
 
-export default Queue;
+  // Scroll to current track when arrow is clicked
+  const scrollToCurrentTrack = useCallback(() => {
+    if (
+      typeof currentTrackIndex === "number" &&
+      currentTrackIndex >= 0 &&
+      list.current
+    ) {
+      list.current.scrollToItem(currentTrackIndex, "center");
+    }
+  }, [currentTrackIndex]);
+
+  return (
+    <div style={{ position: "relative", height: listHeight, width: "100%" }}>
+      {/* Top arrow */}
+      {typeof currentTrackIndex === "number" &&
+        currentTrackIndex < visibleRange.start && (
+          <div className="absolute top-2 left-0 w-full flex justify-center z-10">
+            <button
+              onClick={scrollToCurrentTrack}
+              className="btn btn-wide text-xl cursor-pointer"
+              aria-label="Scroll to current track"
+            >
+              <FaArrowUp />
+            </button>
+          </div>
+        )}
+      {/* Bottom arrow */}
+      {typeof currentTrackIndex === "number" &&
+        currentTrackIndex > visibleRange.stop && (
+          <div className="absolute bottom-2 left-0 w-full flex justify-center z-10">
+            <button
+              onClick={scrollToCurrentTrack}
+              className="btn btn-wide text-xl cursor-pointer"
+              aria-label="Scroll to current track"
+            >
+              <FaArrowDown />
+            </button>
+          </div>
+        )}
+      <DndContext
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxisCenterY]}
+        onDragStart={(e) =>
+          setDraggedIndex(e.active.data.current?.sortable.index as number)
+        }
+        onDragEnd={(e) => {
+          const fromIndex = draggedIndex;
+          const toIndex = e.over?.data.current?.sortable.index;
+          setDraggedIndex(null);
+          if (
+            typeof fromIndex === "number" &&
+            typeof toIndex === "number" &&
+            fromIndex !== toIndex &&
+            !controlsDisabled
+          ) {
+            onMove(fromIndex, toIndex);
+            moveItem([fromIndex, toIndex]);
+          }
+        }}
+      >
+        <SortableContext
+          items={optimisticQueueList}
+          strategy={verticalListSortingStrategy}
+        >
+          <FixedSizeList
+            ref={list}
+            height={listHeight}
+            width="100%"
+            className="hidden md:flex mx-6"
+            itemData={optimisticQueueList}
+            itemCount={optimisticQueueList.length}
+            onScroll={(e) => {
+              if (e.scrollUpdateWasRequested) return;
+              scrolled.current = true;
+              if (scrollTimeout.current) {
+                clearTimeout(scrollTimeout.current);
+              }
+              scrollTimeout.current = window.setTimeout(() => {
+                scrolled.current = false;
+              }, 5000);
+            }}
+            itemSize={66}
+            itemKey={itemKey}
+            style={{
+              overflowX: "hidden",
+              overflowY: "scroll",
+              scrollbarWidth: "none",
+            }}
+            onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
+              setVisibleRange({
+                start: visibleStartIndex,
+                stop: visibleStopIndex,
+              });
+            }}
+          >
+            {rowRenderer}
+          </FixedSizeList>
+        </SortableContext>
+        <DragOverlay>
+          {draggedIndex !== null && (
+            <QueueRow
+              overlay={true}
+              index={draggedIndex}
+              currentTrackId={currentTrackId}
+              backgroundColor={backgroundColor}
+              onSkip={() => {}}
+              onDelete={() => {}}
+              onPlayNext={() => {}}
+              style={{}}
+              data={optimisticQueueList}
+              tracks={tracks}
+              controlsDisabled={controlsDisabled}
+            />
+          )}
+        </DragOverlay>
+      </DndContext>
+    </div>
+  );
+}

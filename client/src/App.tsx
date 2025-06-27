@@ -20,6 +20,11 @@ export default function App() {
   const audioPlayer = useRef<HTMLAudioElement>(
     null as unknown as HTMLAudioElement,
   );
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const [modalClosed, setModalClosed] = useState(false);
+  useEffect(() => {
+    modalRef.current?.showModal();
+  }, []);
 
   // Memoize tracks map to avoid new reference unless contents change
   const [tracks, setTracks] = useState(() => new Map<string, Track>());
@@ -110,7 +115,7 @@ export default function App() {
     (index: number) => {
       invokeRoomAction("Skip", index);
     },
-    [invokeRoomAction],
+    [invokeRoomAction, modalClosed],
   );
 
   const onMove = useCallback(
@@ -227,13 +232,15 @@ export default function App() {
   );
 
   const onCanPlayThrough = useCallback(() => {
+    if (!modalClosed) return;
     if (!isPaused && playingSince === null) {
       console.log("Resuming playback after can play through");
       invokeRoomAction("PauseToggle", false);
     }
-  }, [isPaused, playingSince, invokeRoomAction]);
+  }, [isPaused, playingSince, invokeRoomAction, modalClosed]);
 
   const onEnded = useCallback(() => {
+    if (!modalClosed) return;
     if (isLooping) {
       audioPlayer.current!.currentTime = 0;
       audioPlayer.current!.play();
@@ -249,9 +256,17 @@ export default function App() {
         }
       }
     }
-  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, audioPlayer]);
+  }, [
+    isLooping,
+    currentTrackIndex,
+    queueItems,
+    invokeRoomAction,
+    audioPlayer,
+    modalClosed,
+  ]);
 
   const onTimeUpdate = useCallback(() => {
+    if (!modalClosed) return;
     if (seeking.current) return;
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
@@ -311,10 +326,11 @@ export default function App() {
     isShuffled,
     tracks,
     discordSDK.isEmbedded,
-    setTimestamp,
+    modalClosed,
   ]);
 
   useEffect(() => {
+    if (!modalClosed) return;
     if (!currentTrack) return;
     if (typeof playingSince !== "number") return;
     if (duration <= 0) return;
@@ -351,10 +367,13 @@ export default function App() {
       .catch((error) => {
         console.error("Failed to set Discord activity:", error);
       });
-  }, [currentTrack, playingSince, duration, discordSDK, users]);
+  }, [currentTrack, playingSince, duration, discordSDK, users, modalClosed]);
 
   // Media session API support
   useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    if (!modalClosed) return;
+
     navigator.mediaSession.setActionHandler("play", onPlayToggle);
     navigator.mediaSession.setActionHandler("pause", onPlayToggle);
     navigator.mediaSession.setActionHandler("stop", () => {
@@ -377,9 +396,11 @@ export default function App() {
       navigator.mediaSession.setActionHandler("nexttrack", null);
       navigator.mediaSession.setActionHandler("seekto", null);
     };
-  }, [onPlayToggle, onSeek, onBackward, onForward]);
+  }, [onPlayToggle, onSeek, onBackward, onForward, modalClosed]);
 
   useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    if (!modalClosed) return;
     if (!currentTrack || !audioPlayer.current) return;
 
     // Update media session metadata
@@ -400,14 +421,8 @@ export default function App() {
       playbackRate: audioPlayer.current.playbackRate,
       position: Math.min(duration, timestamp),
     });
-  }, [currentTrack, timestamp, duration, discordSDK, audioPlayer]);
+  }, [currentTrack, timestamp, duration, discordSDK, audioPlayer, modalClosed]);
 
-  useEffect(() => {
-    console.log("Queue items updated:", queueItems);
-  }, [queueItems]);
-  useEffect(() => {
-    console.log("Current track index:", currentTrackIndex);
-  }, [currentTrackIndex]);
   useEffect(() => {
     if (playingSince === null) return;
     const currentTime = timeService.getServerNow();
@@ -418,6 +433,7 @@ export default function App() {
   }, [playingSince, duration]);
 
   useEffect(() => {
+    if (!modalClosed) return;
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
@@ -463,12 +479,12 @@ export default function App() {
     invokeRoomAction,
     audioPlayer,
     setTimestamp,
+    modalClosed,
   ]);
 
   useEffect(() => {
-    if (invokeError) {
-      console.error("Room action error:", invokeError);
-    }
+    if (typeof invokeError !== "string") return;
+    console.error("Room action error:", invokeError);
   }, [invokeError]);
 
   useEffect(() => {
@@ -478,7 +494,7 @@ export default function App() {
         setCurrentTrack(track);
       }
     }
-  }, [currentTrackId, currentTrack, tracks, setCurrentTrack]);
+  }, [currentTrackId, currentTrack, tracks]);
 
   useEffect(() => {
     // update page title with current track name
@@ -548,71 +564,81 @@ export default function App() {
       setDuration(0);
       setTimestamp(0);
     }
-  }, [
-    currentTrackId,
-    discordSDK.isEmbedded,
-    loadSource,
-    setDuration,
-    setTimestamp,
-  ]);
+  }, [currentTrackId, discordSDK.isEmbedded, loadSource]);
 
   return (
-    <div
-      className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden bg-gradient-to-b"
-      style={{
-        backgroundColor: backgroundColor + "ff", // Use solid color for transition
-        transition: "background-color 0.5s ease", // Transition background-color
-      }}
-    >
-      {/* Gradient overlay */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          background: "linear-gradient(to bottom, transparent 0%, #000 100%)",
-          zIndex: 0,
+    <>
+      <dialog
+        className="modal backdrop-blur-xs"
+        ref={modalRef}
+        onClose={() => {
+          setModalClosed(true);
+          modalRef.current?.close();
         }}
-      />
-      <audio
-        ref={audioPlayer}
-        className="hidden pointer-events-none select-none "
-        autoPlay={true}
-        controls={false}
-        onTimeUpdate={onTimeUpdate}
-        onEnded={onEnded}
-        onCanPlayThrough={onCanPlayThrough}
-      />
-      <MusicPlayerInterface
-        track={currentTrack}
-        duration={duration}
-        timestamp={timestamp}
-        paused={isPaused ?? true}
-        looping={isLooping ?? false}
-        shuffled={isShuffled ?? false}
-        disabled={invokePending}
-        onPrimaryColorChange={setBackgroundColor}
-        backgroundColor={backgroundColor}
-        onShuffle={onShuffle}
-        onBackward={onBackward}
-        onForward={onForward}
-        onPlayToggle={onPlayToggle}
-        onLoopToggle={onLoopToggle}
-        onSeek={onSeek}
-        onVolumeChange={onVolumeChange}
-      />
-      <Queue
-        tracks={tracks}
-        queueItems={queueItems}
-        currentTrackId={currentTrackId}
-        currentTrackIndex={currentTrackIndex}
-        controlsDisabled={invokePending}
-        backgroundColor={backgroundColor}
-        onSkip={onSkip}
-        onMove={onMove}
-        onDelete={onDelete}
-        onPlayNext={onPlayNext}
-      />
-    </div>
+      >
+        <div className="modal-action">
+          <form method="dialog">
+            <button className="btn size-50 font-bold text-6xl">Start</button>
+          </form>
+        </div>
+      </dialog>
+      <div
+        className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden bg-gradient-to-b"
+        style={{
+          backgroundColor: backgroundColor + "ff", // Use solid color for transition
+          transition: "background-color 0.5s ease", // Transition background-color
+        }}
+      >
+        {/* Gradient overlay */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background: "linear-gradient(to bottom, transparent 0%, #000 100%)",
+            zIndex: 0,
+          }}
+        />
+        <audio
+          ref={audioPlayer}
+          className="hidden pointer-events-none select-none "
+          autoPlay={false}
+          controls={false}
+          onTimeUpdate={onTimeUpdate}
+          onEnded={onEnded}
+          onCanPlayThrough={onCanPlayThrough}
+        />
+        <MusicPlayerInterface
+          track={currentTrack}
+          duration={duration}
+          timestamp={timestamp}
+          paused={isPaused ?? true}
+          looping={isLooping ?? false}
+          shuffled={isShuffled ?? false}
+          disabled={invokePending}
+          onPrimaryColorChange={setBackgroundColor}
+          backgroundColor={backgroundColor}
+          onShuffle={onShuffle}
+          onBackward={onBackward}
+          onForward={onForward}
+          onPlayToggle={onPlayToggle}
+          onLoopToggle={onLoopToggle}
+          onSeek={onSeek}
+          onVolumeChange={onVolumeChange}
+        />
+        <Queue
+          tracks={tracks}
+          queueItems={queueItems}
+          currentTrackId={currentTrackId}
+          currentTrackIndex={currentTrackIndex}
+          controlsDisabled={invokePending}
+          backgroundColor={backgroundColor}
+          onSkip={onSkip}
+          onMove={onMove}
+          onDelete={onDelete}
+          onPlayNext={onPlayNext}
+        />
+      </div>
+    </>
   );
 }

@@ -14,7 +14,7 @@ import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { thumbnailUrlCacheHigh } from "../services/thumbnailCache";
 import * as colorService from "../services/colorService";
 import ContextMenu from "./ContextMenu";
-import Marquee from "react-fast-marquee";
+import MarqueeText from "./MarqueeText";
 
 interface MusicPlayerInterfaceProps {
   track: Track | null;
@@ -53,7 +53,6 @@ export default function MusicPlayerInterface({
   onPrimaryColorChange,
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
-  const [activeButtonColor, setActiveButtonColor] = useState<string>("#ffffff");
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(0.5);
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
@@ -71,49 +70,13 @@ export default function MusicPlayerInterface({
   const [isSeeking, setIsSeeking] = useState(false);
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const titleContainerRef = useRef<HTMLDivElement>(null);
-  const uploaderRef = useRef<HTMLHeadingElement>(null);
-  const uploaderContainerRef = useRef<HTMLDivElement>(null);
-  
-  const [shouldMarqueeTitle, setShouldMarqueeTitle] = useState(false);
-  const [shouldMarqueeUploader, setShouldMarqueeUploader] = useState(false);
-
-  const [titleScrollWidth, setTitleScrollWidth] = useState(0);
-  const [uploaderScrollWidth, setUploaderScrollWidth] = useState(0);
-
-  const [titleContainerOffsetWidth, setTitleContainerOffsetWidth] = useState(0);
-  const [uploaderContainerOffsetWidth, setUploaderContainerOffsetWidth] = useState(0);
-
-  const titleMarqueeWidth = titleScrollWidth + titleContainerOffsetWidth;
-  const uploaderMarqueeWidth = uploaderScrollWidth + uploaderContainerOffsetWidth;
-
-  const checkMarquee = () => {
-    if (titleRef.current && titleContainerRef.current) {
-      setShouldMarqueeTitle(titleRef.current!.scrollWidth > titleContainerRef.current!.offsetWidth);
-      setTitleScrollWidth(titleRef.current.scrollWidth);
-      setTitleContainerOffsetWidth(titleContainerRef.current.offsetWidth);
-    }
-    if (uploaderRef.current && uploaderContainerRef.current) {
-      setShouldMarqueeUploader(uploaderRef.current!.scrollWidth > uploaderContainerRef.current!.offsetWidth);
-      setUploaderScrollWidth(uploaderRef.current.scrollWidth);
-      setUploaderContainerOffsetWidth(uploaderContainerRef.current.offsetWidth);
-    }
-  };
-
-  useEffect(() => {
-    checkMarquee();
-    window.addEventListener("resize", checkMarquee);
-    window.addEventListener("orientationchange", checkMarquee);
-    return () => {
-      window.removeEventListener("resize", checkMarquee);
-      window.removeEventListener("orientationchange", checkMarquee);
-    };
-  }, [track?.title, track?.uploader]);
-
   useEffect(() => {
     if (!isSeeking) setSeekValue(timestamp % duration);
   }, [timestamp, duration, isSeeking]);
+
+  useEffect(() => {
+    setSeekValue(0);
+  }, [track?.id]);
 
   useEffect(() => {
     let isMounted = true,
@@ -162,7 +125,6 @@ export default function MusicPlayerInterface({
                       .getProminentColorFromUrl(e.currentTarget.src)
                       .then((color) => {
                         onPrimaryColorChange(color);
-                        setActiveButtonColor(color);
                       })
                   }
                 />
@@ -172,36 +134,15 @@ export default function MusicPlayerInterface({
         </ContextMenu>
         <div className="card-body h-50">
           <div>
-            <div
-              ref={titleContainerRef}
-              style={{ width: "100%", overflow: "hidden" }}
-            >
-              <Marquee
-                play={shouldMarqueeTitle}
-                pauseOnHover
-                key={shouldMarqueeTitle ? "marquee-on" : "marquee-off"}
-                style={{ width: shouldMarqueeTitle ? `${titleMarqueeWidth}px` : "auto" }}
-              >
-                <h2 ref={titleRef} className="card-title font-bold truncate">
-                  {track?.title?.trim() || "???"}
-                </h2>
-              </Marquee>
-            </div>
-            <div
-              ref={uploaderContainerRef}
-              style={{ width: "100%", overflow: "hidden" }}
-            >
-              <Marquee
-                play={shouldMarqueeUploader}
-                pauseOnHover
-                key={shouldMarqueeUploader ? "marquee-on" : "marquee-off"}
-                style={{ width: shouldMarqueeUploader ? `${uploaderMarqueeWidth}px` : "auto" }}
-              >
-                <h4 ref={uploaderRef} className="text-sm truncate">
-                  {track?.uploader?.trim() ?? "???"}
-                </h4>
-              </Marquee>
-            </div>
+            <MarqueeText>
+              <h2 className="card-title font-bold">
+                {track?.title?.trim() || "???"}
+              </h2>
+            </MarqueeText>
+
+            <MarqueeText>
+              <h4 className="text-sm">{track?.uploader?.trim() ?? "???"}</h4>
+            </MarqueeText>
           </div>
           <div className="card-actions w-full">
             <div className="flex w-full justify-start flex-col ">
@@ -232,12 +173,7 @@ export default function MusicPlayerInterface({
               </div>
               <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
-                  style={{
-                    color: (shuffled && activeButtonColor) || undefined,
-                    backgroundColor:
-                      (shuffled && activeButtonColor + "33") || undefined,
-                  }}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0 ${shuffled ? "btn-active" : ""}`}
                   onClick={onShuffle}
                   children={<FaShuffle />}
                 />
@@ -257,12 +193,7 @@ export default function MusicPlayerInterface({
                   children={<FaForwardStep />}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
-                  style={{
-                    color: (looping && activeButtonColor) || undefined,
-                    backgroundColor:
-                      (looping && activeButtonColor + "33") || undefined,
-                  }}
+                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0 ${looping ? "btn-active" : ""}`}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
                 />
@@ -299,7 +230,7 @@ export default function MusicPlayerInterface({
             min={0}
             max={1}
             step={0.01}
-            className={`range range-sm w-full focus:outline-none focus:ring-0 focus:border-0${isDraggingVolume ? ' ring-2 ring-primary' : ''}`}
+            className={`range range-sm w-full focus:outline-none focus:ring-0 focus:border-0${isDraggingVolume ? " ring-2 ring-primary" : ""}`}
             value={volume}
             onChange={(e) => {
               const newVolume = e.target.valueAsNumber;

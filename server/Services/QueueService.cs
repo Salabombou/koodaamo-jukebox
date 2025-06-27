@@ -695,15 +695,8 @@ namespace KoodaamoJukebox.Services
                 _dbContext.QueueItems.Update(item);
                 await _dbContext.SaveChangesAsync();
 
-                // Move currentTrackIndex back if deleting from behind the current track
-                if (queue.CurrentTrackIndex != null && index < queue.CurrentTrackIndex)
-                {
-                    queue.CurrentTrackIndex--;
-                    // Set CurrentTrackId
-                    var newCurrent = queueItems[queue.CurrentTrackIndex.Value];
-                    queue.CurrentTrackId = newCurrent.TrackId;
-                    _dbContext.RoomInfos.Update(queue);
-                }
+                // Store the current track's unique identifier before shifting
+                var currentTrackId = queue.CurrentTrackId;
 
                 // Update indices of items to the right of the deleted item
                 var itemsToUpdate = queueItems.Skip(index + 1).ToList();
@@ -720,6 +713,32 @@ namespace KoodaamoJukebox.Services
                 }
                 _dbContext.QueueItems.UpdateRange(itemsToUpdate);
                 await _dbContext.SaveChangesAsync();
+
+                // After shifting, recalculate CurrentTrackIndex if needed
+                if (queue.CurrentTrackIndex != null && index < queue.CurrentTrackIndex)
+                {
+                    // Find the current track by its unique identifier
+                    var newCurrent = await _dbContext.QueueItems
+                        .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.TrackId == currentTrackId)
+                        .FirstOrDefaultAsync();
+                    if (newCurrent != null)
+                    {
+                        queue.CurrentTrackIndex = queue.IsShuffled ? newCurrent.ShuffleIndex : newCurrent.Index;
+                        queue.CurrentTrackId = newCurrent.TrackId;
+                    }
+                    else
+                    {
+                        // fallback: set to first non-deleted item
+                        var first = await _dbContext.QueueItems
+                            .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                            .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
+                            .FirstOrDefaultAsync();
+                        queue.CurrentTrackId = first?.TrackId;
+                        queue.CurrentTrackIndex = queue.IsShuffled ? first?.ShuffleIndex : first?.Index;
+                    }
+                    _dbContext.RoomInfos.Update(queue);
+                    await _dbContext.SaveChangesAsync();
+                }
 
                 var updatedItems = itemsToUpdate.Select(i => new QueueItemDto(i)).ToList();
                 updatedItems.Insert(0, new QueueItemDto(item)); // Include the deleted item in the update

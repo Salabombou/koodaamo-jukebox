@@ -5,9 +5,9 @@ export function getProminentColorFromUrl(url: string): Promise<string> {
     .getPalette()
     .then((palette) => {
       console.log("Vibrant palette:", palette);
-      
+
       const swatches = [];
-      
+
       if (palette.Vibrant) {
         swatches.push(palette.Vibrant);
       }
@@ -20,7 +20,9 @@ export function getProminentColorFromUrl(url: string): Promise<string> {
         return "#000000";
       }
 
-      let mostProminent = swatches.sort((a, b) => b.population - a.population)[0];
+      let mostProminent = swatches.sort(
+        (a, b) => b.population - a.population,
+      )[0];
       return mostProminent.hex;
     })
     .catch((e) => {
