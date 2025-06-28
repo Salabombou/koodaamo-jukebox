@@ -29,7 +29,8 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
-          discord: ["@discord/embedded-app-sdk"],
+          discord: ["@discord/embedded-app-sdk", "@xhayper/discord-rpc"],
+          microsoft: ["@microsoft/signalr"],
           hlsjs: ["hls.js"],
         },
       },

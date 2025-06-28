@@ -106,7 +106,13 @@ export default function Queue({
         tracks={tracks}
         currentTrackId={currentTrackId}
         backgroundColor={backgroundColor}
-        onSkip={onSkip}
+        onSkip={(i) => {
+          scrolled.current = true;
+          setTimeout(() => {
+            scrolled.current = false;
+          }, 5000);
+          onSkip(i);
+        }}
         onDelete={onDelete}
         onPlayNext={onPlayNext}
         controlsDisabled={controlsDisabled}
@@ -119,25 +125,17 @@ export default function Queue({
 
   const scrolled = useRef(false);
   const scrollTimeout = useRef<number | null>(null);
+
   useEffect(() => {
-    // scroll where the current track is visible as first item
     if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
       if (list.current) {
-        const currentTrackItemVisible =
-          currentTrackIndex >= visibleRange.start &&
-          currentTrackIndex <= visibleRange.stop;
-        if (!scrolled.current && currentTrackItemVisible) {
+        if (!scrolled.current) {
           list.current.scrollToItem(currentTrackIndex, "center");
         }
         scrolled.current = false;
       }
     }
   }, [currentTrackIndex]);
-
-  const [visibleRange, setVisibleRange] = useState<{
-    start: number;
-    stop: number;
-  }>({ start: 0, stop: 0 });
 
   // Scroll to current track when arrow is clicked
   const scrollToCurrentTrack = useCallback(() => {
@@ -150,34 +148,46 @@ export default function Queue({
     }
   }, [currentTrackIndex]);
 
+  const [visibleRange, setVisibleRange] = useState<{
+    start: number;
+    stop: number;
+  }>({ start: 0, stop: 0 });
+
+  const topArrowVisible =
+    typeof currentTrackIndex === "number" &&
+    currentTrackIndex < visibleRange.start &&
+    optimisticQueueList.length > 0;
+  const bottomArrowVisible =
+    typeof currentTrackIndex === "number" &&
+    currentTrackIndex > visibleRange.stop &&
+    optimisticQueueList.length > 0;
+
   return (
     <div style={{ position: "relative", height: listHeight, width: "100%" }}>
       {/* Top arrow */}
-      {typeof currentTrackIndex === "number" &&
-        currentTrackIndex < visibleRange.start && (
-          <div className="absolute top-2 left-0 w-full flex justify-center z-10">
-            <button
-              onClick={scrollToCurrentTrack}
-              className="btn btn-wide text-xl cursor-pointer"
-              aria-label="Scroll to current track"
-            >
-              <FaArrowUp />
-            </button>
-          </div>
-        )}
+      {topArrowVisible && (
+        <div className="absolute top-2 left-0 w-full flex justify-center z-10">
+          <button
+            onClick={scrollToCurrentTrack}
+            className="btn btn-wide text-xl cursor-pointer"
+            aria-label="Scroll to current track"
+          >
+            <FaArrowUp />
+          </button>
+        </div>
+      )}
       {/* Bottom arrow */}
-      {typeof currentTrackIndex === "number" &&
-        currentTrackIndex > visibleRange.stop && (
-          <div className="absolute bottom-2 left-0 w-full flex justify-center z-10">
-            <button
-              onClick={scrollToCurrentTrack}
-              className="btn btn-wide text-xl cursor-pointer"
-              aria-label="Scroll to current track"
-            >
-              <FaArrowDown />
-            </button>
-          </div>
-        )}
+      {bottomArrowVisible && (
+        <div className="absolute bottom-2 left-0 w-full flex justify-center z-10">
+          <button
+            onClick={scrollToCurrentTrack}
+            className="btn btn-wide text-xl cursor-pointer"
+            aria-label="Scroll to current track"
+          >
+            <FaArrowDown />
+          </button>
+        </div>
+      )}
       <DndContext
         collisionDetection={closestCenter}
         modifiers={[restrictToVerticalAxisCenterY]}
