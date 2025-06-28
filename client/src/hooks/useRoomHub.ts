@@ -20,6 +20,7 @@ export default function useRoomHub() {
   const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
     new Map(),
   );
+  const [queueList, setQueueList] = useState<QueueItem[]>([]);
 
   const connection = useRef<signalR.HubConnection | null>(null);
 
@@ -59,6 +60,14 @@ export default function useRoomHub() {
                 items.set(item.id, item);
               }
             });
+
+            const sortedItems = Array.from(items.values()).sort((a, b) => {
+              const aIndex = a.shuffledIndex ?? a.index;
+              const bIndex = b.shuffledIndex ?? b.index;
+              return aIndex - bIndex;
+            });
+            setQueueList(sortedItems);
+            
             return items;
           });
         });
@@ -112,6 +121,7 @@ export default function useRoomHub() {
     isPaused,
     isShuffled,
     queueItems,
+    queueList,
     invokeRoomAction,
     invokeError,
     invokePending,

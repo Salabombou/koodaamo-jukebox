@@ -17,7 +17,7 @@ import ContextMenu from "./ContextMenu";
 import MarqueeText from "./MarqueeText";
 
 interface MusicPlayerInterfaceProps {
-  track: Track | null;
+  track: (Track & { itemId: number }) | null;
   duration: number;
   timestamp: number;
   paused: boolean;
@@ -32,7 +32,7 @@ interface MusicPlayerInterfaceProps {
   onLoopToggle: () => void;
   onVolumeChange: (volume: number) => void;
   onSeek: (seekTime: number) => void;
-  onPrimaryColorChange: (color: string) => void;
+  onPrimaryColorChange: (colors: [string, string]) => void;
 }
 
 export default function MusicPlayerInterface({
@@ -71,12 +71,17 @@ export default function MusicPlayerInterface({
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
   useEffect(() => {
-    if (!isSeeking) setSeekValue(timestamp % duration);
+    if (!isSeeking) {
+      // Prevent NaN: ensure timestamp and duration are valid numbers and duration > 0
+      const safeTimestamp = typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : 0;
+      const safeDuration = typeof duration === "number" && duration > 0 ? duration : 1;
+      setSeekValue(safeTimestamp % safeDuration);
+    }
   }, [timestamp, duration, isSeeking]);
 
   useEffect(() => {
     setSeekValue(0);
-  }, [track?.id]);
+  }, [track?.itemId]);
 
   useEffect(() => {
     let isMounted = true,
@@ -119,12 +124,12 @@ export default function MusicPlayerInterface({
                   src={imageBlobUrl || "/black.jpg"}
                   width="100%"
                   height="100%"
-                  className="object-cover"
+                  className="object-cover w-full h-full"
                   onLoad={(e) =>
                     colorService
                       .getProminentColorFromUrl(e.currentTarget.src)
-                      .then((color) => {
-                        onPrimaryColorChange(color);
+                      .then((colors) => {
+                        onPrimaryColorChange(colors);
                       })
                   }
                 />

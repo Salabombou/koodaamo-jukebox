@@ -58,6 +58,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
             }).then((res) => res.json());
 
             if (!rpc.current || !rpc.current.isConnected) {
+              // Does not work at the moment as RPC is in private beta
               rpc.current?.destroy();
               rpc.current = new Client({
                 clientId: import.meta.env.VITE_DISCORD_APPLICATION_ID,

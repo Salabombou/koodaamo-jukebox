@@ -29,7 +29,7 @@ export default function App() {
   // Memoize tracks map to avoid new reference unless contents change
   const [tracks, setTracks] = useState(() => new Map<string, Track>());
 
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<(Track & { itemId: number }) | null>(null);
   const [duration, setDuration] = useState(0);
   const [timestamp, setTimestamp] = useState(0);
 
@@ -96,6 +96,7 @@ export default function App() {
     isPaused,
     isShuffled,
     queueItems,
+    queueList,
     invokeRoomAction,
     invokePending,
     invokeError,
@@ -103,19 +104,19 @@ export default function App() {
 
   const seeking = useRef(true);
 
-  const [backgroundColor, setBackgroundColorRaw] = useState("#000000");
-  const setBackgroundColor = useCallback(
-    (color: string) => {
-      setBackgroundColorRaw((prev) => (prev !== color ? color : prev));
+  const [backgroundColors, setBackgroundColorsRaw] = useState<[string, string]>(["#cccccc", "#000000"]);
+  const setBackgroundColors = useCallback(
+    (colors: [string, string]) => {
+      setBackgroundColorsRaw((prev) => (prev[0] !== colors[0] ? colors : prev));
     },
-    [setBackgroundColorRaw],
+    [setBackgroundColorsRaw],
   );
 
   const onSkip = useCallback(
     (index: number) => {
       invokeRoomAction("Skip", index);
     },
-    [invokeRoomAction, modalClosed],
+    [invokeRoomAction],
   );
 
   const onMove = useCallback(
@@ -279,9 +280,16 @@ export default function App() {
       ) {
         console.log("Fixing desync, setting currentTime to", elapsedTime);
         audioPlayer.current!.currentTime = elapsedTime;
+        if (!isPaused) {
+          audioPlayer.current!.play();
+        }
       }
     }
-    setTimestamp(Math.max(audioPlayer.current?.currentTime ?? 0, 0));
+
+    const newTimestamp = Math.max(audioPlayer.current?.currentTime ?? 0, 0);
+    if (!isNaN(newTimestamp)) {
+      setTimestamp(newTimestamp);
+    }
 
     if (
       typeof currentTrackIndex !== "number" ||
@@ -324,6 +332,7 @@ export default function App() {
     currentTrackIndex,
     queueItems,
     isShuffled,
+    isPaused,
     tracks,
     discordSDK.isEmbedded,
     modalClosed,
@@ -416,21 +425,28 @@ export default function App() {
       ],
     });
 
-    navigator.mediaSession.setPositionState({
-      duration: duration,
-      playbackRate: audioPlayer.current.playbackRate,
-      position: Math.min(duration, timestamp),
-    });
+    const playbackRate = audioPlayer.current.playbackRate;
+    const safeDuration = Number.isFinite(duration) ? duration : 0;
+    const safePosition = Number.isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
+
+    if (Number.isFinite(playbackRate) && Number.isFinite(safeDuration) && Number.isFinite(safePosition)) {
+      navigator.mediaSession.setPositionState({
+        duration: safeDuration,
+        playbackRate: playbackRate,
+        position: safePosition,
+      });
+    }
   }, [currentTrack, timestamp, duration, discordSDK, audioPlayer, modalClosed]);
 
   useEffect(() => {
+    if (!modalClosed) return;
     if (playingSince === null) return;
     const currentTime = timeService.getServerNow();
     const elapsedTime =
       ((currentTime - playingSince) % (duration * 1000)) / 1000;
 
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
-  }, [playingSince, duration]);
+  }, [playingSince, duration, modalClosed]);
 
   useEffect(() => {
     if (!modalClosed) return;
@@ -440,18 +456,13 @@ export default function App() {
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      if (msSince >= duration * 1000 && duration > 0) {
+      if (msSince >= (duration * 1000) && duration > 0) {
         console.log("Invoking seek to normalize playback position");
+        seeking.current = true; 
+        audioPlayer.current!.currentTime = 0;
         invokeRoomAction("Seek", 0);
-        return;
       }
       if (msSince >= 0) {
-        const currentTime = msSince / 1000;
-        if (Math.abs(audioPlayer.current!.currentTime - currentTime) > 1) {
-          console.log("Fixing desync, setting currentTime to", currentTime);
-          audioPlayer.current!.currentTime = currentTime;
-        }
-        setTimestamp(currentTime);
         if (!isPaused) {
           console.log("Resuming audio playback immediately");
           audioPlayer.current.play();
@@ -488,13 +499,29 @@ export default function App() {
   }, [invokeError]);
 
   useEffect(() => {
-    if (currentTrackId && currentTrackId !== currentTrack?.id) {
+    // Update currentTrack if either the track ID or the queue item ID changes
+    if (
+      typeof currentTrackId === "string" &&
+      typeof currentTrackIndex === "number"
+    ) {
+      const item = queueList.find(
+        (item) =>
+          (isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex && item.trackId === currentTrackId,
+      );
       const track = tracks.get(currentTrackId);
-      if (track) {
-        setCurrentTrack(track);
+      if (!item || !track) {
+        return;
+      }
+      // Update if track or itemId changed
+      if (
+        !currentTrack ||
+        currentTrack.id !== currentTrackId ||
+        currentTrack.itemId !== item.id
+      ) {
+        setCurrentTrack({ ...track, itemId: item.id });
       }
     }
-  }, [currentTrackId, currentTrack, tracks]);
+  }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList]);
 
   useEffect(() => {
     // update page title with current track name
@@ -554,8 +581,10 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (currentTrackId && lastHlsTrackId.current !== currentTrackId) {
-      lastHlsTrackId.current = currentTrackId;
+    const currentUniqueId = currentTrack ? `${currentTrack.id}:${currentTrack.itemId}` : null;
+    const lastUniqueId = lastHlsTrackId.current;
+    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId) {
+      lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
 
@@ -563,8 +592,13 @@ export default function App() {
       loadSource(src);
       setDuration(0);
       setTimestamp(0);
+    } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
+      // If the track is already loaded, just reset the audio player
+      audioPlayer.current!.currentTime = 0;
+      audioPlayer.current!.pause();
+      setTimestamp(0);
     }
-  }, [currentTrackId, discordSDK.isEmbedded, loadSource]);
+  }, [currentTrack, discordSDK.isEmbedded, loadSource]);
 
   return (
     <>
@@ -585,7 +619,7 @@ export default function App() {
       <div
         className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden bg-gradient-to-b"
         style={{
-          backgroundColor: backgroundColor + "ff", // Use solid color for transition
+          backgroundColor: backgroundColors[0],
           transition: "background-color 0.5s ease", // Transition background-color
         }}
       >
@@ -595,13 +629,13 @@ export default function App() {
             position: "absolute",
             inset: 0,
             pointerEvents: "none",
-            background: "linear-gradient(to bottom, transparent 0%, #000 100%)",
+            background: `linear-gradient(to bottom, transparent 0%, ${backgroundColors[1]} 100%)`,
             zIndex: 0,
           }}
         />
         <audio
           ref={audioPlayer}
-          className="hidden pointer-events-none select-none "
+          className="hidden pointer-events-none select-none"
           autoPlay={false}
           controls={false}
           onTimeUpdate={onTimeUpdate}
@@ -616,8 +650,8 @@ export default function App() {
           looping={isLooping ?? false}
           shuffled={isShuffled ?? false}
           disabled={invokePending}
-          onPrimaryColorChange={setBackgroundColor}
-          backgroundColor={backgroundColor}
+          onPrimaryColorChange={setBackgroundColors}
+          backgroundColor={backgroundColors[0]}
           onShuffle={onShuffle}
           onBackward={onBackward}
           onForward={onForward}
@@ -628,11 +662,10 @@ export default function App() {
         />
         <Queue
           tracks={tracks}
-          queueItems={queueItems}
-          currentTrackId={currentTrackId}
+          queueList={queueList}
+          currentTrack={currentTrack}
           currentTrackIndex={currentTrackIndex}
           controlsDisabled={invokePending}
-          backgroundColor={backgroundColor}
           onSkip={onSkip}
           onMove={onMove}
           onDelete={onDelete}

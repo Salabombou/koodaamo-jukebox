@@ -37,11 +37,10 @@ const restrictToVerticalAxisCenterY: Modifier = ({
 
 interface QueueProps {
   tracks: Map<string, Track>;
-  queueItems: Map<number, QueueItem>;
-  currentTrackId: string | null;
-  currentTrackIndex?: number | null;
+  queueList: QueueItem[];
+  currentTrack: (Track & { itemId: number }) | null;
+  currentTrackIndex: number | null;
   controlsDisabled?: boolean;
-  backgroundColor: string;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
@@ -49,10 +48,9 @@ interface QueueProps {
 }
 export default function Queue({
   tracks,
-  queueItems,
-  currentTrackId,
+  queueList,
+  currentTrack,
   currentTrackIndex,
-  backgroundColor,
   onMove,
   onSkip,
   onDelete,
@@ -63,9 +61,7 @@ export default function Queue({
     QueueItem[],
     [number, number]
   >(
-    [...queueItems.values()].sort(
-      (a, b) => (a.shuffledIndex ?? a.index) - (b.shuffledIndex ?? b.index),
-    ),
+    queueList,
     (state, [fromIndex, toIndex]) => {
       const newState = [...state];
       const [movedItem] = newState.splice(fromIndex, 1);
@@ -100,25 +96,30 @@ export default function Queue({
   );
 
   const rowRenderer = useCallback(
-    (props: ListChildComponentProps) => (
-      <QueueRow
-        {...props}
-        tracks={tracks}
-        currentTrackId={currentTrackId}
-        backgroundColor={backgroundColor}
-        onSkip={(i) => {
-          scrolled.current = true;
-          setTimeout(() => {
-            scrolled.current = false;
-          }, 5000);
-          onSkip(i);
-        }}
-        onDelete={onDelete}
-        onPlayNext={onPlayNext}
-        controlsDisabled={controlsDisabled}
-      />
-    ),
-    [tracks, currentTrackId, onSkip, backgroundColor, controlsDisabled],
+    (props: ListChildComponentProps<QueueItem[]>) => {
+      const track = tracks.get(props.data[props.index].trackId) ?? null;
+
+      return (
+        <QueueRow
+          {...props}
+          track={track}
+          currentTrack={currentTrack}
+          onSkip={(i) => {
+            scrolled.current = true;
+            if (scrollTimeout.current) {
+              clearTimeout(scrollTimeout.current);
+            }
+            scrollTimeout.current = window.setTimeout(() => {
+              scrolled.current = false;
+            }, 5000);
+            onSkip(i);
+          }}
+          onDelete={onDelete}
+          onPlayNext={onPlayNext}
+          controlsDisabled={controlsDisabled}
+        />
+      )},
+    [tracks, currentTrack, onSkip, controlsDisabled],
   );
 
   const list = useRef<FixedSizeList>(null);
@@ -135,7 +136,7 @@ export default function Queue({
         scrolled.current = false;
       }
     }
-  }, [currentTrackIndex]);
+  }, [currentTrack, currentTrackIndex]);
 
   // Scroll to current track when arrow is clicked
   const scrollToCurrentTrack = useCallback(() => {
@@ -252,14 +253,13 @@ export default function Queue({
             <QueueRow
               overlay={true}
               index={draggedIndex}
-              currentTrackId={currentTrackId}
-              backgroundColor={backgroundColor}
+              track={tracks.get(optimisticQueueList[draggedIndex].trackId) ?? null}
+              currentTrack={currentTrack}
               onSkip={() => {}}
               onDelete={() => {}}
               onPlayNext={() => {}}
               style={{}}
               data={optimisticQueueList}
-              tracks={tracks}
               controlsDisabled={controlsDisabled}
             />
           )}

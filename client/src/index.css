@@ -43,7 +43,7 @@
   --color-volume-slider: rgba(0, 0, 0, 0.2);
   --color-queue-item: rgba(0, 0, 0, 0.3);
   --color-queue-item-hover: rgba(255, 255, 255, 0.1);
-  --color-queue-item-highlight: rgba(0, 0, 0, 0.1);
+  --color-queue-item-highlight: rgba(0, 0, 0, 0.4);
   --color-queue-item-highlight-hover: rgba(255, 255, 255, 0.1);
   --color-queue-item-border-bottom: rgba(255, 255, 255, 0.05);
 

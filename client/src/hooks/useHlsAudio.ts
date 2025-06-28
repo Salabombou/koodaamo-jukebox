@@ -39,7 +39,13 @@ export default function useHlsAudio({
   useEffect(() => {
     if (!hls.current) return;
     function handleManifestParsed(_: any, data: any) {
-      onDuration(data.levels[0].details?.totalduration || 0);
+      const duration = data.levels[0].details?.totalduration;
+      if (isNaN(duration)) {
+        console.warn("HLS manifest parsed but duration is NaN");
+        onDuration(0);
+        return;
+      }
+      onDuration(duration);
     }
     function handleError(_: any, data: any) {
       console.error("HLS error:", data);

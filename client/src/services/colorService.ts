@@ -1,32 +1,23 @@
 import { Vibrant } from "node-vibrant/browser";
 
-export function getProminentColorFromUrl(url: string): Promise<string> {
+export function getProminentColorFromUrl(url: string): Promise<[string, string]> {
   return Vibrant.from(url)
     .getPalette()
     .then((palette) => {
       console.log("Vibrant palette:", palette);
 
-      const swatches = [];
+      const swatches = Object.values(palette).filter(
+        (swatch) => swatch !== null 
+      )
 
-      if (palette.Vibrant) {
-        swatches.push(palette.Vibrant);
-      }
-      if (palette.Muted) {
-        swatches.push(palette.Muted);
-      }
+      swatches.sort(
+        (a, b) => a.population - b.population,
+      )
 
-      if (swatches.length === 0) {
-        console.warn("No vibrant or muted swatches found in palette");
-        return "#000000";
-      }
-
-      let mostProminent = swatches.sort(
-        (a, b) => b.population - a.population,
-      )[0];
-      return mostProminent.hex;
+      return [swatches.at(-2)?.hex ?? "#000000", swatches.at(-1)?.hex ?? "#000000"] as [string, string];
     })
     .catch((e) => {
       console.error("Error getting vibrant color from URL:", url, e);
-      return "#000000";
+      return ["#000000", "#000000"];
     });
 }

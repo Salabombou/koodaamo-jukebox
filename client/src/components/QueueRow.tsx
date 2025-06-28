@@ -9,9 +9,8 @@ import { FaGripLines } from "react-icons/fa";
 
 interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
-  tracks: Map<string, Track>;
-  currentTrackId: string | null;
-  backgroundColor: string;
+  track: Track | null;
+  currentTrack?: (Track & { itemId: number }) | null;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
@@ -23,17 +22,16 @@ export default function QueueRow({
   index,
   style,
   data,
-  tracks,
-  currentTrackId,
-  backgroundColor,
+  track,
+  currentTrack,
   onDelete,
   onSkip,
   onPlayNext,
   controlsDisabled = false,
   overlay = false,
 }: QueueRowProps) {
-  const item = data[index];
-  const track = tracks.get(item.trackId);
+  const item = data.at(index);
+  if (!item) return;
 
   const {
     attributes,
@@ -47,7 +45,8 @@ export default function QueueRow({
     id: item.id,
   });
 
-  const highlighted = item.trackId === currentTrackId;
+  const highlighted = currentTrack?.itemId === item.id;
+
   const discordSDK = useDiscordSDK();
 
   // Dropdown menu handlers
@@ -59,46 +58,13 @@ export default function QueueRow({
     }
   };
 
-  // Utility to determine if a color is bright
-  function isColorBright(color: string): boolean {
-    // Accepts hex (#RRGGBB or #RGB) or rgb(a) strings
-    let r = 0,
-      g = 0,
-      b = 0;
-    if (color.startsWith("#")) {
-      let hex = color.slice(1);
-      if (hex.length === 3) {
-        r = parseInt(hex[0] + hex[0], 16);
-        g = parseInt(hex[1] + hex[1], 16);
-        b = parseInt(hex[2] + hex[2], 16);
-      } else if (hex.length === 6) {
-        r = parseInt(hex.slice(0, 2), 16);
-        g = parseInt(hex.slice(2, 4), 16);
-        b = parseInt(hex.slice(4, 6), 16);
-      }
-    } else if (color.startsWith("rgb")) {
-      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if (match) {
-        r = parseInt(match[1], 10);
-        g = parseInt(match[2], 10);
-        b = parseInt(match[3], 10);
-      }
-    }
-    // Perceived brightness formula
-    return (r * 299 + g * 587 + b * 114) / 1000 > 180;
-  }
-
   return (
     <div
       key={item.id}
       ref={setNodeRef}
       style={{
-        backgroundColor: highlighted ? backgroundColor : "transparent",
-        color: highlighted
-          ? isColorBright(backgroundColor)
-            ? "#000"
-            : "#fff"
-          : undefined,
+        backgroundColor: "transparent",
+        color: "#fff",
         //opacity: controlsDisabled ? 0.5 : 1,
         ...style,
         width: "100%",
