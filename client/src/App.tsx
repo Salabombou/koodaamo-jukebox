@@ -17,8 +17,12 @@ import useHlsAudio from "./hooks/useHlsAudio";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
-  const audioPlayer = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
-  const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
+  const audioPlayer = useRef<HTMLAudioElement>(
+    null as unknown as HTMLAudioElement,
+  );
+  const modalRef = useRef<HTMLDialogElement>(
+    null as unknown as HTMLDialogElement,
+  );
   const [modalClosed, setModalClosed] = useState(false);
   useEffect(() => {
     modalRef.current?.showModal();
@@ -27,7 +31,9 @@ export default function App() {
   // Memoize tracks map to avoid new reference unless contents change
   const [tracks, setTracks] = useState(() => new Map<string, Track>());
 
-  const [currentTrack, setCurrentTrack] = useState<(Track & { itemId: number }) | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<
+    (Track & { itemId: number }) | null
+  >(null);
   const [duration, setDuration] = useState(0);
   const [timestamp, setTimestamp] = useState(0);
 
@@ -42,15 +48,23 @@ export default function App() {
   // DRY: Single effect for participants update
   const users = useRef<Set<string>>(new Set(discordSDK.clientId));
   useEffect(() => {
-    const handleParticipantsUpdate = (event: { participants: Array<{ id: string }> }) => {
+    const handleParticipantsUpdate = (event: {
+      participants: Array<{ id: string }>;
+    }) => {
       users.current = new Set(event.participants.map((p) => p.id));
     };
     if (discordSDK.isEmbedded) {
-      discordSDK.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+      discordSDK.subscribe(
+        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+        handleParticipantsUpdate,
+      );
     }
     return () => {
       if (discordSDK.isEmbedded) {
-        discordSDK.unsubscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
+        discordSDK.unsubscribe(
+          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+          handleParticipantsUpdate,
+        );
       }
     };
   }, [discordSDK]);
@@ -71,23 +85,39 @@ export default function App() {
 
   const seeking = useRef(true);
 
-  const [backgroundColors, setBackgroundColorsRaw] = useState<[string, string]>(["#cccccc", "#000000"]);
-  const setBackgroundColors = useCallback(
-    (colors: [string, string]) => {
-      setBackgroundColorsRaw((prev) => (prev[0] !== colors[0] ? colors : prev));
-    },
-    [],
+  const [backgroundColors, setBackgroundColorsRaw] = useState<[string, string]>(
+    ["#cccccc", "#000000"],
   );
+  const setBackgroundColors = useCallback((colors: [string, string]) => {
+    setBackgroundColorsRaw((prev) => (prev[0] !== colors[0] ? colors : prev));
+  }, []);
 
-  const onSkip = useCallback((index: number) => invokeRoomAction("Skip", index), [invokeRoomAction]);
-  const onMove = useCallback((fromIndex: number, toIndex: number) => invokeRoomAction("Move", fromIndex, toIndex), [invokeRoomAction]);
-  const onDelete = useCallback((index: number) => { if (index !== currentTrackIndex) invokeRoomAction("Delete", index); }, [currentTrackIndex, invokeRoomAction]);
-  const onPlayNext = useCallback((index: number) => {
-    if (typeof currentTrackIndex === "number") {
-      if (index < currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex);
-      else if (index > currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex + 1);
-    }
-  }, [currentTrackIndex, invokeRoomAction]);
+  const onSkip = useCallback(
+    (index: number) => invokeRoomAction("Skip", index),
+    [invokeRoomAction],
+  );
+  const onMove = useCallback(
+    (fromIndex: number, toIndex: number) =>
+      invokeRoomAction("Move", fromIndex, toIndex),
+    [invokeRoomAction],
+  );
+  const onDelete = useCallback(
+    (index: number) => {
+      if (index !== currentTrackIndex) invokeRoomAction("Delete", index);
+    },
+    [currentTrackIndex, invokeRoomAction],
+  );
+  const onPlayNext = useCallback(
+    (index: number) => {
+      if (typeof currentTrackIndex === "number") {
+        if (index < currentTrackIndex)
+          invokeRoomAction("Move", index, currentTrackIndex);
+        else if (index > currentTrackIndex)
+          invokeRoomAction("Move", index, currentTrackIndex + 1);
+      }
+    },
+    [currentTrackIndex, invokeRoomAction],
+  );
 
   useEffect(() => {
     function handleContextMenu(e: MouseEvent) {
@@ -126,12 +156,7 @@ export default function App() {
       console.log("Seeking to", seekTime, "Pausing:", pause);
       invokeRoomAction("Seek", seekTime, pause);
     },
-    [
-      invokePending,
-      duration,
-      invokeRoomAction,
-      audioPlayer,
-    ],
+    [invokePending, duration, invokeRoomAction, audioPlayer],
   );
 
   const onPlayToggle = useCallback(() => {
@@ -169,13 +194,10 @@ export default function App() {
     invokeRoomAction("LoopToggle", !isLooping);
   }, [invokePending, isLooping, invokeRoomAction]);
 
-  const onVolumeChange = useCallback(
-    (volume: number) => {
-      audioPlayer.current!.volume = volume;
-      localStorage.setItem("volume", String(volume));
-    },
-    [],
-  );
+  const onVolumeChange = useCallback((volume: number) => {
+    audioPlayer.current!.volume = volume;
+    localStorage.setItem("volume", String(volume));
+  }, []);
 
   const onCanPlayThrough = useCallback(() => {
     if (!modalClosed) return;
@@ -202,13 +224,7 @@ export default function App() {
         }
       }
     }
-  }, [
-    isLooping,
-    currentTrackIndex,
-    queueItems,
-    invokeRoomAction,
-    modalClosed,
-  ]);
+  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, modalClosed]);
 
   const onTimeUpdate = useCallback(() => {
     if (!modalClosed) return;
@@ -241,8 +257,9 @@ export default function App() {
       duration === 0 ||
       currentTrackIndex < 0 ||
       currentTrackIndex >= queueItems.size
-    )
-      {return;} // No next track
+    ) {
+      return;
+    } // No next track
 
     let nextTrack: Track | null = null;
     for (const item of queueItems.values()) {
@@ -367,7 +384,9 @@ export default function App() {
 
     const playbackRate = audioPlayer.current.playbackRate;
     const safeDuration = isFinite(duration) ? duration : 0;
-    const safePosition = isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
+    const safePosition = isFinite(timestamp)
+      ? Math.min(safeDuration, timestamp)
+      : 0;
 
     navigator.mediaSession.setPositionState({
       duration: safeDuration,
@@ -394,9 +413,9 @@ export default function App() {
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      if (msSince >= (duration * 1000) && duration > 0) {
+      if (msSince >= duration * 1000 && duration > 0) {
         console.log("Invoking seek to normalize playback position");
-        seeking.current = true; 
+        seeking.current = true;
         audioPlayer.current!.currentTime = 0;
         invokeRoomAction("Seek", 0);
       }
@@ -421,13 +440,7 @@ export default function App() {
         audioPlayer.current!.pause();
       }
     }
-  }, [
-    playingSince,
-    isPaused,
-    duration,
-    invokeRoomAction,
-    modalClosed,
-  ]);
+  }, [playingSince, isPaused, duration, invokeRoomAction, modalClosed]);
 
   useEffect(() => {
     if (typeof invokeError !== "string") return;
@@ -442,7 +455,8 @@ export default function App() {
     ) {
       const item = queueList.find(
         (item) =>
-          (isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex && item.trackId === currentTrackId,
+          (isShuffled ? item.shuffledIndex : item.index) ===
+            currentTrackIndex && item.trackId === currentTrackId,
       );
       const track = tracks.get(currentTrackId);
       if (!item || !track) {
@@ -517,9 +531,14 @@ export default function App() {
   });
 
   useEffect(() => {
-    const currentUniqueId = currentTrack ? `${currentTrack.id}:${currentTrack.itemId}` : null;
+    const currentUniqueId = currentTrack
+      ? `${currentTrack.id}:${currentTrack.itemId}`
+      : null;
     const lastUniqueId = lastHlsTrackId.current;
-    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId) {
+    if (
+      typeof currentUniqueId === "string" &&
+      lastUniqueId !== currentUniqueId
+    ) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
@@ -528,7 +547,10 @@ export default function App() {
       loadSource(src);
       setDuration(0);
       setTimestamp(0);
-    } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
+    } else if (
+      typeof currentUniqueId === "string" &&
+      lastUniqueId === currentUniqueId
+    ) {
       // If the track is already loaded, just reset the audio player
       audioPlayer.current!.currentTime = 0;
       audioPlayer.current!.pause();
@@ -536,11 +558,45 @@ export default function App() {
     }
   }, [currentTrack, discordSDK.isEmbedded, loadSource]);
 
+  const secretUnlockedSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/secret-unlocked.mp3`));
+  const secretLockedSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/secret-locked.mp3`));
+  const diskDriveSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/disk-drive.mp3`));
+  const [secretUnlocked, setSecretUnlocked] = useState(false);
+  const secretUnlockedPlayed = useRef(false);
+  const secretEverUnlocked = useRef(false); 
+
+  useEffect(() => {
+    if (!modalClosed) return;
+    // Only allow sounds if secret has ever been unlocked
+    if (secretUnlocked) {
+      secretEverUnlocked.current = true;
+      console.log("Secret unlocked state:", secretUnlocked);
+      secretUnlockedSfx.current.currentTime = 0;
+      secretUnlockedSfx.current.play();
+      secretUnlockedPlayed.current = true;
+    } else if (secretUnlockedPlayed.current && !secretUnlocked && secretEverUnlocked.current) {
+      secretLockedSfx.current.currentTime = 0;
+      secretLockedSfx.current.play();
+    }
+  }, [secretUnlocked, modalClosed]);
+  useEffect(() => {
+    if (!modalClosed) return;
+    if (!secretEverUnlocked.current || !secretUnlocked) return;
+    if (!isPaused && playingSince === null) {
+      diskDriveSfx.current.currentTime = 0;
+      diskDriveSfx.current.play();
+    } else if (playingSince !== null) {
+      diskDriveSfx.current.pause();
+      diskDriveSfx.current.currentTime = 0;
+    }
+  }, [isPaused, playingSince, modalClosed, secretUnlocked]);
+    
+
   return (
     <>
       {/* Modal dialog for starting playback.
-        * Because browsers don't like to start playing audio before user interacts with the page.
-        */}
+       * Because browsers don't like to start playing audio before user interacts with the page.
+       */}
       <dialog
         className="modal backdrop-blur-xs"
         ref={modalRef}
@@ -598,6 +654,7 @@ export default function App() {
           onLoopToggle={onLoopToggle}
           onSeek={onSeek}
           onVolumeChange={onVolumeChange}
+          setSecret={setSecretUnlocked}
         />
         <Queue
           tracks={tracks}

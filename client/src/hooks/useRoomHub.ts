@@ -67,7 +67,7 @@ export default function useRoomHub() {
               return aIndex - bIndex;
             });
             setQueueList(sortedItems);
-            
+
             return items;
           });
         });

@@ -33,6 +33,7 @@ interface MusicPlayerInterfaceProps {
   onVolumeChange: (volume: number) => void;
   onSeek: (seekTime: number) => void;
   onPrimaryColorChange: (colors: [string, string]) => void;
+  setSecret: (unlocked: boolean) => void;
 }
 
 export default function MusicPlayerInterface({
@@ -51,6 +52,7 @@ export default function MusicPlayerInterface({
   onVolumeChange,
   onSeek,
   onPrimaryColorChange,
+  setSecret,
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
   const volumeRef = useRef(1);
@@ -70,11 +72,18 @@ export default function MusicPlayerInterface({
   const [isSeeking, setIsSeeking] = useState(false);
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
+  const secretClickCount = useRef(0);
+  const secretClickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const secretUnlocked = useRef(false);
+  const secretCooldown = useRef(false);
+  
   useEffect(() => {
     if (!isSeeking) {
       // Prevent NaN: ensure timestamp and duration are valid numbers and duration > 0
-      const safeTimestamp = typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : 0;
-      const safeDuration = typeof duration === "number" && duration > 0 ? duration : 1;
+      const safeTimestamp =
+        typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : 0;
+      const safeDuration =
+        typeof duration === "number" && duration > 0 ? duration : 1;
       setSeekValue(safeTimestamp % safeDuration);
     }
   }, [timestamp, duration, isSeeking]);
@@ -144,7 +153,6 @@ export default function MusicPlayerInterface({
                 {track?.title?.trim() || "???"}
               </h2>
             </MarqueeText>
-
             <MarqueeText>
               <h4 className="text-sm">{track?.uploader?.trim() ?? "???"}</h4>
             </MarqueeText>
@@ -212,7 +220,27 @@ export default function MusicPlayerInterface({
           <button
             className="btn btn-xl btn-ghost btn-circle focus:outline-none focus:ring-0 focus:border-0"
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
+            onDoubleClick={() => {
+            }}
             onClick={() => {
+              if (secretCooldown.current) return; // Prevent rapid toggling
+              secretClickCount.current++;
+              console.log("Secret click count:", secretClickCount.current);
+              if (secretClickTimeout.current) {
+                clearTimeout(secretClickTimeout.current);
+              }
+              if (secretClickCount.current >= 10) {
+                secretUnlocked.current = !secretUnlocked.current;
+                setSecret(secretUnlocked.current);
+                secretClickCount.current = 0;
+                secretCooldown.current = true;
+                setTimeout(() => {
+                  secretCooldown.current = false;
+                }, 1000); // 1 second cooldown
+              }
+              secretClickTimeout.current = setTimeout(() => {
+                secretClickCount.current = 0;
+              }, 1000);
               if (volume === 0 && volumeRef.current === 0) {
                 setVolume(0.5);
                 volumeRef.current = 0.5;

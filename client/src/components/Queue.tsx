@@ -46,6 +46,7 @@ interface QueueProps {
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
 }
+
 export default function Queue({
   tracks,
   queueList,
@@ -60,15 +61,12 @@ export default function Queue({
   const [optimisticQueueList, moveItem] = useOptimistic<
     QueueItem[],
     [number, number]
-  >(
-    queueList,
-    (state, [fromIndex, toIndex]) => {
-      const newState = [...state];
-      const [movedItem] = newState.splice(fromIndex, 1);
-      newState.splice(toIndex, 0, movedItem);
-      return newState;
-    },
-  );
+  >(queueList, (state, [fromIndex, toIndex]) => {
+    const newState = [...state];
+    const [movedItem] = newState.splice(fromIndex, 1);
+    newState.splice(toIndex, 0, movedItem);
+    return newState;
+  });
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -118,7 +116,8 @@ export default function Queue({
           onPlayNext={onPlayNext}
           controlsDisabled={controlsDisabled}
         />
-      )},
+      );
+    },
     [tracks, currentTrack, onSkip, controlsDisabled],
   );
 
@@ -260,7 +259,9 @@ export default function Queue({
             <QueueRow
               overlay={true}
               index={draggedIndex}
-              track={tracks.get(optimisticQueueList[draggedIndex].trackId) ?? null}
+              track={
+                tracks.get(optimisticQueueList[draggedIndex].trackId) ?? null
+              }
               currentTrack={currentTrack}
               onSkip={() => {}}
               onDelete={() => {}}
