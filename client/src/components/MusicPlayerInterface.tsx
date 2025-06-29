@@ -107,7 +107,7 @@ export default function MusicPlayerInterface({
   }, [thumbUrl, discordSDK.isEmbedded]);
 
   return (
-    <div className="flex flex-col md:ml-6 w-full xl:w-1/2 max-w-150">
+    <div className="flex flex-col md:ml-6 w-full md:w-1/2 max-w-200">
       <div className="card bg-transparent xs:bg-music-player-interface h-38 xs:h-auto rounded-none">
         <ContextMenu
           controlsDisabled={disabled}
@@ -176,29 +176,29 @@ export default function MusicPlayerInterface({
                   <label children={<Timestamp timestamp={duration ?? 0} />} />
                 </div>
               </div>
-              <div className="hidden xs:flex justify-center items-center space-x-3 md:space-x-8">
+              <div className="hidden xs:flex justify-center items-center space-x-3 lg:space-x-8 xl:space-x-5">
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0 ${shuffled ? "btn-active" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle border-0 shadow-none hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0 ${shuffled ? "btn-active" : ""}`}
                   onClick={onShuffle}
                   children={<FaShuffle />}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
+                  className={`btn btn-xl btn-ghost btn-circle border-0 shadow-none hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onBackward}
                   children={<FaBackwardStep />}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
+                  className={`btn btn-xl btn-ghost btn-circle border-0 shadow-none hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onPlayToggle}
                   children={paused ? <FaPlay /> : <FaPause />}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0`}
+                  className={`btn btn-xl btn-ghost btn-circle border-0 shadow-none hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0`}
                   onClick={onForward}
                   children={<FaForwardStep />}
                 />
                 <button
-                  className={`btn btn-xl btn-ghost btn-circle hover:bg-button-hover focus:outline-none focus:ring-0 focus:border-0 ${looping ? "btn-active" : ""}`}
+                  className={`btn btn-xl btn-ghost btn-circle border-0 shadow-none hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0 ${looping ? "btn-active" : ""}`}
                   onClick={onLoopToggle}
                   children={<FaRepeat />}
                 />

@@ -17,10 +17,8 @@ import useHlsAudio from "./hooks/useHlsAudio";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
-  const audioPlayer = useRef<HTMLAudioElement>(
-    null as unknown as HTMLAudioElement,
-  );
-  const modalRef = useRef<HTMLDialogElement>(null);
+  const audioPlayer = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const [modalClosed, setModalClosed] = useState(false);
   useEffect(() => {
     modalRef.current?.showModal();
@@ -38,52 +36,21 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioPlayer.current!.volume = 0.5;
-  }, [audioPlayer]);
+    audioPlayer.current.volume = 0.5;
+  }, []);
 
-  useEffect(() => {
-    const handleParticipantsUpdate = (event: {
-      participants: Array<{ id: string }>;
-    }) => {
-      users.current = new Set(event.participants.map((p) => p.id));
-    };
-    if (discordSDK.isEmbedded) {
-      discordSDK.subscribe(
-        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-        handleParticipantsUpdate,
-      );
-    }
-
-    return () => {
-      if (discordSDK.isEmbedded) {
-        discordSDK.unsubscribe(
-          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-          handleParticipantsUpdate,
-        );
-      }
-    };
-  }, [discordSDK]);
-
+  // DRY: Single effect for participants update
   const users = useRef<Set<string>>(new Set(discordSDK.clientId));
   useEffect(() => {
-    const handleParticipantsUpdate = (event: {
-      participants: Array<{ id: string }>;
-    }) => {
+    const handleParticipantsUpdate = (event: { participants: Array<{ id: string }> }) => {
       users.current = new Set(event.participants.map((p) => p.id));
     };
     if (discordSDK.isEmbedded) {
-      discordSDK.subscribe(
-        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-        handleParticipantsUpdate,
-      );
+      discordSDK.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
     }
-
     return () => {
       if (discordSDK.isEmbedded) {
-        discordSDK.unsubscribe(
-          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-          handleParticipantsUpdate,
-        );
+        discordSDK.unsubscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
       }
     };
   }, [discordSDK]);
@@ -109,46 +76,18 @@ export default function App() {
     (colors: [string, string]) => {
       setBackgroundColorsRaw((prev) => (prev[0] !== colors[0] ? colors : prev));
     },
-    [setBackgroundColorsRaw],
+    [],
   );
 
-  const onSkip = useCallback(
-    (index: number) => {
-      invokeRoomAction("Skip", index);
-    },
-    [invokeRoomAction],
-  );
-
-  const onMove = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      console.log("Moving from", fromIndex, "to", toIndex);
-      invokeRoomAction("Move", fromIndex, toIndex);
-    },
-    [invokeRoomAction],
-  );
-
-  const onDelete = useCallback(
-    (index: number) => {
-      if (index === currentTrackIndex) {
-        return;
-      }
-      invokeRoomAction("Delete", index);
-    },
-    [currentTrackIndex, invokeRoomAction],
-  );
-
-  const onPlayNext = useCallback(
-    (index: number) => {
-      if (typeof currentTrackIndex === "number") {
-        if (index < currentTrackIndex) {
-          invokeRoomAction("Move", index, currentTrackIndex);
-        } else if (index > currentTrackIndex) {
-          invokeRoomAction("Move", index, currentTrackIndex + 1);
-        }
-      }
-    },
-    [currentTrackIndex, invokeRoomAction],
-  );
+  const onSkip = useCallback((index: number) => invokeRoomAction("Skip", index), [invokeRoomAction]);
+  const onMove = useCallback((fromIndex: number, toIndex: number) => invokeRoomAction("Move", fromIndex, toIndex), [invokeRoomAction]);
+  const onDelete = useCallback((index: number) => { if (index !== currentTrackIndex) invokeRoomAction("Delete", index); }, [currentTrackIndex, invokeRoomAction]);
+  const onPlayNext = useCallback((index: number) => {
+    if (typeof currentTrackIndex === "number") {
+      if (index < currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex);
+      else if (index > currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex + 1);
+    }
+  }, [currentTrackIndex, invokeRoomAction]);
 
   useEffect(() => {
     function handleContextMenu(e: MouseEvent) {
@@ -174,23 +113,7 @@ export default function App() {
 
   useEffect(() => {
     seeking.current = invokePending;
-  }, [invokePending, seeking]);
-
-  const onPlayToggle = useCallback(() => {
-    if (invokePending) return;
-    console.log("Toggling play/pause");
-    invokeRoomAction("PauseToggle", !isPaused);
-  }, [invokePending, isPaused, invokeRoomAction]);
-  const onBackward = useCallback(() => {
-    if (invokePending) return;
-    console.log("Skipping backward");
-    invokeRoomAction("Skip", (currentTrackIndex ?? 0) - 1);
-  }, [invokePending, currentTrackIndex, invokeRoomAction]);
-  const onForward = useCallback(() => {
-    if (invokePending) return;
-    console.log("Skipping forward");
-    invokeRoomAction("Skip", (currentTrackIndex ?? 0) + 1);
-  }, [invokePending, currentTrackIndex, invokeRoomAction]);
+  }, [invokePending]);
 
   const onSeek = useCallback(
     (seekTime: number, pause: boolean = false) => {
@@ -207,17 +130,39 @@ export default function App() {
       invokePending,
       duration,
       invokeRoomAction,
-      seeking,
       audioPlayer,
-      setTimestamp,
     ],
   );
+
+  const onPlayToggle = useCallback(() => {
+    if (invokePending) return;
+    console.log("Toggling play/pause");
+    invokeRoomAction("PauseToggle", !isPaused);
+  }, [invokePending, isPaused, invokeRoomAction]);
+
+  const onBackward = useCallback(() => {
+    if (invokePending) return;
+    if (audioPlayer.current.currentTime >= 5) {
+      console.log("Rewinding to start of track");
+      onSeek(0, false);
+    } else {
+      console.log("Skipping backward");
+      invokeRoomAction("Skip", Math.max(currentTrackIndex ?? 1) - 1);
+    }
+  }, [invokePending, currentTrackIndex, invokeRoomAction, onSeek]);
+
+  const onForward = useCallback(() => {
+    if (invokePending) return;
+    console.log("Skipping forward");
+    invokeRoomAction("Skip", (currentTrackIndex ?? 0) + 1);
+  }, [invokePending, currentTrackIndex, invokeRoomAction]);
 
   const onShuffle = useCallback(() => {
     if (invokePending || typeof isShuffled !== "boolean") return;
     console.log("Toggling shuffle");
     invokeRoomAction("ShuffleToggle", !isShuffled);
   }, [invokePending, isShuffled, invokeRoomAction]);
+
   const onLoopToggle = useCallback(() => {
     if (invokePending || typeof isLooping !== "boolean") return;
     console.log("Toggling loop");
@@ -229,7 +174,7 @@ export default function App() {
       audioPlayer.current!.volume = volume;
       localStorage.setItem("volume", String(volume));
     },
-    [audioPlayer],
+    [],
   );
 
   const onCanPlayThrough = useCallback(() => {
@@ -262,7 +207,6 @@ export default function App() {
     currentTrackIndex,
     queueItems,
     invokeRoomAction,
-    audioPlayer,
     modalClosed,
   ]);
 
@@ -298,7 +242,7 @@ export default function App() {
       currentTrackIndex < 0 ||
       currentTrackIndex >= queueItems.size
     )
-      return; // No next track
+      {return;} // No next track
 
     let nextTrack: Track | null = null;
     for (const item of queueItems.values()) {
@@ -325,8 +269,6 @@ export default function App() {
       });
     }
   }, [
-    audioPlayer,
-    seeking,
     playingSince,
     duration,
     currentTrackIndex,
@@ -419,24 +361,20 @@ export default function App() {
       artwork: [
         {
           src: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
-          //sizes: "512x512",
-          //type: "image/jpeg",
         },
       ],
     });
 
     const playbackRate = audioPlayer.current.playbackRate;
-    const safeDuration = Number.isFinite(duration) ? duration : 0;
-    const safePosition = Number.isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
+    const safeDuration = isFinite(duration) ? duration : 0;
+    const safePosition = isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
 
-    if (Number.isFinite(playbackRate) && Number.isFinite(safeDuration) && Number.isFinite(safePosition)) {
-      navigator.mediaSession.setPositionState({
-        duration: safeDuration,
-        playbackRate: playbackRate,
-        position: safePosition,
-      });
-    }
-  }, [currentTrack, timestamp, duration, discordSDK, audioPlayer, modalClosed]);
+    navigator.mediaSession.setPositionState({
+      duration: safeDuration,
+      playbackRate: playbackRate,
+      position: safePosition,
+    });
+  }, [currentTrack, timestamp, duration, discordSDK, modalClosed]);
 
   useEffect(() => {
     if (!modalClosed) return;
@@ -488,8 +426,6 @@ export default function App() {
     isPaused,
     duration,
     invokeRoomAction,
-    audioPlayer,
-    setTimestamp,
     modalClosed,
   ]);
 
@@ -602,6 +538,9 @@ export default function App() {
 
   return (
     <>
+      {/* Modal dialog for starting playback.
+        * Because browsers don't like to start playing audio before user interacts with the page.
+        */}
       <dialog
         className="modal backdrop-blur-xs"
         ref={modalRef}
@@ -617,7 +556,7 @@ export default function App() {
         </div>
       </dialog>
       <div
-        className="absolute inset-0 flex flex-row items-center justify-center overflow-hidden bg-gradient-to-b"
+        className="h-screen w-screen flex items-center justify-center md:flex-row md:items-center md:justify-center overflow-hidden bg-gradient-to-b"
         style={{
           backgroundColor: backgroundColors[0],
           transition: "background-color 0.5s ease", // Transition background-color

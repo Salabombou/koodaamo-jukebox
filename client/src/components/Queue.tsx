@@ -164,13 +164,13 @@ export default function Queue({
     optimisticQueueList.length > 0;
 
   return (
-    <div style={{ position: "relative", height: listHeight, width: "100%" }}>
+    <div style={{ height: listHeight }} className="relative w-full">
       {/* Top arrow */}
       {topArrowVisible && (
-        <div className="absolute top-2 left-0 w-full flex justify-center z-10">
+        <div className="hidden md:flex absolute top-2 left-0 w-full justify-center z-10">
           <button
             onClick={scrollToCurrentTrack}
-            className="btn btn-wide text-xl cursor-pointer"
+            className="btn btn-wide btn-active border-0 hover:bg-queue-arrow-button-hover text-xl cursor-pointer"
             aria-label="Scroll to current track"
           >
             <FaArrowUp />
@@ -179,10 +179,10 @@ export default function Queue({
       )}
       {/* Bottom arrow */}
       {bottomArrowVisible && (
-        <div className="absolute bottom-2 left-0 w-full flex justify-center z-10">
+        <div className="hidden md:flex absolute bottom-2 left-0 w-full justify-center z-10">
           <button
             onClick={scrollToCurrentTrack}
-            className="btn btn-wide text-xl cursor-pointer"
+            className="btn btn-wide btn-active border-0 hover:bg-queue-arrow-button-hover text-xl cursor-pointer"
             aria-label="Scroll to current track"
           >
             <FaArrowDown />
@@ -205,6 +205,13 @@ export default function Queue({
             fromIndex !== toIndex &&
             !controlsDisabled
           ) {
+            scrolled.current = true;
+            if (scrollTimeout.current) {
+              clearTimeout(scrollTimeout.current);
+            }
+            scrollTimeout.current = window.setTimeout(() => {
+              scrolled.current = false;
+            }, 5000);
             onMove(fromIndex, toIndex);
             moveItem([fromIndex, toIndex]);
           }
@@ -218,7 +225,7 @@ export default function Queue({
             ref={list}
             height={listHeight}
             width="100%"
-            className="hidden md:flex mx-6"
+            className="hidden md:flex ml-6"
             itemData={optimisticQueueList}
             itemCount={optimisticQueueList.length}
             onScroll={(e) => {
