@@ -17,9 +17,7 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
 
   const checkMarquee = () => {
     if (textRef.current && containerRef.current) {
-      setShouldMarquee(
-        textRef.current.scrollWidth > containerRef.current.offsetWidth,
-      );
+      setShouldMarquee(textRef.current.scrollWidth > containerRef.current.offsetWidth);
       setScrollWidth(textRef.current.scrollWidth);
       setContainerOffsetWidth(containerRef.current.offsetWidth);
     }
@@ -44,12 +42,7 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>
-      <Marquee
-        play={shouldMarquee}
-        style={{ width: shouldMarquee ? `${marqueeWidth}px` : "auto" }}
-        pauseOnHover
-        key={marqueeKey}
-      >
+      <Marquee play={shouldMarquee} style={{ width: shouldMarquee ? `${marqueeWidth}px` : "auto" }} pauseOnHover key={marqueeKey}>
         <div className="truncate" ref={textRef}>
           {children}
         </div>

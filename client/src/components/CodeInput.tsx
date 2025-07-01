@@ -7,12 +7,7 @@ interface CodeInputProps {
   onSet: () => void;
 }
 
-export const CodeInput: React.FC<CodeInputProps> = ({
-  value,
-  onChange,
-  onRandom,
-  onSet,
-}) => {
+export const CodeInput: React.FC<CodeInputProps> = ({ value, onChange, onRandom, onSet }) => {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 1);
@@ -21,12 +16,8 @@ export const CodeInput: React.FC<CodeInputProps> = ({
     onChange(newValue.join(""));
     if (val && idx < 5) inputs.current[idx + 1]?.focus();
   };
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    idx: number,
-  ) => {
-    if (e.key === "Backspace" && !value[idx] && idx > 0)
-      inputs.current[idx - 1]?.focus();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+    if (e.key === "Backspace" && !value[idx] && idx > 0) inputs.current[idx - 1]?.focus();
   };
   return (
     <div className="flex flex-col items-center gap-6">
@@ -51,12 +42,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({
         <button className="btn btn-secondary" onClick={onRandom} type="button">
           Random
         </button>
-        <button
-          className="btn btn-primary"
-          onClick={onSet}
-          type="button"
-          disabled={value.length !== 6 || !/^[0-9]{6}$/.test(value)}
-        >
+        <button className="btn btn-primary" onClick={onSet} type="button" disabled={value.length !== 6 || !/^[0-9]{6}$/.test(value)}>
           Set Code
         </button>
       </div>

@@ -1,11 +1,4 @@
-import {
-  type ReactNode,
-  createContext,
-  useContext,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { type ReactNode, createContext, useContext, useState, useRef, useEffect } from "react";
 import { useDiscordSDK } from "./useDiscordSdk";
 
 const OAuth2CodeContext = createContext<string | null>(null);
@@ -29,9 +22,7 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
         if (code) setOAuth2Code(code);
-        else if (
-          Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")
-        ) {
+        else if (Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")) {
           window.location.href = import.meta.env.VITE_DISCORD_OAUTH2_URL;
         } else setOAuth2Code("");
         const url = new URL(window.location.href);
@@ -50,9 +41,5 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
     })();
   }, [discordSdk]);
   if (oAuth2Code === null) return <p>Loading...</p>;
-  return (
-    <OAuth2CodeContext.Provider value={oAuth2Code}>
-      {children}
-    </OAuth2CodeContext.Provider>
-  );
+  return <OAuth2CodeContext.Provider value={oAuth2Code}>{children}</OAuth2CodeContext.Provider>;
 }

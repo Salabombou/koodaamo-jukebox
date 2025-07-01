@@ -9,17 +9,13 @@ export default function useRoomHub() {
   const discordSDK = useDiscordSDK();
 
   const [playingSince, setPlayingSince] = useState<number | null>(null);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(
-    null,
-  );
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [currentTrackId, setCurrentTrackId] = useState<string | null>(null);
   const [isLooping, setIsLooping] = useState<boolean | null>(null);
   const [isPaused, setIsPaused] = useState<boolean | null>(null);
   const [isShuffled, setIsShuffled] = useState<boolean | null>(null);
 
-  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(
-    new Map(),
-  );
+  const [queueItems, setQueueItems] = useState<Map<number, QueueItem>>(new Map());
   const [queueList, setQueueList] = useState<QueueItem[]>([]);
 
   const connection = useRef<signalR.HubConnection | null>(null);
@@ -39,40 +35,37 @@ export default function useRoomHub() {
       .withHubProtocol(new signalR.JsonHubProtocol())
       .configureLogging(signalR.LogLevel.Information)
       .build();
-    connection.current.on(
-      "RoomUpdate",
-      (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
-        console.log("Room update received:", roomInfo, updatedItems);
-        setPlayingSince(roomInfo.playingSince ?? null);
-        setIsPaused(roomInfo.isPaused);
-        setCurrentTrackIndex(roomInfo.currentTrack.index ?? null);
-        setCurrentTrackId(roomInfo.currentTrack.id ?? null);
-        setIsLooping(roomInfo.isLooping);
-        setIsShuffled(roomInfo.isShuffled);
+    connection.current.on("RoomUpdate", (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
+      console.log("Room update received:", roomInfo, updatedItems);
+      setPlayingSince(roomInfo.playingSince ?? null);
+      setIsPaused(roomInfo.isPaused);
+      setCurrentTrackIndex(roomInfo.currentTrack.index ?? null);
+      setCurrentTrackId(roomInfo.currentTrack.id ?? null);
+      setIsLooping(roomInfo.isLooping);
+      setIsShuffled(roomInfo.isShuffled);
 
-        startTransition(() => {
-          setQueueItems((prev) => {
-            const items = new Map(prev);
-            updatedItems.forEach((item) => {
-              if (item.isDeleted) {
-                items.delete(item.id);
-              } else {
-                items.set(item.id, item);
-              }
-            });
-
-            const sortedItems = Array.from(items.values()).sort((a, b) => {
-              const aIndex = a.shuffledIndex ?? a.index;
-              const bIndex = b.shuffledIndex ?? b.index;
-              return aIndex - bIndex;
-            });
-            setQueueList(sortedItems);
-
-            return items;
+      startTransition(() => {
+        setQueueItems((prev) => {
+          const items = new Map(prev);
+          updatedItems.forEach((item) => {
+            if (item.isDeleted) {
+              items.delete(item.id);
+            } else {
+              items.set(item.id, item);
+            }
           });
+
+          const sortedItems = Array.from(items.values()).sort((a, b) => {
+            const aIndex = a.shuffledIndex ?? a.index;
+            const bIndex = b.shuffledIndex ?? b.index;
+            return aIndex - bIndex;
+          });
+          setQueueList(sortedItems);
+
+          return items;
         });
-      },
-    );
+      });
+    });
     connection.current.on("Error", (error: string) => {
       console.error("Room hub error:", error);
       setInvokeError(error);
@@ -93,19 +86,14 @@ export default function useRoomHub() {
         setInvokeError("Another action is already in progress");
         return;
       }
-      if (
-        !connection.current?.state ||
-        connection.current.state !== signalR.HubConnectionState.Connected
-      ) {
+      if (!connection.current?.state || connection.current.state !== signalR.HubConnectionState.Connected) {
         setInvokeError("Not connected to the room hub");
         return;
       }
       const error = await connection.current
         .invoke(action, Math.floor(timeService.getServerNow()), ...args)
         .then(() => null)
-        .catch(
-          (err) => err.message || "Unknown error happened in the room action",
-        );
+        .catch((err) => err.message || "Unknown error happened in the room action");
       if (error) {
         setInvokeError(error);
       }

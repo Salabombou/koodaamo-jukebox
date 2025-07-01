@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  startTransition,
-} from "react";
+import { useEffect, useRef, useState, useCallback, startTransition } from "react";
 import Queue from "./components/Queue";
 import MusicPlayerInterface from "./components/MusicPlayerInterface";
 import { Track } from "./types/track";
@@ -14,26 +8,26 @@ import { useDiscordSDK } from "./hooks/useDiscordSdk";
 import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
 import useHlsAudio from "./hooks/useHlsAudio";
+import GradientBackground from "./components/GradientBackground";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
-  const audioPlayer = useRef<HTMLAudioElement>(
-    null as unknown as HTMLAudioElement,
-  );
-  const modalRef = useRef<HTMLDialogElement>(
-    null as unknown as HTMLDialogElement,
-  );
+  const audioPlayer = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const [modalClosed, setModalClosed] = useState(false);
   useEffect(() => {
-    modalRef.current?.showModal();
-  }, []);
+    if (!discordSDK.isEmbedded) {
+      // Show modal only if not embedded
+      modalRef.current.showModal();
+    } else {
+      setModalClosed(true);
+      modalRef.current.close();
+    }
+  }, [discordSDK.isEmbedded]);
 
-  // Memoize tracks map to avoid new reference unless contents change
-  const [tracks, setTracks] = useState(() => new Map<string, Track>());
+  const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
 
-  const [currentTrack, setCurrentTrack] = useState<
-    (Track & { itemId: number }) | null
-  >(null);
+  const [currentTrack, setCurrentTrack] = useState<(Track & { itemId: number }) | null>(null);
   const [duration, setDuration] = useState(0);
   const [timestamp, setTimestamp] = useState(0);
 
@@ -41,66 +35,44 @@ export default function App() {
     timeService.syncServerTime(discordSDK.isEmbedded);
   }, [discordSDK.isEmbedded]);
 
+  const secretUnlockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const secretLockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const diskDriveSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+
   useEffect(() => {
-    audioPlayer.current.volume = 0.5;
+    secretUnlockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-unlocked.mp3`);
+    secretLockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-locked.mp3`);
+    diskDriveSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/disc-drive.ogg`);
+  }, [discordSDK.isEmbedded]);
+
+  useEffect(() => {
+    audioPlayer.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
+    diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
   }, []);
 
-  // DRY: Single effect for participants update
   const users = useRef<Set<string>>(new Set(discordSDK.clientId));
   useEffect(() => {
-    const handleParticipantsUpdate = (event: {
-      participants: Array<{ id: string }>;
-    }) => {
+    const handleParticipantsUpdate = (event: { participants: Array<{ id: string }> }) => {
       users.current = new Set(event.participants.map((p) => p.id));
     };
     if (discordSDK.isEmbedded) {
-      discordSDK.subscribe(
-        "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-        handleParticipantsUpdate,
-      );
+      discordSDK.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
     }
     return () => {
       if (discordSDK.isEmbedded) {
-        discordSDK.unsubscribe(
-          "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-          handleParticipantsUpdate,
-        );
+        discordSDK.unsubscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", handleParticipantsUpdate);
       }
     };
   }, [discordSDK]);
 
-  const {
-    playingSince,
-    currentTrackIndex,
-    currentTrackId,
-    isLooping,
-    isPaused,
-    isShuffled,
-    queueItems,
-    queueList,
-    invokeRoomAction,
-    invokePending,
-    invokeError,
-  } = useRoomHub();
+  const { playingSince, currentTrackIndex, currentTrackId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
 
   const seeking = useRef(true);
 
-  const [backgroundColors, setBackgroundColorsRaw] = useState<[string, string]>(
-    ["#cccccc", "#000000"],
-  );
-  const setBackgroundColors = useCallback((colors: [string, string]) => {
-    setBackgroundColorsRaw((prev) => (prev[0] !== colors[0] ? colors : prev));
-  }, []);
+  const [backgroundColors, setBackgroundColors] = useState<[string, string]>(["#ffffff", "#000000"]);
 
-  const onSkip = useCallback(
-    (index: number) => invokeRoomAction("Skip", index),
-    [invokeRoomAction],
-  );
-  const onMove = useCallback(
-    (fromIndex: number, toIndex: number) =>
-      invokeRoomAction("Move", fromIndex, toIndex),
-    [invokeRoomAction],
-  );
+  const onSkip = useCallback((index: number) => invokeRoomAction("Skip", index), [invokeRoomAction]);
+  const onMove = useCallback((fromIndex: number, toIndex: number) => invokeRoomAction("Move", fromIndex, toIndex), [invokeRoomAction]);
   const onDelete = useCallback(
     (index: number) => {
       if (index !== currentTrackIndex) invokeRoomAction("Delete", index);
@@ -110,10 +82,8 @@ export default function App() {
   const onPlayNext = useCallback(
     (index: number) => {
       if (typeof currentTrackIndex === "number") {
-        if (index < currentTrackIndex)
-          invokeRoomAction("Move", index, currentTrackIndex);
-        else if (index > currentTrackIndex)
-          invokeRoomAction("Move", index, currentTrackIndex + 1);
+        if (index < currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex);
+        else if (index > currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex + 1);
       }
     },
     [currentTrackIndex, invokeRoomAction],
@@ -122,14 +92,11 @@ export default function App() {
   useEffect(() => {
     function handleContextMenu(e: MouseEvent) {
       // Allow context menu only if inside custom context menu
-      const path = e.composedPath ? e.composedPath() : (e as any).path || [];
+      const path = e.composedPath();
       if (
-        path.some(
-          (el: EventTarget) =>
-            el instanceof HTMLElement &&
-            el.hasAttribute &&
-            el.hasAttribute("data-custom-context-menu"),
-        )
+        path.some((el) => {
+          return el instanceof HTMLElement && el.hasAttribute && el.hasAttribute("data-custom-context-menu");
+        })
       ) {
         return; // Allow custom context menu
       }
@@ -196,6 +163,7 @@ export default function App() {
 
   const onVolumeChange = useCallback((volume: number) => {
     audioPlayer.current!.volume = volume;
+    diskDriveSfx.current.volume = volume;
     localStorage.setItem("volume", String(volume));
   }, []);
 
@@ -231,13 +199,9 @@ export default function App() {
     if (seeking.current) return;
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
-      const elapsedTime =
-        ((currentTime - playingSince) % (duration * 1000)) / 1000;
+      const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
 
-      if (
-        elapsedTime >= 1 &&
-        Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1
-      ) {
+      if (elapsedTime >= 1 && Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1) {
         console.log("Fixing desync, setting currentTime to", elapsedTime);
         audioPlayer.current!.currentTime = elapsedTime;
         if (!isPaused) {
@@ -251,22 +215,13 @@ export default function App() {
       setTimestamp(newTimestamp);
     }
 
-    if (
-      typeof currentTrackIndex !== "number" ||
-      queueItems.size === 0 ||
-      duration === 0 ||
-      currentTrackIndex < 0 ||
-      currentTrackIndex >= queueItems.size
-    ) {
+    if (typeof currentTrackIndex !== "number" || queueItems.size === 0 || duration === 0 || currentTrackIndex < 0 || currentTrackIndex >= queueItems.size) {
       return;
     } // No next track
 
     let nextTrack: Track | null = null;
     for (const item of queueItems.values()) {
-      if (
-        (isShuffled ? item.shuffledIndex : item.index) ===
-        currentTrackIndex + 1
-      ) {
+      if ((isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex + 1) {
         nextTrack = tracks.get(item.trackId) ?? null;
         break;
       }
@@ -285,17 +240,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` },
       });
     }
-  }, [
-    playingSince,
-    duration,
-    currentTrackIndex,
-    queueItems,
-    isShuffled,
-    isPaused,
-    tracks,
-    discordSDK.isEmbedded,
-    modalClosed,
-  ]);
+  }, [playingSince, duration, currentTrackIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, modalClosed]);
 
   useEffect(() => {
     if (!modalClosed) return;
@@ -316,9 +261,7 @@ export default function App() {
           state: currentTrack.uploader,
           assets: {
             large_image: `${window.location.origin}${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`,
-            small_text: !discordSDK.isEmbedded
-              ? `Room Code: ${discordSDK.instanceId}`
-              : undefined,
+            small_text: !discordSDK.isEmbedded ? `Room Code: ${discordSDK.instanceId}` : undefined,
           },
           timestamps: {
             start: startTime,
@@ -384,9 +327,7 @@ export default function App() {
 
     const playbackRate = audioPlayer.current.playbackRate;
     const safeDuration = isFinite(duration) ? duration : 0;
-    const safePosition = isFinite(timestamp)
-      ? Math.min(safeDuration, timestamp)
-      : 0;
+    const safePosition = isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
 
     navigator.mediaSession.setPositionState({
       duration: safeDuration,
@@ -398,10 +339,11 @@ export default function App() {
   useEffect(() => {
     if (!modalClosed) return;
     if (playingSince === null) return;
+    if (!isFinite(duration) || duration <= 0) return;
     const currentTime = timeService.getServerNow();
-    const elapsedTime =
-      ((currentTime - playingSince) % (duration * 1000)) / 1000;
+    const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
 
+    if (!isFinite(elapsedTime)) return;
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
   }, [playingSince, duration, modalClosed]);
 
@@ -440,7 +382,7 @@ export default function App() {
         audioPlayer.current!.pause();
       }
     }
-  }, [playingSince, isPaused, duration, invokeRoomAction, modalClosed]);
+  }, [playingSince, isPaused, duration, modalClosed]);
 
   useEffect(() => {
     if (typeof invokeError !== "string") return;
@@ -449,38 +391,22 @@ export default function App() {
 
   useEffect(() => {
     // Update currentTrack if either the track ID or the queue item ID changes
-    if (
-      typeof currentTrackId === "string" &&
-      typeof currentTrackIndex === "number"
-    ) {
-      const item = queueList.find(
-        (item) =>
-          (isShuffled ? item.shuffledIndex : item.index) ===
-            currentTrackIndex && item.trackId === currentTrackId,
-      );
+    if (typeof currentTrackId === "string" && typeof currentTrackIndex === "number") {
+      const item = queueList.find((item) => {
+        const indexToCompare = isShuffled ? item.shuffledIndex : item.index;
+        return indexToCompare === currentTrackIndex && item.trackId === currentTrackId;
+      });
       const track = tracks.get(currentTrackId);
       if (!item || !track) {
         return;
       }
       // Update if track or itemId changed
-      if (
-        !currentTrack ||
-        currentTrack.id !== currentTrackId ||
-        currentTrack.itemId !== item.id
-      ) {
+      if (!currentTrack || currentTrack.id !== currentTrackId || currentTrack.itemId !== item.id) {
         setCurrentTrack({ ...track, itemId: item.id });
+        document.title = `Now playing: ${track.title} • ${track.uploader}`;
       }
     }
   }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList]);
-
-  useEffect(() => {
-    // update page title with current track name
-    if (currentTrack) {
-      document.title = `Now playing: ${currentTrack.title} • ${currentTrack.uploader}`;
-    } else {
-      document.title = "Koodaamo Jukebox";
-    }
-  }, [currentTrack]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -490,19 +416,21 @@ export default function App() {
     if (unknownTrackIds.length > 0) {
       startTransition(async () => {
         await apiService.getTracks(unknownTrackIds).then(({ data }) => {
-          let changed = false;
-          const newTracks = new Map(tracks);
-          data.forEach((track) => {
-            if (!newTracks.has(track.id)) {
-              changed = true;
-              newTracks.set(track.id, track);
-            }
+          setTracks((prev) => {
+            let changed = false;
+            const newTracks = new Map(prev);
+            data.forEach((track) => {
+              if (!newTracks.has(track.id)) {
+                changed = true;
+                newTracks.set(track.id, track);
+              }
+            });
+            return changed ? newTracks : prev;
           });
-          if (changed) setTracks(newTracks);
         });
       });
     }
-  }, [queueItems, tracks, startTransition, apiService, setTracks]);
+  }, [queueItems, tracks]);
 
   const lastHlsTrackId = useRef<string | null>(null);
   const skipOnFatalError = useRef(false);
@@ -531,14 +459,9 @@ export default function App() {
   });
 
   useEffect(() => {
-    const currentUniqueId = currentTrack
-      ? `${currentTrack.id}:${currentTrack.itemId}`
-      : null;
+    const currentUniqueId = currentTrack ? `${currentTrack.id}:${currentTrack.itemId}` : null;
     const lastUniqueId = lastHlsTrackId.current;
-    if (
-      typeof currentUniqueId === "string" &&
-      lastUniqueId !== currentUniqueId
-    ) {
+    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
@@ -547,10 +470,7 @@ export default function App() {
       loadSource(src);
       setDuration(0);
       setTimestamp(0);
-    } else if (
-      typeof currentUniqueId === "string" &&
-      lastUniqueId === currentUniqueId
-    ) {
+    } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
       // If the track is already loaded, just reset the audio player
       audioPlayer.current!.currentTime = 0;
       audioPlayer.current!.pause();
@@ -558,45 +478,39 @@ export default function App() {
     }
   }, [currentTrack, discordSDK.isEmbedded, loadSource]);
 
-  const secretUnlockedSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/secret-unlocked.mp3`));
-  const secretLockedSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/secret-locked.mp3`));
-  const diskDriveSfx = useRef(new Audio(`${discordSDK.isEmbedded ? "/.proxy": ""}/sfx/disk-drive.mp3`));
-  const [secretUnlocked, setSecretUnlocked] = useState(false);
-  const secretUnlockedPlayed = useRef(false);
-  const secretEverUnlocked = useRef(false); 
+  const [secretUnlocked, setSecretUnlocked] = useState(localStorage.getItem("secret") === "true");
+  const secretEverUnlocked = useRef(false);
 
   useEffect(() => {
     if (!modalClosed) return;
     // Only allow sounds if secret has ever been unlocked
-    if (secretUnlocked) {
-      secretEverUnlocked.current = true;
-      console.log("Secret unlocked state:", secretUnlocked);
+    if (secretUnlocked && secretEverUnlocked.current) {
       secretUnlockedSfx.current.currentTime = 0;
       secretUnlockedSfx.current.play();
-      secretUnlockedPlayed.current = true;
-    } else if (secretUnlockedPlayed.current && !secretUnlocked && secretEverUnlocked.current) {
+    } else if (secretEverUnlocked.current) {
       secretLockedSfx.current.currentTime = 0;
       secretLockedSfx.current.play();
     }
+    secretEverUnlocked.current = true;
   }, [secretUnlocked, modalClosed]);
   useEffect(() => {
     if (!modalClosed) return;
-    if (!secretEverUnlocked.current || !secretUnlocked) return;
+    if (!secretUnlocked) return;
+
+    // Play SFX when unpaused and playback hasn't started yet
     if (!isPaused && playingSince === null) {
       diskDriveSfx.current.currentTime = 0;
       diskDriveSfx.current.play();
-    } else if (playingSince !== null) {
+    }
+
+    // Pause SFX exactly when playback starts (playingSince transitions from null to a number)
+    if (!isPaused && playingSince !== null) {
       diskDriveSfx.current.pause();
-      diskDriveSfx.current.currentTime = 0;
     }
   }, [isPaused, playingSince, modalClosed, secretUnlocked]);
-    
 
   return (
     <>
-      {/* Modal dialog for starting playback.
-       * Because browsers don't like to start playing audio before user interacts with the page.
-       */}
       <dialog
         className="modal backdrop-blur-xs"
         ref={modalRef}
@@ -612,61 +526,53 @@ export default function App() {
         </div>
       </dialog>
       <div
-        className="h-screen w-screen flex items-center justify-center md:flex-row md:items-center md:justify-center overflow-hidden bg-gradient-to-b"
+        className="h-screen w-screen flex items-center justify-center md:flex-row md:items-center md:justify-center overflow-hidden"
         style={{
-          backgroundColor: backgroundColors[0],
-          transition: "background-color 0.5s ease", // Transition background-color
+          position: "relative",
         }}
       >
-        {/* Gradient overlay */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background: `linear-gradient(to bottom, transparent 0%, ${backgroundColors[1]} 100%)`,
-            zIndex: 0,
-          }}
-        />
-        <audio
-          ref={audioPlayer}
-          className="hidden pointer-events-none select-none"
-          autoPlay={false}
-          controls={false}
-          onTimeUpdate={onTimeUpdate}
-          onEnded={onEnded}
-          onCanPlayThrough={onCanPlayThrough}
-        />
-        <MusicPlayerInterface
-          track={currentTrack}
-          duration={duration}
-          timestamp={timestamp}
-          paused={isPaused ?? true}
-          looping={isLooping ?? false}
-          shuffled={isShuffled ?? false}
-          disabled={invokePending}
-          onPrimaryColorChange={setBackgroundColors}
-          backgroundColor={backgroundColors[0]}
-          onShuffle={onShuffle}
-          onBackward={onBackward}
-          onForward={onForward}
-          onPlayToggle={onPlayToggle}
-          onLoopToggle={onLoopToggle}
-          onSeek={onSeek}
-          onVolumeChange={onVolumeChange}
-          setSecret={setSecretUnlocked}
-        />
-        <Queue
-          tracks={tracks}
-          queueList={queueList}
-          currentTrack={currentTrack}
-          currentTrackIndex={currentTrackIndex}
-          controlsDisabled={invokePending}
-          onSkip={onSkip}
-          onMove={onMove}
-          onDelete={onDelete}
-          onPlayNext={onPlayNext}
-        />
+        <GradientBackground backgroundColors={backgroundColors} />
+        <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }} className="flex flex-1 items-center justify-center">
+          <audio
+            ref={audioPlayer}
+            className="hidden pointer-events-none select-none"
+            autoPlay={false}
+            controls={false}
+            onTimeUpdate={onTimeUpdate}
+            onEnded={onEnded}
+            onCanPlayThrough={onCanPlayThrough}
+          />
+          <MusicPlayerInterface
+            track={currentTrack}
+            duration={duration}
+            timestamp={timestamp}
+            paused={isPaused ?? true}
+            looping={isLooping ?? false}
+            shuffled={isShuffled ?? false}
+            disabled={invokePending}
+            onPrimaryColorChange={setBackgroundColors}
+            backgroundColor={backgroundColors[0]}
+            onShuffle={onShuffle}
+            onBackward={onBackward}
+            onForward={onForward}
+            onPlayToggle={onPlayToggle}
+            onLoopToggle={onLoopToggle}
+            onSeek={onSeek}
+            onVolumeChange={onVolumeChange}
+            setSecret={setSecretUnlocked}
+          />
+          <Queue
+            tracks={tracks}
+            queueList={queueList}
+            currentTrack={currentTrack}
+            currentTrackIndex={currentTrackIndex}
+            controlsDisabled={invokePending}
+            onSkip={onSkip}
+            onMove={onMove}
+            onDelete={onDelete}
+            onPlayNext={onPlayNext}
+          />
+        </div>
       </div>
     </>
   );

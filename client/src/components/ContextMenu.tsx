@@ -9,13 +9,7 @@ interface ContextMenuProps {
   onCopyUrl: () => void;
 }
 
-export default function ContextMenu({
-  children,
-  controlsDisabled,
-  onPlayNext,
-  onDelete,
-  onCopyUrl,
-}: ContextMenuProps) {
+export default function ContextMenu({ children, controlsDisabled, onPlayNext, onDelete, onCopyUrl }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,10 +98,7 @@ export default function ContextMenu({
               zIndex: 1000,
             }}
           >
-            <ul
-              tabIndex={0}
-              className="dropdown-content menu p-2 shadow rounded-box w-52 bg-context-menu backdrop-blur"
-            >
+            <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-context-menu backdrop-blur">
               {onPlayNext && (
                 <li>
                   <button

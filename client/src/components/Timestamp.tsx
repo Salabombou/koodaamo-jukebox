@@ -10,9 +10,7 @@ export default function Timestamp({ timestamp }: TimestampProps) {
           <span>:</span>
         </>
       )}
-      <span>
-        {String(Math.floor((timestamp % 3600) / 60)).padStart(2, "0")}
-      </span>
+      <span>{String(Math.floor((timestamp % 3600) / 60)).padStart(2, "0")}</span>
       <span>:</span>
       <span>{String(Math.floor(timestamp % 60)).padStart(2, "0")}</span>
     </>

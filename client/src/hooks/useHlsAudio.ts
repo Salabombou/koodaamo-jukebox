@@ -8,11 +8,7 @@ type UseHlsAudioProps = {
   onFatalError: (data: any) => void;
 };
 
-export default function useHlsAudio({
-  audioPlayer,
-  onDuration,
-  onFatalError,
-}: UseHlsAudioProps) {
+export default function useHlsAudio({ audioPlayer, onDuration, onFatalError }: UseHlsAudioProps) {
   const hls = useRef<Hls | null>(null);
 
   useEffect(() => {

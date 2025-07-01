@@ -1,17 +1,9 @@
-import {
-  FaBackwardStep,
-  FaForwardStep,
-  FaPlay,
-  FaPause,
-  FaRepeat,
-  FaShuffle,
-} from "react-icons/fa6";
+import { FaBackwardStep, FaForwardStep, FaPlay, FaPause, FaRepeat, FaShuffle } from "react-icons/fa6";
 import Timestamp from "./Timestamp";
 import { FaVolumeMute, FaVolumeUp } from "react-icons/fa";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, startTransition } from "react";
 import { Track } from "../types/track";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
-import { thumbnailUrlCacheHigh } from "../services/thumbnailCache";
 import * as colorService from "../services/colorService";
 import ContextMenu from "./ContextMenu";
 import MarqueeText from "./MarqueeText";
@@ -56,34 +48,24 @@ export default function MusicPlayerInterface({
 }: MusicPlayerInterfaceProps) {
   const volumeSlider = useRef<HTMLInputElement>(null);
   const volumeRef = useRef(1);
-  const [volume, setVolume] = useState(0.5);
-  const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
+  const [volume, setVolume] = useState(Number(localStorage.getItem("volume") ?? 0.01));
+
   const discordSDK = useDiscordSDK();
-  let thumbUrl = "/black.jpg";
-  if (track?.id) {
-    if (thumbnailUrlCacheHigh.has(track.id))
-      thumbUrl = thumbnailUrlCacheHigh.get(track.id)!;
-    else {
-      thumbUrl = `/api/track/${track.id}/thumbnail-high`;
-      thumbnailUrlCacheHigh.set(track.id, thumbUrl);
-    }
-  }
+
+  const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
   const [seekValue, setSeekValue] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
   const secretClickCount = useRef(0);
-  const secretClickTimeout = useRef<NodeJS.Timeout | null>(null);
-  const secretUnlocked = useRef(false);
-  const secretCooldown = useRef(false);
-  
+  const secretSinceLastClick = useRef(0);
+  const secretUnlocked = useRef(localStorage.getItem("secret") === "true");
+
   useEffect(() => {
     if (!isSeeking) {
       // Prevent NaN: ensure timestamp and duration are valid numbers and duration > 0
-      const safeTimestamp =
-        typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : 0;
-      const safeDuration =
-        typeof duration === "number" && duration > 0 ? duration : 1;
+      const safeTimestamp = typeof timestamp === "number" && !isNaN(timestamp) ? timestamp : 0;
+      const safeDuration = typeof duration === "number" && duration > 0 ? duration : 1;
       setSeekValue(safeTimestamp % safeDuration);
     }
   }, [timestamp, duration, isSeeking]);
@@ -93,27 +75,28 @@ export default function MusicPlayerInterface({
   }, [track?.itemId]);
 
   useEffect(() => {
-    let isMounted = true,
-      objectUrl: string | null = null;
-    async function fetchImage() {
-      if (!thumbUrl) return;
+    let objectUrl: string | null = null;
+    startTransition(async () => {
+      if (!track?.id) {
+        setImageBlobUrl(null);
+        return;
+      }
+      const thumbnailUrl = `/api/track/${track.id}/thumbnail-high`;
       try {
-        const response = await fetch(
-          `${discordSDK.isEmbedded ? "/.proxy" : ""}${thumbUrl}`,
-        );
+        const response = await fetch(`${discordSDK.isEmbedded ? "/.proxy" : ""}${thumbnailUrl}`);
         const blob = await response.blob();
         objectUrl = URL.createObjectURL(blob);
-        if (isMounted) setImageBlobUrl(objectUrl);
+        setImageBlobUrl(objectUrl);
       } catch {
         setImageBlobUrl(null);
       }
-    }
-    fetchImage();
+    });
     return () => {
-      isMounted = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
-  }, [thumbUrl, discordSDK.isEmbedded]);
+  }, [track?.id, discordSDK.isEmbedded]);
 
   return (
     <div className="flex flex-col md:ml-6 w-full md:w-1/2 max-w-200">
@@ -127,20 +110,19 @@ export default function MusicPlayerInterface({
           }}
         >
           <figure className="select-none dark:bg-black">
-            <div className="hidden xs:[@media(min-height:600px)]:flex w-200 align-middle justify-center aspect-video">
-              <div className="flex items-center justify-center relative">
+            <div className="hidden xs:[@media(min-height:700px)]:flex w-200 align-middle justify-center aspect-video select-none">
+              <div className="flex items-center justify-center relative select-none">
                 <img
                   src={imageBlobUrl || "/black.jpg"}
                   width="100%"
                   height="100%"
-                  className="object-cover w-full h-full"
+                  className="object-cover w-full h-full select-none"
                   onLoad={(e) =>
-                    colorService
-                      .getProminentColorFromUrl(e.currentTarget.src)
-                      .then((colors) => {
-                        onPrimaryColorChange(colors);
-                      })
+                    colorService.getProminentColorFromUrl(e.currentTarget.src).then((colors) => {
+                      onPrimaryColorChange(colors);
+                    })
                   }
+                  draggable={false}
                 />
               </div>
             </div>
@@ -149,12 +131,10 @@ export default function MusicPlayerInterface({
         <div className="card-body h-50">
           <div>
             <MarqueeText>
-              <h2 className="card-title font-bold">
-                {track?.title?.trim() || "???"}
-              </h2>
+              <h2 className="card-title font-bold select-none">{track?.title?.trim() || "???"}</h2>
             </MarqueeText>
             <MarqueeText>
-              <h4 className="text-sm">{track?.uploader?.trim() ?? "???"}</h4>
+              <h4 className="text-sm select-none">{track?.uploader?.trim() ?? "???"}</h4>
             </MarqueeText>
           </div>
           <div className="card-actions w-full">
@@ -218,29 +198,9 @@ export default function MusicPlayerInterface({
       <div className="hidden xs:flex z-1 items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
-            className="btn btn-xl btn-ghost btn-circle focus:outline-none focus:ring-0 focus:border-0"
+            className="btn btn-xl btn-ghost btn-circle hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0"
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
-            onDoubleClick={() => {
-            }}
             onClick={() => {
-              if (secretCooldown.current) return; // Prevent rapid toggling
-              secretClickCount.current++;
-              console.log("Secret click count:", secretClickCount.current);
-              if (secretClickTimeout.current) {
-                clearTimeout(secretClickTimeout.current);
-              }
-              if (secretClickCount.current >= 10) {
-                secretUnlocked.current = !secretUnlocked.current;
-                setSecret(secretUnlocked.current);
-                secretClickCount.current = 0;
-                secretCooldown.current = true;
-                setTimeout(() => {
-                  secretCooldown.current = false;
-                }, 1000); // 1 second cooldown
-              }
-              secretClickTimeout.current = setTimeout(() => {
-                secretClickCount.current = 0;
-              }, 1000);
               if (volume === 0 && volumeRef.current === 0) {
                 setVolume(0.5);
                 volumeRef.current = 0.5;
@@ -256,7 +216,7 @@ export default function MusicPlayerInterface({
             }}
           />
         </div>
-        <div className="w-full">
+        <div className="w-full mb-1">
           <input
             ref={volumeSlider}
             type="range"
@@ -270,6 +230,21 @@ export default function MusicPlayerInterface({
               volumeRef.current = newVolume;
               setVolume(newVolume);
               onVolumeChange(newVolume);
+            }}
+            onClick={() => {
+              if (Date.now() - secretSinceLastClick.current >= 1000) {
+                secretClickCount.current = 0;
+              }
+              secretSinceLastClick.current = Date.now();
+              secretClickCount.current++;
+              console.log("Secret click count:", secretClickCount.current);
+
+              if (secretClickCount.current >= 10) {
+                secretUnlocked.current = !secretUnlocked.current;
+                localStorage.setItem("secret", String(secretUnlocked.current));
+                setSecret(secretUnlocked.current);
+                secretClickCount.current = 0;
+              }
             }}
             onMouseDown={() => setIsDraggingVolume(true)}
             onMouseUp={() => setIsDraggingVolume(false)}

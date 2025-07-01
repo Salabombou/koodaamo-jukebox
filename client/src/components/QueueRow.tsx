@@ -18,18 +18,7 @@ interface QueueRowProps extends ListChildComponentProps {
   overlay?: boolean; // for drag overlay
 }
 
-export default function QueueRow({
-  index,
-  style,
-  data,
-  track,
-  currentTrack,
-  onDelete,
-  onSkip,
-  onPlayNext,
-  controlsDisabled = false,
-  overlay = false,
-}: QueueRowProps) {
+export default function QueueRow({ index, style, data, track, currentTrack, onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueRowProps) {
   const item = data.at(index);
   if (!item) return;
 
@@ -64,7 +53,7 @@ export default function QueueRow({
       ref={setNodeRef}
       style={{
         backgroundColor: "transparent",
-        color: "#fff",
+        color: highlighted ? "#fff" : undefined,
         //opacity: controlsDisabled ? 0.5 : 1,
         ...style,
         width: "100%",
@@ -86,37 +75,23 @@ export default function QueueRow({
         ].join(" ")}
         onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
       >
-        <ContextMenu
-          onPlayNext={handlePlayNext}
-          onCopyUrl={handleCopyUrl}
-          onDelete={handleDelete}
-          controlsDisabled={controlsDisabled}
-        >
-          <div className="flex flex-row items-center w-full h-full">
-            <div
-              {...attributes}
-              {...listeners}
-              className="h-full p-4 mr-1 flex items-center justify-center"
-            >
+        <ContextMenu onPlayNext={handlePlayNext} onCopyUrl={handleCopyUrl} onDelete={handleDelete} controlsDisabled={controlsDisabled}>
+          <div className="flex flex-row items-center w-full h-full select-none">
+            <div {...attributes} {...listeners} className={`h-full p-4 mr-1 flex items-center justify-center select-none ${!overlay && !isDragging ? "cursor-grab" : ""}`}>
               <FaGripLines />
             </div>
-            <div className="aspect-video h-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative">
+            <div className="aspect-video h-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
               <img
-                src={
-                  track?.id
-                    ? `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-low`
-                    : "/black.jpg"
-                }
+                src={track?.id ? `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-low` : "/black.jpg"}
                 loading="lazy"
-                className="w-full h-full object-cover object-center aspect-square bg-black"
+                className="w-full h-full object-cover object-center aspect-square bg-black select-none"
                 alt={track?.title || "thumbnail"}
+                draggable={false}
               />
             </div>
-            <div className="flex flex-col overflow-hidden w-full pl-2">
-              <label className="text-s font-bold truncate -mb-1">
-                {track?.title}
-              </label>
-              <label className="text-s truncate">{track?.uploader}</label>
+            <div className="flex flex-col overflow-hidden w-full pl-2 select-none">
+              <label className="text-s font-bold truncate -mb-1 select-none">{track?.title}</label>
+              <label className="text-s truncate select-none">{track?.uploader}</label>
             </div>
           </div>
         </ContextMenu>

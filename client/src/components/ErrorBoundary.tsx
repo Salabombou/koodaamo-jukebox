@@ -10,10 +10,7 @@ interface ErrorBoundaryState {
   errorInfo: React.ErrorInfo | null;
 }
 
-class ErrorBoundary extends React.Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -35,9 +32,7 @@ class ErrorBoundary extends React.Component<
         <div style={{ padding: 32, color: "red" }}>
           <h1>Something went wrong.</h1>
           <pre>{this.state.error?.toString()}</pre>
-          <details style={{ whiteSpace: "pre-wrap" }}>
-            {this.state.errorInfo?.componentStack}
-          </details>
+          <details style={{ whiteSpace: "pre-wrap" }}>{this.state.errorInfo?.componentStack}</details>
         </div>
       );
     }
