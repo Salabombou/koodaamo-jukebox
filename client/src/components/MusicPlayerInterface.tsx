@@ -158,6 +158,7 @@ export default function MusicPlayerInterface({
                     onSeek(seekValue);
                     setIsSeeking(false);
                   }}
+                  onKeyDown={(e) => e.preventDefault()}
                 />
                 <div className="flex justify-between select-none">
                   <label children={<Timestamp timestamp={timestamp} />} />
@@ -198,7 +199,7 @@ export default function MusicPlayerInterface({
       <div className="hidden xs:flex z-1 items-center justify-center w-full mt-2 px-4 bg-volume-slider">
         <div className="-ml-4">
           <button
-            className="btn btn-xl btn-ghost btn-circle hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0"
+            className="btn btn-xl btn-ghost btn-square rounded-none border-0 hover:bg-music-player-interface-button-hover focus:outline-none focus:ring-0 focus:border-0"
             children={volume === 0 ? <FaVolumeMute /> : <FaVolumeUp />}
             onClick={() => {
               if (volume === 0 && volumeRef.current === 0) {
@@ -231,6 +232,7 @@ export default function MusicPlayerInterface({
               setVolume(newVolume);
               onVolumeChange(newVolume);
             }}
+            onKeyDown={(e) => e.preventDefault()}
             onClick={() => {
               if (Date.now() - secretSinceLastClick.current >= 1000) {
                 secretClickCount.current = 0;

@@ -509,6 +509,46 @@ export default function App() {
     }
   }, [isPaused, playingSince, modalClosed, secretUnlocked]);
 
+  // Health check interval for audio player
+  useEffect(() => {
+    if (!modalClosed) return;
+    if (isPaused) return;
+    if (timestamp === null) return;
+    let lastTime = audioPlayer.current?.currentTime ?? 0;
+    let stuckCount = 0;
+    const interval = setInterval(() => {
+      const audio = audioPlayer.current;
+      if (!audio) return;
+      // Check for error state
+      if (audio.error) {
+        console.error("Audio player error detected:", audio.error);
+        // Optionally, try to reload or skip track here
+      }
+      // Check if audio is stuck (not progressing)
+      if (!audio.paused && !audio.seeking) {
+        if (Math.abs(audio.currentTime - lastTime) < 0.01) {
+          stuckCount++;
+          if (stuckCount > 10) { // 1 second stuck
+            console.warn("Audio player appears stuck, attempting to resume");
+            audio.load();
+            audio.play().catch(() => {});
+            stuckCount = 0;
+          }
+        } else {
+          stuckCount = 0;
+        }
+        lastTime = audio.currentTime;
+      }
+      // Ensure audio is playing if it should be
+      if (!audio.paused && audio.readyState >= 2 && audio.currentTime < audio.duration) {
+        if (audio.paused) {
+          audio.play().catch(() => {});
+        }
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [modalClosed, isPaused, timestamp]);
+
   return (
     <>
       <dialog

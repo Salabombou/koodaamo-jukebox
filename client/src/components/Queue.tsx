@@ -125,24 +125,24 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
   const bottomArrowVisible = typeof currentTrackIndex === "number" && currentTrackIndex > visibleRange.stop && optimisticQueueList.length > 0;
 
   return (
-    <div style={{ height: "100%" }} className="relative w-full hidden md:flex">
+    <div style={{ height: "100%" }} className="relative ml-6 w-full hidden md:flex">
       {/* Top arrow */}
       {topArrowVisible && (
-        <div className="hidden md:flex absolute top-2 right-2 justify-end w-full z-10">
-          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer" aria-label="Scroll to current track">
+        <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">
+          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto" aria-label="Scroll to current track">
             <FaArrowUp className="animate-bounce pt-2" />
           </button>
         </div>
       )}
       {/* Bottom arrow */}
       {bottomArrowVisible && (
-        <div className="hidden md:flex absolute bottom-2 right-2 justify-end w-full z-10">
-          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer" aria-label="Scroll to current track">
+        <div className="hidden md:flex absolute bottom-2 right-2 z-10 pointer-events-none">
+          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto" aria-label="Scroll to current track">
             <FaArrowDown className="animate-bounce pt-2" />
           </button>
         </div>
       )}
-      <AutoSizer className="ml-6">
+      <AutoSizer>
         {({ height, width }) => (
           <DndContext
             collisionDetection={closestCenter}

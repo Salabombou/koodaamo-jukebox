@@ -11,6 +11,7 @@ export async function syncServerTime(isEmbedded: boolean) {
   const rtt = clientReceive - clientSend;
   const estimatedServerTime = serverUnix + rtt / 2;
   serverTimeOffset = estimatedServerTime - clientReceive;
+  console.log("Server time offset set to:", serverTimeOffset);
 }
 
 export function getServerNow(): number {

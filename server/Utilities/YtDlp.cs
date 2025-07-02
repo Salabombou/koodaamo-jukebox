@@ -170,6 +170,72 @@ namespace KoodaamoJukebox.Utilities
             return [.. tracks];
         }
 
+        private static async Task<Track> GetYoutubeVideoById(string videoId)
+        {
+            if (string.IsNullOrWhiteSpace(videoId))
+                throw new ArgumentException("Invalid YouTube video ID.");
+
+            using var client = new HttpClient();
+            var apiUrl = $"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={videoId}&key={_youtubeV3ApiKey}";
+            var response = await client.GetAsync(apiUrl);
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+            var data = JsonSerializer.Deserialize<JsonElement>(json);
+
+            if (data.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array && items.GetArrayLength() > 0)
+            {
+                var item = items[0];
+                var snippet = item.GetProperty("snippet");
+                string? title = snippet.GetProperty("title").GetString();
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    throw new InvalidOperationException($"No title found for videoId: {videoId}");
+                }
+                string? uploader = snippet.TryGetProperty("channelTitle", out var uploaderElement) ? (uploaderElement.GetString() ?? "Unknown") : "Unknown";
+                string? videoUrl = $"https://www.youtube.com/watch?v={videoId}";
+
+                string? thumbnailLow = null;
+                string? thumbnailHigh = null;
+                var thumbnails = snippet.GetProperty("thumbnails");
+                if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
+                {
+                    thumbnailLow = defaultThumbnailLow.GetProperty("url").GetString();
+                }
+                if (thumbnails.TryGetProperty("maxres", out var maxresThumbnail))
+                {
+                    thumbnailHigh = maxresThumbnail.GetProperty("url").GetString();
+                }
+                else if (thumbnails.TryGetProperty("standard", out var standardThumbnail))
+                {
+                    thumbnailHigh = standardThumbnail.GetProperty("url").GetString();
+                }
+                else if (thumbnails.TryGetProperty("high", out var highThumbnail))
+                {
+                    thumbnailHigh = highThumbnail.GetProperty("url").GetString();
+                }
+                else if (thumbnails.TryGetProperty("medium", out var mediumThumbnail))
+                {
+                    thumbnailHigh = mediumThumbnail.GetProperty("url").GetString();
+                }
+                else
+                {
+                    thumbnailHigh = thumbnailLow;
+                }
+
+                return new Track
+                {
+                    Type = TrackType.YouTube,
+                    WebpageUrlHash = Hashing.ComputeSha256Hash(videoUrl),
+                    WebpageUrl = videoUrl,
+                    Title = title,
+                    Uploader = uploader,
+                    ThumbnailLow = thumbnailLow,
+                    ThumbnailHigh = thumbnailHigh
+                };
+            }
+            throw new InvalidOperationException($"No video found for videoId: {videoId}");
+        }
+
         public static async Task<Track[]> GetTracks(string query)
         {
             // if query is not a valid URL, prepend "ytsearch1:"
@@ -177,9 +243,27 @@ namespace KoodaamoJukebox.Utilities
             {
                 query = $"ytsearch1:{query}";
             }
-            else if (Uri.TryCreate(query, UriKind.Absolute, out var uri) && uri.PathAndQuery.Contains("/playlist") && uri.Query.Contains("list="))
+            else if (Uri.TryCreate(query, UriKind.Absolute, out var uri) &&
+                uri.Host.EndsWith("youtube.com") &&
+                uri.PathAndQuery.Contains("/playlist") && uri.Query.Contains("list=")
+            )
             {
                 return await GetYoutubePlaylist(query);
+            }
+            else if (Uri.TryCreate(query, UriKind.Absolute, out var videoUri) &&
+                (videoUri.Host.EndsWith("youtube.com") || videoUri.Host.EndsWith("youtu.be")))
+            {
+                string? videoId = null;
+                var match = Regex.Match(query, @"(?:v=|youtu.be/)([a-zA-Z0-9_-]{11})");
+                if (match.Success)
+                {
+                    videoId = match.Groups[1].Value;
+                }
+                if (!string.IsNullOrWhiteSpace(videoId))
+                {
+                    var track = await GetYoutubeVideoById(videoId);
+                    return [track];
+                }
             }
 
             var process = new Process

@@ -4,6 +4,7 @@ import jwt
 from datetime import datetime
 from datetime import timedelta
 from discord.ext import commands
+from utils.config import API_BASE_URL, JWT_SECRET
 
 from urllib.parse import quote
 
@@ -33,14 +34,15 @@ class RoomResponse(TypedDict):
     roomInfo: RoomInfoDto
     queueItems: List[QueueItemDto]
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET environment variable is not set")
+# Track API response types
+class TrackDto(TypedDict):
+    id: str
+    webpageUrl: str
+    title: str
+    uploader: str
 
-API_BASE_URL = os.getenv("API_BASE_URL")
-if not API_BASE_URL:
-    raise RuntimeError("API_BASE_URL environment variable is not set")
-
+class TracksRequestDto(TypedDict):
+    WebpageUrlHashes: list[str]
 
 API_KEY = jwt.encode({
     "iss": "jukebox-bot",
@@ -86,6 +88,29 @@ async def get_room_info(token: str) -> dict:
 def _get_current_timestamp() -> int:
     """Get current timestamp in milliseconds"""
     return int(datetime.now().timestamp() * 1000)
+
+# Track API endpoints
+async def get_track(token: str, webpage_url_hash: str) -> TrackDto:
+    """Get a single track by its webpageUrlHash"""
+    resp = await _client.get(f"/api/track/{webpage_url_hash}", headers={"Authorization": f"Bearer {token}"}, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+async def get_tracks(token: str, webpage_url_hashes: list[str]) -> list[TrackDto]:
+    """Get multiple tracks by their webpageUrlHashes"""
+    data = {"WebpageUrlHashes": webpage_url_hashes}
+    resp = await _client.post("/api/track", headers={"Authorization": f"Bearer {token}"}, json=data, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+async def get_track_thumbnail_high(webpage_url_hash: str) -> str:
+    """Get the high quality thumbnail URL for a track (no auth required)"""
+    # Returns a redirect URL, so just build the endpoint
+    return f"{API_BASE_URL}/api/track/{webpage_url_hash}/thumbnail-high"
+
+async def get_track_thumbnail_low(webpage_url_hash: str) -> str:
+    """Get the low quality thumbnail URL for a track (no auth required)"""
+    return f"{API_BASE_URL}/api/track/{webpage_url_hash}/thumbnail-low"
 
 # Room API endpoints
 async def get_room(token: str) -> RoomResponse:
