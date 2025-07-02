@@ -209,3 +209,13 @@ async def delete_track(token: str, index: int) -> RoomResponse:
     resp = await _client.post("/api/room/delete", headers={"Authorization": f"Bearer {token}"}, json=data, timeout=60)
     resp.raise_for_status()
     return resp.json()
+
+async def clear_queue(token: str) -> RoomResponse:
+    """Clear the queue"""
+    data = {
+        "sentAt": _get_current_timestamp(),
+        "value": 0  # Value is not used, but TimestampedIntRequest requires it
+    }
+    resp = await _client.post("/api/room/clear", headers={"Authorization": f"Bearer {token}"}, json=data, timeout=60)
+    resp.raise_for_status()
+    return resp.json()

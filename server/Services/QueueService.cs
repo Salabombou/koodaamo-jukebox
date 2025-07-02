@@ -619,37 +619,55 @@ namespace KoodaamoJukebox.Services
                 var queue = await _dbContext.RoomInfos
                     .Where(q => q.RoomCode == roomCode)
                     .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
-                var items = await _dbContext.QueueItems
-                    .Where(qi => qi.RoomCode == roomCode && qi.Index != queue.CurrentTrackIndex && !qi.IsDeleted)
-                    .ToListAsync();
 
-                var currentItem = await _dbContext.QueueItems
-                    .Where(qi => qi.RoomCode == roomCode && qi.Index == queue.CurrentTrackIndex && !qi.IsDeleted)
-                    .FirstOrDefaultAsync() ?? throw new ArgumentException("Current track not found.", nameof(roomCode));
-                foreach (var item in items)
+                // Find all non-deleted items as a dictionary by Id
+                var items = (await _dbContext.QueueItems
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                    .ToListAsync())
+                    .ToDictionary(qi => qi.Id);
+
+                // Find the current item (by shuffled or unshuffled index)
+                QueueItem? currentItem = null;
+                if (queue.IsShuffled)
+                {
+                    currentItem = items.Values.FirstOrDefault(qi => qi.ShuffleIndex == queue.CurrentTrackIndex);
+                }
+                else
+                {
+                    currentItem = items.Values.FirstOrDefault(qi => qi.Index == queue.CurrentTrackIndex);
+                }
+                if (currentItem == null)
+                {
+                    throw new ArgumentException("Current track not found.", nameof(roomCode));
+                }
+
+                // Remove current item from dictionary
+                items.Remove(currentItem.Id);
+
+                // Mark all other items as deleted
+                foreach (var item in items.Values)
                 {
                     item.IsDeleted = true;
                     _dbContext.QueueItems.Update(item);
                 }
 
-                queue.CurrentTrackIndex = 0;
+                // Reset indices for the current item
                 currentItem.Index = 0;
-
                 if (queue.IsShuffled)
                 {
                     currentItem.ShuffleIndex = 0;
                 }
+
+                queue.CurrentTrackIndex = 0;
+                queue.CurrentTrackId = currentItem.TrackId;
 
                 _dbContext.QueueItems.Update(currentItem);
                 _dbContext.RoomInfos.Update(queue);
 
                 await _dbContext.SaveChangesAsync();
 
-                var updatedItems = new List<QueueItemDto>
-                {
-                    new QueueItemDto(currentItem)
-                };
-                foreach (var item in items)
+                var updatedItems = new List<QueueItemDto> { new QueueItemDto(currentItem) };
+                foreach (var item in items.Values)
                 {
                     updatedItems.Add(new QueueItemDto(item));
                 }

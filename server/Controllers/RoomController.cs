@@ -229,6 +229,20 @@ namespace KoodaamoJukebox.Controllers
 
             return await GetRoom();
         }
+
+        /// <summary>
+        /// Clear the queue
+        /// </summary>
+        [HttpPost("clear")]
+        public async Task<ActionResult<RoomResponse>> ClearQueue([FromBody] TimestampedIntRequest request)
+        {
+            ValidateTimestamp(request.SentAt);
+            var roomCode = GetRoomCodeFromClaims();
+
+            await _queueService.Clear(roomCode);
+
+            return await GetRoom();
+        }
     }
 
     // Request DTOs

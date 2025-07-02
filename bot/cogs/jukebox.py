@@ -341,6 +341,16 @@ class Jukebox(commands.Cog):
         except Exception as e:
             await safe_reply(ctx, f"❌ Error getting track info: {str(e)}")
 
+    @commands.command(description="Clear the queue")
+    async def clear(self, ctx: commands.Context):
+        """Clear the current queue"""
+        try:
+            async with ctx.typing():
+                token = await utils.api.get_token_from_context(ctx)
+                await utils.api.clear_queue(token)
+                await safe_reply(ctx, "🧹 Cleared the queue!")
+        except Exception as e:
+            await safe_reply(ctx, f"❌ Error clearing queue: {str(e)}")
 
 
 def setup(bot: discord.Bot):
