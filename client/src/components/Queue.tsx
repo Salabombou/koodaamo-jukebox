@@ -129,7 +129,11 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
       {/* Top arrow */}
       {topArrowVisible && (
         <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">
-          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto" aria-label="Scroll to current track">
+          <button
+            onClick={scrollToCurrentTrack}
+            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
+            aria-label="Scroll to current track"
+          >
             <FaArrowUp className="animate-bounce pt-2" />
           </button>
         </div>
@@ -137,7 +141,11 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
       {/* Bottom arrow */}
       {bottomArrowVisible && (
         <div className="hidden md:flex absolute bottom-2 right-2 z-10 pointer-events-none">
-          <button onClick={scrollToCurrentTrack} className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto" aria-label="Scroll to current track">
+          <button
+            onClick={scrollToCurrentTrack}
+            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
+            aria-label="Scroll to current track"
+          >
             <FaArrowDown className="animate-bounce pt-2" />
           </button>
         </div>

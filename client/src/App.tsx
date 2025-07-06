@@ -326,8 +326,8 @@ export default function App() {
     });
 
     const playbackRate = audioPlayer.current.playbackRate;
-    const safeDuration = isFinite(duration) ? duration : 0;
-    const safePosition = isFinite(timestamp) ? Math.min(safeDuration, timestamp) : 0;
+    const safeDuration = isFinite(duration) ? duration : undefined;
+    const safePosition = isFinite(timestamp) ? Math.min(safeDuration ?? 0, timestamp) : 0;
 
     navigator.mediaSession.setPositionState({
       duration: safeDuration,
@@ -528,7 +528,8 @@ export default function App() {
       if (!audio.paused && !audio.seeking) {
         if (Math.abs(audio.currentTime - lastTime) < 0.01) {
           stuckCount++;
-          if (stuckCount > 10) { // 1 second stuck
+          if (stuckCount > 10) {
+            // 1 second stuck
             console.warn("Audio player appears stuck, attempting to resume");
             audio.load();
             audio.play().catch(() => {});
