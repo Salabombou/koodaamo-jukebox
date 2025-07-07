@@ -6,7 +6,7 @@ export async function syncServerTime(isEmbedded: boolean) {
   const clientSend = Date.now();
   const response = await axios.get(`${isEmbedded ? "/.proxy" : ""}/api/time`);
   const clientReceive = Date.now();
-  const serverUnix = response.data.unixTimestamp;
+  const serverUnix = response.data.unix_timestamp;
   // Estimate RTT and offset
   const rtt = clientReceive - clientSend;
   const estimatedServerTime = serverUnix + rtt / 2;

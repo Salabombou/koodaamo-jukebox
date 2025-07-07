@@ -1,11 +1,11 @@
 export interface RoomInfo {
-  roomCode: string;
-  isPaused: boolean;
-  isLooping: boolean;
-  isShuffled: boolean;
-  currentTrack: {
+  room_code: string;
+  is_paused: boolean;
+  is_looping: boolean;
+  is_shuffled: boolean;
+  current_track: {
     index: number | null;
     id: string | null;
   };
-  playingSince: number | null;
+  playing_since: number | null;
 }

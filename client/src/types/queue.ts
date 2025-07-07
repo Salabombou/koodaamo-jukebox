@@ -1,7 +1,7 @@
 export interface QueueItem {
   id: number;
-  trackId: string;
+  track_id: string;
   index: number;
-  shuffledIndex: number;
-  isDeleted: boolean;
+  shuffled_index: number;
+  is_deleted: boolean;
 }

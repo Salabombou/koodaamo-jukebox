@@ -30,6 +30,7 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState<(Track & { itemId: number }) | null>(null);
   const [duration, setDuration] = useState(0);
   const [timestamp, setTimestamp] = useState(0);
+  const [audioReady, setAudioReady] = useState(false);
 
   useEffect(() => {
     timeService.syncServerTime(discordSDK.isEmbedded);
@@ -169,6 +170,7 @@ export default function App() {
 
   const onCanPlayThrough = useCallback(() => {
     if (!modalClosed) return;
+    setAudioReady(true);
     if (!isPaused && playingSince === null) {
       console.log("Resuming playback after can play through");
       invokeRoomAction("PauseToggle", false);
@@ -221,8 +223,8 @@ export default function App() {
 
     let nextTrack: Track | null = null;
     for (const item of queueItems.values()) {
-      if ((isShuffled ? item.shuffledIndex : item.index) === currentTrackIndex + 1) {
-        nextTrack = tracks.get(item.trackId) ?? null;
+      if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
+        nextTrack = tracks.get(item.track_id) ?? null;
         break;
       }
     }
@@ -232,7 +234,7 @@ export default function App() {
       // Prefetch next track audio
       const nextTrackId = nextTrack.id;
       const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem("auth_token");
       if (preFetch.current) return;
       preFetch.current = true;
       fetch(src, {
@@ -340,12 +342,26 @@ export default function App() {
     if (!modalClosed) return;
     if (playingSince === null) return;
     if (!isFinite(duration) || duration <= 0) return;
+    if (!audioReady) return;
     const currentTime = timeService.getServerNow();
     const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
 
     if (!isFinite(elapsedTime)) return;
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
-  }, [playingSince, duration, modalClosed]);
+  }, [playingSince, duration, modalClosed, audioReady]);
+
+  // Centralized effect to ensure playback always starts when all conditions are met
+  useEffect(() => {
+    if (!modalClosed) return;
+    if (!audioReady) return;
+    if (playingSince === null) return;
+    if (isPaused) return;
+    // Only play if not already playing
+    if (audioPlayer.current && audioPlayer.current.paused) {
+      console.log("Centralized: Ensuring playback when all conditions are met");
+      audioPlayer.current.play();
+    }
+  }, [audioReady, modalClosed, playingSince, isPaused]);
 
   useEffect(() => {
     if (!modalClosed) return;
@@ -361,28 +377,23 @@ export default function App() {
         audioPlayer.current!.currentTime = 0;
         invokeRoomAction("Seek", 0);
       }
-      if (msSince >= 0) {
-        if (!isPaused) {
-          console.log("Resuming audio playback immediately");
-          audioPlayer.current.play();
-        }
-      } else {
+      if (msSince < 0) {
         setTimeout(() => {
-          if (!isPaused) {
-            console.log("Resuming audio playback after delay");
+          // Only play if all conditions are met
+          if (!isPaused && audioReady && modalClosed && audioPlayer.current && audioPlayer.current.paused) {
+            console.log("Centralized: Ensuring playback after delay");
             audioPlayer.current!.play();
           }
         }, Math.abs(msSince));
         audioPlayer.current.currentTime = 0;
         setTimestamp(0);
       }
-
       if (isPaused) {
         console.log("Pausing audio playback");
         audioPlayer.current!.pause();
       }
     }
-  }, [playingSince, isPaused, duration, modalClosed]);
+  }, [playingSince, isPaused, duration, modalClosed, audioReady, invokeRoomAction]);
 
   useEffect(() => {
     if (typeof invokeError !== "string") return;
@@ -393,8 +404,8 @@ export default function App() {
     // Update currentTrack if either the track ID or the queue item ID changes
     if (typeof currentTrackId === "string" && typeof currentTrackIndex === "number") {
       const item = queueList.find((item) => {
-        const indexToCompare = isShuffled ? item.shuffledIndex : item.index;
-        return indexToCompare === currentTrackIndex && item.trackId === currentTrackId;
+        const indexToCompare = isShuffled ? item.shuffled_index : item.index;
+        return indexToCompare === currentTrackIndex && item.track_id === currentTrackId;
       });
       const track = tracks.get(currentTrackId);
       if (!item || !track) {
@@ -411,8 +422,8 @@ export default function App() {
   // Only update tracks if new tracks are actually added
   useEffect(() => {
     const unknownTrackIds = Array.from(queueItems.values())
-      .filter((item) => !tracks.has(item.trackId))
-      .map((item) => item.trackId);
+      .filter((item) => !tracks.has(item.track_id))
+      .map((item) => item.track_id);
     if (unknownTrackIds.length > 0) {
       startTransition(async () => {
         await apiService.getTracks(unknownTrackIds).then(({ data }) => {
@@ -439,6 +450,7 @@ export default function App() {
     audioPlayer,
     onDuration: setDuration,
     onFatalError(data) {
+      console.log("HLS fatal error:", data);
       if (skipOnFatalError.current) return; // Prevent multiple skips
       skipOnFatalError.current = true;
       switch (data.type) {
@@ -451,6 +463,9 @@ export default function App() {
         case Hls.ErrorTypes.OTHER_ERROR:
           console.error("An unknown error occurred while loading audio:", data);
           break;
+        default:
+          console.error("Unhandled HLS error type:", data.type, data);
+          break;
       }
       if (typeof currentTrackIndex === "number") {
         invokeRoomAction("Skip", currentTrackIndex + 1);
@@ -459,15 +474,18 @@ export default function App() {
   });
 
   useEffect(() => {
+    if (!modalClosed) return;
     const currentUniqueId = currentTrack ? `${currentTrack.id}:${currentTrack.itemId}` : null;
     const lastUniqueId = lastHlsTrackId.current;
-    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId) {
+    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
-
-      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrackId}/`;
-      loadSource(src);
+      setAudioReady(false); // Reset readiness on new track
+      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
+      if (audioPlayer.current) {
+        loadSource(src);
+      }
       setDuration(0);
       setTimestamp(0);
     } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
@@ -476,7 +494,7 @@ export default function App() {
       audioPlayer.current!.pause();
       setTimestamp(0);
     }
-  }, [currentTrack, discordSDK.isEmbedded, loadSource]);
+  }, [currentTrack, discordSDK.isEmbedded, loadSource, modalClosed]);
 
   const [secretUnlocked, setSecretUnlocked] = useState(localStorage.getItem("secret") === "true");
   const secretEverUnlocked = useRef(false);
@@ -522,7 +540,8 @@ export default function App() {
       // Check for error state
       if (audio.error) {
         console.error("Audio player error detected:", audio.error);
-        // Optionally, try to reload or skip track here
+        audio.pause();
+        return;
       }
       // Check if audio is stuck (not progressing)
       if (!audio.paused && !audio.seeking) {
@@ -549,6 +568,19 @@ export default function App() {
     }, 100);
     return () => clearInterval(interval);
   }, [modalClosed, isPaused, timestamp]);
+
+  useEffect(() => {
+    // Ensure playback starts if modalClosed becomes true after audioReady
+    if (!modalClosed) return;
+    if (!audioReady) return;
+    if (playingSince === null) return;
+    if (isPaused) return;
+    // Only play if not already playing
+    if (audioPlayer.current && audioPlayer.current.paused) {
+      console.log("Ensuring playback after modal closed and audio ready");
+      audioPlayer.current.play();
+    }
+  }, [audioReady, modalClosed, playingSince, isPaused]);
 
   return (
     <>

@@ -28,7 +28,7 @@ namespace KoodaamoJukebox.Controllers
             var roomCode = User.FindFirstValue("room_code");
             if (string.IsNullOrEmpty(roomCode))
             {
-                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
+                throw new ArgumentException("RoomCode not found in user claims.");
             }
             return roomCode;
         }

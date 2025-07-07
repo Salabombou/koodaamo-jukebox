@@ -93,7 +93,7 @@ namespace KoodaamoJukebox.Services
             {
                 if (seekTime < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(seekTime), "Seek time must be a non-negative integer.");
+                    throw new ArgumentException(nameof(seekTime), "Seek time must be a non-negative integer.");
                 }
 
                 long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -156,7 +156,7 @@ namespace KoodaamoJukebox.Services
             {
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index must be a non-negative integer.");
+                    throw new ArgumentException(nameof(index), "Index must be a non-negative integer.");
                 }
 
                 var queue = await _dbContext.RoomInfos
@@ -171,7 +171,7 @@ namespace KoodaamoJukebox.Services
                 var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
                 if (!indexIsValid)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index is not valid for the current queue.");
+                    throw new ArgumentException(nameof(index), "Index is not valid for the current queue.");
                 }
 
                 queue.CurrentTrackIndex = index;
@@ -200,7 +200,7 @@ namespace KoodaamoJukebox.Services
             {
                 if (from < 0 || to < 0)
                 {
-                    throw new ArgumentOutOfRangeException("Indices must be non-negative integers.");
+                    throw new ArgumentException("Indices must be non-negative integers.");
                 }
 
                 var queue = await _dbContext.RoomInfos
@@ -218,7 +218,7 @@ namespace KoodaamoJukebox.Services
 
                 if (from >= queueList.Count || to >= queueList.Count)
                 {
-                    throw new ArgumentOutOfRangeException("Indices are out of range of the current queue.");
+                    throw new ArgumentException("Indices are out of range of the current queue.");
                 }
 
                 if (from == to)
@@ -458,7 +458,7 @@ namespace KoodaamoJukebox.Services
             {
                 if (id < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(id), "ID must be a non-negative integer.");
+                    throw new ArgumentException(nameof(id), "ID must be a non-negative integer.");
                 }
 
                 var queue = await _dbContext.RoomInfos
@@ -688,7 +688,7 @@ namespace KoodaamoJukebox.Services
             {
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index must be a non-negative integer.");
+                    throw new ArgumentException(nameof(index), "Index must be a non-negative integer.");
                 }
 
                 var queue = await _dbContext.RoomInfos
@@ -701,7 +701,7 @@ namespace KoodaamoJukebox.Services
 
                 if (index >= queueItems.Count)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range of the current queue.");
+                    throw new ArgumentException(nameof(index), "Index is out of range of the current queue.");
                 }
 
                 var item = queueItems[index];

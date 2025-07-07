@@ -1,5 +1,6 @@
 import os
 import dotenv
+
 dotenv.load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL")
@@ -17,4 +18,3 @@ if not JWT_SECRET:
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 if not DISCORD_BOT_TOKEN:
     raise RuntimeError("DISCORD_BOT_TOKEN environment variable is not set")
-

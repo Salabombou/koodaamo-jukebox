@@ -100,7 +100,7 @@ namespace KoodaamoJukebox
 
             if (host == null || port == null || database == null || username == null || password == null)
             {
-                throw new Exception("PostgreSQL environment variables not set");
+                throw new InvalidOperationException("PostgreSQL environment variables not set");
             }
 
             optionsBuilder.UseNpgsql($"Host={host};Port={port};Database={database};Username={username};Password={password}");

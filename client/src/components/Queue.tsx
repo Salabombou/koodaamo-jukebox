@@ -61,7 +61,7 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
   // Memoize rowRenderer to avoid recreation on height/width changes
   const rowRenderer = useMemo(() => {
     return (props: ListChildComponentProps<QueueItem[]>) => {
-      const track = tracks.get(props.data[props.index].trackId) ?? null;
+      const track = tracks.get(props.data[props.index].track_id) ?? null;
       return (
         <QueueRow
           {...props}
@@ -200,7 +200,7 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
                 <QueueRow
                   overlay={true}
                   index={draggedIndex}
-                  track={tracks.get(optimisticQueueList[draggedIndex].trackId) ?? null}
+                  track={tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null}
                   currentTrack={currentTrack}
                   onSkip={() => {}}
                   onDelete={() => {}}

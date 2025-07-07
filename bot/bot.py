@@ -1,6 +1,8 @@
 import os
+
 if os.getenv("ENV") != "production":
     import dotenv
+
     dotenv.load_dotenv(dotenv_path="../.env")
 
 import discord

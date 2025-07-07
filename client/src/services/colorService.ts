@@ -9,7 +9,9 @@ function luminance(rgb: [number, number, number]): number {
 
 // Convert RGB (0-255) to XYZ
 function rgbToXyz([r, g, b]: [number, number, number]): [number, number, number] {
-  r /= 255; g /= 255; b /= 255;
+  r /= 255;
+  g /= 255;
+  b /= 255;
   r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
   g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
   b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
@@ -22,12 +24,16 @@ function rgbToXyz([r, g, b]: [number, number, number]): [number, number, number]
 // Convert XYZ to Lab
 function xyzToLab([x, y, z]: [number, number, number]): [number, number, number] {
   // D65 reference white
-  const refX = 0.95047, refY = 1.0, refZ = 1.08883;
-  x /= refX; y /= refY; z /= refZ;
-  x = x > 0.008856 ? Math.cbrt(x) : (7.787 * x) + 16 / 116;
-  y = y > 0.008856 ? Math.cbrt(y) : (7.787 * y) + 16 / 116;
-  z = z > 0.008856 ? Math.cbrt(z) : (7.787 * z) + 16 / 116;
-  const l = (116 * y) - 16;
+  const refX = 0.95047,
+    refY = 1.0,
+    refZ = 1.08883;
+  x /= refX;
+  y /= refY;
+  z /= refZ;
+  x = x > 0.008856 ? Math.cbrt(x) : 7.787 * x + 16 / 116;
+  y = y > 0.008856 ? Math.cbrt(y) : 7.787 * y + 16 / 116;
+  z = z > 0.008856 ? Math.cbrt(z) : 7.787 * z + 16 / 116;
+  const l = 116 * y - 16;
   const a = 500 * (x - y);
   const b_ = 200 * (y - z);
   return [l, a, b_];
@@ -37,15 +43,11 @@ function xyzToLab([x, y, z]: [number, number, number]): [number, number, number]
 function colorDifferenceLab(rgb1: [number, number, number], rgb2: [number, number, number]): number {
   const lab1 = xyzToLab(rgbToXyz(rgb1));
   const lab2 = xyzToLab(rgbToXyz(rgb2));
-  return Math.sqrt(
-    Math.pow(lab1[0] - lab2[0], 2) +
-    Math.pow(lab1[1] - lab2[1], 2) +
-    Math.pow(lab1[2] - lab2[2], 2)
-  );
+  return Math.sqrt(Math.pow(lab1[0] - lab2[0], 2) + Math.pow(lab1[1] - lab2[1], 2) + Math.pow(lab1[2] - lab2[2], 2));
 }
 
-function selectMostDifferentColors(palette: Palette, extraSwatches: Swatch[] = [], minDiff: number = 50): [Swatch, Swatch] | null {
-  const swatches = [palette.Vibrant, palette.LightVibrant, palette.DarkVibrant, ...extraSwatches].filter(s => s !== null);
+function selectMostDifferentColors(palette: Palette): [Swatch, Swatch] | null {
+  const swatches = Object.values(palette).filter((s) => s !== null);
   if (swatches.length < 2) return null;
 
   let maxDiff = -1;
@@ -63,17 +65,6 @@ function selectMostDifferentColors(palette: Palette, extraSwatches: Swatch[] = [
           colorB = swatchJ;
         }
       }
-    }
-  }
-  if (maxDiff < minDiff) {
-    if (palette.Muted && !swatches.includes(palette.Muted)) {
-      return selectMostDifferentColors(palette, [...extraSwatches, palette.Muted], minDiff);
-    }
-    if (palette.DarkMuted && !swatches.includes(palette.DarkMuted)) {
-      return selectMostDifferentColors(palette, [...extraSwatches, palette.DarkMuted], minDiff);
-    }
-    if (palette.LightMuted && !swatches.includes(palette.LightMuted)) {
-      return selectMostDifferentColors(palette, [...extraSwatches, palette.LightMuted], minDiff);
     }
   }
   return [colorA, colorB];

@@ -91,7 +91,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
           },
         });
       }
-      localStorage.setItem("isEmbedded", String(isEmbedded));
+      localStorage.setItem("is_embedded", String(isEmbedded));
       await newSdk.ready();
       setSdk(Object.assign(newSdk, { isEmbedded }));
     })();

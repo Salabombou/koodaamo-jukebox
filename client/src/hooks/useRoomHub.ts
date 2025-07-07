@@ -25,7 +25,7 @@ export default function useRoomHub() {
 
   // Setup SignalR connection
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("auth_token");
     if (!token) return;
     connection.current = new signalR.HubConnectionBuilder()
       .withUrl(`${discordSDK.isEmbedded ? "/.proxy" : ""}/api/hubs/room`, {
@@ -37,18 +37,18 @@ export default function useRoomHub() {
       .build();
     connection.current.on("RoomUpdate", (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
       console.log("Room update received:", roomInfo, updatedItems);
-      setPlayingSince(roomInfo.playingSince ?? null);
-      setIsPaused(roomInfo.isPaused);
-      setCurrentTrackIndex(roomInfo.currentTrack.index ?? null);
-      setCurrentTrackId(roomInfo.currentTrack.id ?? null);
-      setIsLooping(roomInfo.isLooping);
-      setIsShuffled(roomInfo.isShuffled);
+      setPlayingSince(roomInfo.playing_since ?? null);
+      setIsPaused(roomInfo.is_paused);
+      setCurrentTrackIndex(roomInfo.current_track.index ?? null);
+      setCurrentTrackId(roomInfo.current_track.id ?? null);
+      setIsLooping(roomInfo.is_looping);
+      setIsShuffled(roomInfo.is_shuffled);
 
       startTransition(() => {
         setQueueItems((prev) => {
           const items = new Map(prev);
           updatedItems.forEach((item) => {
-            if (item.isDeleted) {
+            if (item.is_deleted) {
               items.delete(item.id);
             } else {
               items.set(item.id, item);
@@ -56,8 +56,8 @@ export default function useRoomHub() {
           });
 
           const sortedItems = Array.from(items.values()).sort((a, b) => {
-            const aIndex = a.shuffledIndex ?? a.index;
-            const bIndex = b.shuffledIndex ?? b.index;
+            const aIndex = a.shuffled_index ?? a.index;
+            const bIndex = b.shuffled_index ?? b.index;
             return aIndex - bIndex;
           });
           setQueueList(sortedItems);

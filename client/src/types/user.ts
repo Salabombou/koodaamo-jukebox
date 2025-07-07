@@ -1,5 +1,5 @@
 export interface User {
-  userId: number;
+  user_id: number;
   username: string;
-  associatedRoomCode: string;
+  associated_room_code: string;
 }

@@ -6,6 +6,7 @@ from discord.embeds import Embed
 from discord.file import File
 from discord.ui import View
 
+
 async def safe_reply(
     ctx: commands.Context,
     content: Optional[str] = None,
@@ -33,7 +34,7 @@ async def safe_reply(
             view=view,
             mention_author=mention_author,
             suppress=suppress_embeds,
-            allowed_mentions=None
+            allowed_mentions=None,
         )
     except (discord.NotFound, AttributeError):
         await ctx.send(
@@ -46,5 +47,5 @@ async def safe_reply(
             view=view,
             mention_author=mention_author,
             suppress=suppress_embeds,
-            allowed_mentions=None
+            allowed_mentions=None,
         )

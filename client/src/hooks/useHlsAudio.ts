@@ -16,7 +16,7 @@ export default function useHlsAudio({ audioPlayer, onDuration, onFatalError }: U
     if (Hls.isSupported()) {
       hls.current = new Hls({
         xhrSetup: (xhr) => {
-          const token = localStorage.getItem("authToken") ?? "";
+          const token = localStorage.getItem("auth_token") ?? "";
           if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         },
       });

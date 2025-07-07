@@ -98,7 +98,7 @@ namespace KoodaamoJukebox.Controllers
             {
                 return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
             }
-
+            
             var audioStream = await YtDlp.GetAudioStream(track.WebpageUrl);
             if (audioStream.Type == YtDlpAudioStreamType.M3U8Native)
             {
@@ -131,32 +131,42 @@ namespace KoodaamoJukebox.Controllers
                     await responseStream.CopyToAsync(fileStream);
                 }
 
-                float duration = await Ffprobe.GetDuration(newHlsSegment.Path);
-                
+                // Use Ffmpeg utility to segment the audio file into 10s HLS segments and generate m3u8
+                string playlistPath;
+                string[] segmentFiles;
+                try
+                {
+                    (playlistPath, segmentFiles) = await Ffmpeg.SegmentAudioToHls(newHlsSegment.Path, webpageUrlHash);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"ffmpeg failed: {ex.Message}");
+                    return StatusCode(500, "Failed to segment audio file with ffmpeg.");
+                }
+
+                // Create HlsPlaylist entry
                 var newHlsPlaylist = new HlsPlaylist
                 {
                     WebpageUrlHash = webpageUrlHash,
                     DownloadUrl = audioStream.Url,
-                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()
+                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds(),
+                    Path = playlistPath
                 };
-
-                _dbContext.HlsSegments.Add(newHlsSegment);
-
-                newHlsPlaylist.Path = Path.GetTempFileName();
-
-                var hlsPlaylistLines = new[]
-                {
-                    "#EXTM3U",
-                    "#EXT-X-VERSION:3",
-                    $"#EXT-X-TARGETDURATION:{duration}",
-                    "#EXT-X-MEDIA-SEQUENCE:0",
-                    $"#EXTINF:{duration},",
-                    $"{webpageUrlHash}/playlist/segment-{audioDownloadUrlHash}",
-                    "#EXT-X-ENDLIST"
-                };
-                string hlsPlaylistContent = string.Join("\n", hlsPlaylistLines);
-                await System.IO.File.WriteAllTextAsync(newHlsPlaylist.Path, hlsPlaylistContent);
                 _dbContext.HlsPlaylists.Add(newHlsPlaylist);
+
+                // Add HlsSegment entries for each segment
+                foreach (var segmentFile in segmentFiles)
+                {
+                    string segmentUrlHash = Hashing.ComputeSha256Hash(segmentFile);
+                    var segment = new HlsSegment
+                    {
+                        WebpageUrlHash = webpageUrlHash,
+                        DownloadUrl = null!, // Not needed for local segments
+                        DownloadUrlHash = segmentUrlHash,
+                        Path = segmentFile
+                    };
+                    _dbContext.HlsSegments.Add(segment);
+                }
                 await _dbContext.SaveChangesAsync();
                 return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
             }
@@ -202,7 +212,50 @@ namespace KoodaamoJukebox.Controllers
                 var segmentUrlHashes = new SortedSet<string>();
 
                 var baseUrl = new Uri(hlsPlaylist.DownloadUrl).GetLeftPart(UriPartial.Authority);
-
+                string? segmentBaseUrl = null;
+                for (int i = 0; i < hlsPlaylistLines.Length; i++)
+                {
+                    var playlistLine = hlsPlaylistLines[i];
+                    var trimmedLine = playlistLine.TrimStart();
+                    if (trimmedLine.StartsWith("#EXT-X-MAP:URI=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var uriValue = playlistLine.Trim()["#EXT-X-MAP:URI=".Length..].Trim();
+                        // Remove quotes if present
+                        uriValue = Regex.Replace(uriValue, "^\"|\"$", "");
+                        // Compose absolute or relative URL for segment base
+                        string mapAbsoluteUrl;
+                        if (Uri.IsWellFormedUriString(uriValue, UriKind.Absolute))
+                        {
+                            mapAbsoluteUrl = uriValue;
+                        }
+                        else
+                        {
+                            string baseForMap = segmentBaseUrl ?? baseUrl;
+                            mapAbsoluteUrl = new Uri(new Uri(baseForMap), uriValue).ToString();
+                        }
+                        var mapHash = Hashing.ComputeSha256Hash(mapAbsoluteUrl);
+                        // Add HlsSegment for map URI if not exists
+                        if (!segmentUrlHashes.Contains(mapHash))
+                        {
+                            segmentUrlHashes.Add(mapHash);
+                            if (!await _dbContext.HlsSegments.AnyAsync(s => s.DownloadUrlHash == mapHash))
+                            {
+                                var mapSegment = new HlsSegment
+                                {
+                                    WebpageUrlHash = webpageUrlHash,
+                                    DownloadUrl = mapAbsoluteUrl,
+                                    DownloadUrlHash = mapHash
+                                };
+                                _dbContext.HlsSegments.Add(mapSegment);
+                            }
+                        }
+                        // Replace the URI in the line with the segment endpoint
+                        var newMapLine = $"#EXT-X-MAP:URI=\"playlist/segment-{mapHash}\"";
+                        hlsPlaylistLines[i] = newMapLine;
+                        continue;
+                    }
+                }
+                // Now process segment lines
                 for (int i = 0; i < hlsPlaylistLines.Length; i++)
                 {
                     var line = hlsPlaylistLines[i].Trim();
@@ -210,32 +263,29 @@ namespace KoodaamoJukebox.Controllers
                     {
                         continue; // Skip comments
                     }
-
                     // Skip lines that are not valid URLs (e.g., ID3 tags or binary data)
                     if (!Uri.IsWellFormedUriString(line, UriKind.Absolute) && !Uri.IsWellFormedUriString(line, UriKind.Relative))
                     {
                         continue; // Skip non-URL, non-comment lines
                     }
-
                     var segment = new HlsSegment
                     {
                         WebpageUrlHash = webpageUrlHash,
                         DownloadUrl = null!,
                         DownloadUrlHash = null!
                     };
-
+                    string segmentAbsoluteUrl;
                     if (Uri.IsWellFormedUriString(line, UriKind.Absolute))
                     {
-                        segment.DownloadUrl = line;
-                        segment.DownloadUrlHash = Hashing.ComputeSha256Hash(line);
+                        segmentAbsoluteUrl = line;
                     }
-                    else if (Uri.IsWellFormedUriString(line, UriKind.Relative))
+                    else
                     {
-                        var absoluteUrl = new Uri(new Uri(baseUrl), line).ToString();
-                        segment.DownloadUrl = absoluteUrl;
-                        segment.DownloadUrlHash = Hashing.ComputeSha256Hash(absoluteUrl);
+                        string baseForSegment = segmentBaseUrl ?? baseUrl;
+                        segmentAbsoluteUrl = new Uri(new Uri(baseForSegment), line).ToString();
                     }
-
+                    segment.DownloadUrl = segmentAbsoluteUrl;
+                    segment.DownloadUrlHash = Hashing.ComputeSha256Hash(segmentAbsoluteUrl);
                     if (!segmentUrlHashes.Contains(segment.DownloadUrlHash))
                     {
                         segmentUrlHashes.Add(segment.DownloadUrlHash);
@@ -246,12 +296,10 @@ namespace KoodaamoJukebox.Controllers
                     }
                     hlsPlaylistLines[i] = $"playlist/segment-{segment.DownloadUrlHash}";
                 }
-
                 hlsPlaylistContent = string.Join("\n", hlsPlaylistLines);
                 hlsPlaylist.Path = Path.GetTempFileName();
                 await System.IO.File.WriteAllTextAsync(hlsPlaylist.Path, hlsPlaylistContent);
                 await _dbContext.SaveChangesAsync();
-
             }
             finally
             {

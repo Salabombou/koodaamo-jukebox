@@ -14,25 +14,42 @@ namespace KoodaamoJukebox.Utilities
 
         public static async Task<YtDlpAudioStream> GetAudioStream(string webpageUrl)
         {
+            if (!Uri.IsWellFormedUriString(webpageUrl, UriKind.Absolute))
+            {
+                throw new ArgumentException("Invalid URL format.", nameof(webpageUrl));
+            }
+
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = _ytDlpPath,
-                    Arguments = $"--dump-json \"{webpageUrl}\" --no-warnings -f bestaudio[protocol=m3u8_native]/bestaudio[protocol=https] --no-playlist --skip-download",
+                    ArgumentList =
+                    {
+                        "--dump-json",
+                        webpageUrl,
+                        "--no-warnings",
+                        "-f", "bestaudio[protocol=m3u8_native]/bestaudio[protocol=https]",
+                        "--no-playlist",
+                        "--skip-download"
+                    },
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
             };
 
             process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
+            var output = await outputTask;
+            var error = await errorTask;
 
             if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
             {
-                throw new InvalidOperationException($"Failed to fetch audio info for: {webpageUrl}. Exit code: {process.ExitCode}");
+                throw new InvalidOperationException($"Failed to fetch audio info for: {webpageUrl}. Exit code: {process.ExitCode}. yt-dlp error: {error}");
             }
 
             var data = JsonSerializer.Deserialize<JsonElement>(output);
@@ -295,6 +312,11 @@ namespace KoodaamoJukebox.Utilities
                     var data = JsonSerializer.Deserialize<JsonElement>(line);
 
                     string? extractor = data.GetProperty("extractor").GetString();
+                    if (string.IsNullOrWhiteSpace(extractor) || extractor == "generic")
+                    {
+                        throw new ArgumentException($"Direct download is not supported.");
+                    }
+
                     string? webpageUrl = data.GetProperty("webpage_url").GetString();
                     string? title = data.GetProperty("title").GetString();
 
@@ -304,6 +326,7 @@ namespace KoodaamoJukebox.Utilities
                         continue;
                     }
 
+                    // Only add if yt-dlp directly supports it (has a supported extractor)
                     var trackType = extractor switch
                     {
                         "youtube" => TrackType.YouTube,
@@ -323,15 +346,36 @@ namespace KoodaamoJukebox.Utilities
 
                     string? thumbnailHigh = null;
                     string? thumbnailLow = null;
-
                     if (data.TryGetProperty("thumbnails", out var thumbnails) && thumbnails.ValueKind == JsonValueKind.Array && thumbnails.GetArrayLength() > 0)
                     {
-                        thumbnailHigh = thumbnails[0].GetProperty("url").GetString();
-                        thumbnailLow = thumbnails[thumbnails.GetArrayLength() - 1].GetProperty("url").GetString();
+                        JsonElement? largest = null;
+                        JsonElement? smallest = null;
+                        int largestArea = -1;
+                        int smallestArea = int.MaxValue;
+
+                        foreach (var thumb in thumbnails.EnumerateArray())
+                        {
+                            int width = thumb.TryGetProperty("width", out var w) ? w.GetInt32() : 0;
+                            int height = thumb.TryGetProperty("height", out var h) ? h.GetInt32() : 0;
+                            int area = width * height;
+
+                            if (area > largestArea)
+                            {
+                                largestArea = area;
+                                largest = thumb;
+                            }
+                            if (area < smallestArea)
+                            {
+                                smallestArea = area;
+                                smallest = thumb;
+                            }
+                        }
+
+                        thumbnailHigh = largest?.GetProperty("url").GetString();
+                        thumbnailLow = smallest?.GetProperty("url").GetString();
                     }
 
                     string urlHash = Hashing.ComputeSha256Hash(webpageUrl);
-
 
                     var track = new Track
                     {

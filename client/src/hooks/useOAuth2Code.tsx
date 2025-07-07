@@ -22,7 +22,7 @@ export function OAuth2CodeProvider({ children }: { children: ReactNode }) {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
         if (code) setOAuth2Code(code);
-        else if (Date.now() >= parseInt(localStorage.getItem("expiresAt") || "0")) {
+        else if (Date.now() >= parseInt(localStorage.getItem("expires_at") || "0")) {
           window.location.href = import.meta.env.VITE_DISCORD_OAUTH2_URL;
         } else setOAuth2Code("");
         const url = new URL(window.location.href);

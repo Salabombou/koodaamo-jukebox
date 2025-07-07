@@ -49,6 +49,7 @@ export default function MusicPlayerInterface({
   const volumeSlider = useRef<HTMLInputElement>(null);
   const volumeRef = useRef(1);
   const [volume, setVolume] = useState(Number(localStorage.getItem("volume") ?? 0.01));
+  const secretUnlocked = useRef(localStorage.getItem("secret") === "true");
 
   const discordSDK = useDiscordSDK();
 
@@ -59,7 +60,6 @@ export default function MusicPlayerInterface({
 
   const secretClickCount = useRef(0);
   const secretSinceLastClick = useRef(0);
-  const secretUnlocked = useRef(localStorage.getItem("secret") === "true");
 
   useEffect(() => {
     if (!isSeeking) {
@@ -104,8 +104,8 @@ export default function MusicPlayerInterface({
         <ContextMenu
           controlsDisabled={disabled}
           onCopyUrl={() => {
-            if (track?.webpageUrl) {
-              navigator.clipboard.writeText(track.webpageUrl);
+            if (track?.webpage_url) {
+              navigator.clipboard.writeText(track.webpage_url);
             }
           }}
         >

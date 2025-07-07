@@ -6,14 +6,14 @@ import { Track } from "../types/track";
 const apiClient = axios.create();
 
 apiClient.interceptors.request.use((config) => {
-  if (localStorage.getItem("isEmbedded") === "true") {
+  if (localStorage.getItem("is_embedded") === "true") {
     config.baseURL = "/.proxy";
   }
   return config;
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken");
+  const token = localStorage.getItem("auth_token");
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -46,6 +46,6 @@ export function getQueueItemsHash() {
 
 export function getTracks(trackIds: string[]) {
   return apiClient.post<Map<string, Track>>(`/api/track`, {
-    webpageUrlHashes: trackIds,
+    webpage_url_hashes: trackIds,
   });
 }

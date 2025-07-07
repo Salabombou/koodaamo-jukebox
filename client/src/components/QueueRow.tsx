@@ -42,8 +42,8 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
   const handleDelete = () => onDelete(index);
   const handlePlayNext = () => onPlayNext(index);
   const handleCopyUrl = () => {
-    if (track?.webpageUrl) {
-      navigator.clipboard.writeText(track.webpageUrl);
+    if (track?.webpage_url) {
+      navigator.clipboard.writeText(track.webpage_url);
     }
   };
 
