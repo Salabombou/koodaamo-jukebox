@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 
-namespace server.Controllers
+namespace KoodaamoJukebox.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class TimeController : ControllerBase
     {
         [HttpGet]

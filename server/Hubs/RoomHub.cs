@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using KoodaamoJukebox.Models;
 using Microsoft.EntityFrameworkCore;
-using KoodaamoJukebox.Utilities;
 using KoodaamoJukebox.Services;
 using System.Security.Claims;
 

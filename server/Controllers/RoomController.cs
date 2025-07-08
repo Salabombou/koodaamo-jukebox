@@ -9,7 +9,7 @@ namespace KoodaamoJukebox.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Roles = "Bot")]
     public class RoomController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
@@ -31,15 +31,6 @@ namespace KoodaamoJukebox.Controllers
                 throw new ArgumentException("RoomCode not found in user claims.");
             }
             return roomCode;
-        }
-
-        private void ValidateTimestamp(long sentAt)
-        {
-            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (Math.Abs(currentTime - sentAt) > 5000)
-            {
-                throw new ArgumentException("Timestamp difference is too large.");
-            }
         }
 
         /// <summary>
@@ -77,7 +68,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("pause")]
         public async Task<ActionResult<RoomResponse>> PauseToggle([FromBody] TimestampedBoolRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             await _queueService.Pause(roomCode, request.Value);
@@ -91,7 +81,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("loop")]
         public async Task<ActionResult<RoomResponse>> LoopToggle([FromBody] TimestampedBoolRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             await _queueService.Loop(roomCode, request.Value);
@@ -105,7 +94,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("shuffle")]
         public async Task<ActionResult<RoomResponse>> ShuffleToggle([FromBody] TimestampedBoolRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             await _queueService.Shuffle(roomCode, request.Value);
@@ -119,7 +107,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("seek")]
         public async Task<ActionResult<RoomResponse>> Seek([FromBody] TimestampedIntRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (request.Value < 0)
@@ -141,7 +128,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("skip")]
         public async Task<ActionResult<RoomResponse>> Skip([FromBody] TimestampedIntRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (request.Value < 0)
@@ -160,7 +146,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("move")]
         public async Task<ActionResult<RoomResponse>> Move([FromBody] TimestampedMoveRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (request.From < 0 || request.To < 0)
@@ -179,7 +164,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("add")]
         public async Task<ActionResult<RoomResponse>> Add([FromBody] TimestampedStringRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (string.IsNullOrWhiteSpace(request.Value))
@@ -198,7 +182,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("remove")]
         public async Task<ActionResult<RoomResponse>> Remove([FromBody] TimestampedIntRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (request.Value < 0)
@@ -217,7 +200,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("delete")]
         public async Task<ActionResult<RoomResponse>> Delete([FromBody] TimestampedIntRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             if (request.Value < 0)
@@ -236,7 +218,6 @@ namespace KoodaamoJukebox.Controllers
         [HttpPost("clear")]
         public async Task<ActionResult<RoomResponse>> ClearQueue([FromBody] TimestampedIntRequest request)
         {
-            ValidateTimestamp(request.SentAt);
             var roomCode = GetRoomCodeFromClaims();
 
             await _queueService.Clear(roomCode);

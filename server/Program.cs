@@ -1,6 +1,8 @@
 using KoodaamoJukebox.Services;
 using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json.Serialization;
+using Microsoft.AspNetCore.Identity;
+
 
 namespace KoodaamoJukebox
 {
@@ -31,7 +33,7 @@ namespace KoodaamoJukebox
                 };
             });
             builder.Services.AddJwtAuthentication();
-            builder.Services.AddAuthorization();
+
             builder.Services.AddTransient<Middlewares.GlobalExceptionHandlerMiddleware>();
 
             builder.Services.AddEndpointsApiExplorer();

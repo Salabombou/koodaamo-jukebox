@@ -54,6 +54,7 @@ class TracksRequestDto(TypedDict):
 API_KEY = jwt.encode(
     {
         "iss": "jukebox-bot",
+        "role": "Bot",
         "exp": datetime.now() + timedelta(weeks=9999),
     },
     JWT_SECRET,
@@ -65,14 +66,33 @@ _client = httpx.AsyncClient(
 )
 
 
+class ApiError(Exception):
+    def __init__(self, status_code: int, title: str, detail: str = None):
+        self.status_code = status_code
+        self.title = title
+        self.detail = detail
+        super().__init__(f"{title}: {detail if detail else ''}")
+
+def _handle_api_response(resp: httpx.Response):
+    if resp.status_code >= 200 and resp.status_code < 300:
+        return resp
+    try:
+        problem = resp.json()
+        title = problem.get("title", "Error")
+        detail = problem.get("detail", "")
+    except Exception:
+        title = "Unknown error"
+        detail = resp.text
+    raise ApiError(resp.status_code, title, detail)
+
+
 async def _get_room_code_from_context(ctx: commands.Context) -> str | None:
     user_id = str(ctx.author.id)
     resp = await _client.get(
         f"/api/user/{user_id}", headers={"Authorization": f"Bearer {API_KEY}"}
     )
-    resp.raise_for_status()
-
-    return resp.json()["associatedRoomCode"]
+    _handle_api_response(resp)
+    return resp.json()["associated_room_code"]
 
 
 async def get_token_from_context(ctx: commands.Context) -> str:
@@ -83,6 +103,7 @@ async def get_token_from_context(ctx: commands.Context) -> str:
         "room_code": room_code,
         "exp": datetime.now() + timedelta(days=7),
         "iss": "jukebox-bot",
+        "role": "Bot",
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
@@ -94,7 +115,7 @@ async def add_to_queue(token: str, url_or_query: str) -> None:
         headers={"Authorization": f"Bearer {token}"},
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -102,7 +123,7 @@ async def get_queue(token: str) -> List[dict]:
     resp = await _client.get(
         "/api/queue/items", headers={"Authorization": f"Bearer {token}"}, timeout=60
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -110,6 +131,8 @@ async def get_room_info(token: str) -> dict:
     resp = await _client.get(
         "/api/room/info", headers={"Authorization": f"Bearer {token}"}, timeout=60
     )
+    _handle_api_response(resp)
+    return resp.json()
 
 
 def _get_current_timestamp() -> int:
@@ -125,7 +148,7 @@ async def get_track(token: str, webpage_url_hash: str) -> TrackDto:
         headers={"Authorization": f"Bearer {token}"},
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -138,7 +161,7 @@ async def get_tracks(token: str, webpage_url_hashes: list[str]) -> list[TrackDto
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -159,7 +182,7 @@ async def get_room(token: str) -> RoomResponse:
     resp = await _client.get(
         "/api/room", headers={"Authorization": f"Bearer {token}"}, timeout=60
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -172,7 +195,7 @@ async def pause_toggle(token: str, paused: bool) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -185,7 +208,7 @@ async def loop_toggle(token: str, loop: bool) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -198,7 +221,7 @@ async def shuffle_toggle(token: str, shuffled: bool) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -211,7 +234,7 @@ async def seek(token: str, seek_time: int) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -224,7 +247,7 @@ async def skip(token: str, index: int) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -237,7 +260,7 @@ async def move_track(token: str, from_index: int, to_index: int) -> RoomResponse
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -250,7 +273,7 @@ async def add_track(token: str, url_or_query: str) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -263,7 +286,7 @@ async def remove_track(token: str, track_id: int) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -276,7 +299,7 @@ async def delete_track(token: str, index: int) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()
 
 
@@ -292,5 +315,5 @@ async def clear_queue(token: str) -> RoomResponse:
         json=data,
         timeout=60,
     )
-    resp.raise_for_status()
+    _handle_api_response(resp)
     return resp.json()

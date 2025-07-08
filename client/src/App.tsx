@@ -201,14 +201,18 @@ export default function App() {
     if (seeking.current) return;
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
-      const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
+      let elapsedtime = (currentTime - playingSince) / 1000;
+      if (!isLooping && elapsedtime > duration && duration > 0) {
+        return;
+      }
+      elapsedtime = elapsedtime % duration;
 
-      if (elapsedTime >= 1 && Math.abs(audioPlayer.current!.currentTime - elapsedTime) > 1) {
-        console.log("Fixing desync, setting currentTime to", elapsedTime);
-        audioPlayer.current!.currentTime = elapsedTime;
-        if (!isPaused) {
-          audioPlayer.current!.play();
-        }
+      if (elapsedtime >= 1 && Math.abs(audioPlayer.current.currentTime - elapsedtime) > 1) {
+        console.log("Fixing desync, setting currentTime to", elapsedtime);
+        audioPlayer.current!.currentTime = elapsedtime;
+      }
+      if (!isPaused && audioPlayer.current.paused) {
+        audioPlayer.current.play();
       }
     }
 
@@ -350,37 +354,26 @@ export default function App() {
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
   }, [playingSince, duration, modalClosed, audioReady]);
 
-  // Centralized effect to ensure playback always starts when all conditions are met
   useEffect(() => {
     if (!modalClosed) return;
     if (!audioReady) return;
-    if (playingSince === null) return;
-    if (isPaused) return;
-    // Only play if not already playing
-    if (audioPlayer.current && audioPlayer.current.paused) {
-      console.log("Centralized: Ensuring playback when all conditions are met");
-      audioPlayer.current.play();
-    }
-  }, [audioReady, modalClosed, playingSince, isPaused]);
-
-  useEffect(() => {
-    if (!modalClosed) return;
+    
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      if (msSince >= duration * 1000 && duration > 0) {
+      if (msSince >= (duration * 1000) && duration > 0) {
         console.log("Invoking seek to normalize playback position");
         seeking.current = true;
-        audioPlayer.current!.currentTime = 0;
+        audioPlayer.current.currentTime = 0;
         invokeRoomAction("Seek", 0);
       }
       if (msSince < 0) {
         setTimeout(() => {
           // Only play if all conditions are met
-          if (!isPaused && audioReady && modalClosed && audioPlayer.current && audioPlayer.current.paused) {
+          if (!isPaused && audioReady && modalClosed && audioPlayer.current.paused) {
             console.log("Centralized: Ensuring playback after delay");
             audioPlayer.current!.play();
           }
@@ -390,7 +383,12 @@ export default function App() {
       }
       if (isPaused) {
         console.log("Pausing audio playback");
-        audioPlayer.current!.pause();
+        audioPlayer.current.pause();
+      } else if (audioPlayer.current.paused) {
+        console.log("Resuming audio playback");
+        audioPlayer.current.play().catch((error) => {
+          console.error("Failed to resume audio playback:", error);
+        });
       }
     }
   }, [playingSince, isPaused, duration, modalClosed, audioReady, invokeRoomAction]);
@@ -577,7 +575,6 @@ export default function App() {
     if (isPaused) return;
     // Only play if not already playing
     if (audioPlayer.current && audioPlayer.current.paused) {
-      console.log("Ensuring playback after modal closed and audio ready");
       audioPlayer.current.play();
     }
   }, [audioReady, modalClosed, playingSince, isPaused]);

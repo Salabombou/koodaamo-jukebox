@@ -9,6 +9,8 @@ import discord
 from discord.ext import commands
 import os
 from utils.logger import logger
+from utils.api import ApiError
+from utils.safe_reply import safe_reply
 
 bot = commands.Bot(
     intents=discord.Intents.all(),
@@ -25,6 +27,24 @@ for cog in cogs_list:
 @bot.event
 async def on_ready():
     logger.info(f"Logged in as {bot.user}")
+
+
+@bot.event
+async def on_command_error(ctx: commands.Context, error):
+    if isinstance(error, ApiError):
+        embed = discord.Embed(
+            title=f"❌ {error.title}",
+            description=error.detail or "An error occurred.",
+            color=discord.Color.red(),
+        )
+        await safe_reply(ctx, embeds=[embed])
+    else:
+        embed = discord.Embed(
+            title="❌ Unexpected Error",
+            description=str(error),
+            color=discord.Color.red(),
+        )
+        await safe_reply(ctx, embeds=[embed])
 
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")

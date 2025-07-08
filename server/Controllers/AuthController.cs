@@ -46,9 +46,10 @@ namespace KoodaamoJukebox.Controllers
             var creds = new SigningCredentials(jwtSecretKey, SecurityAlgorithms.HmacSha256);
             var claims = new List<Claim>
             {
-                new Claim("user_id", userId.ToString()),
-                new Claim("room_code", associatedRoomCode),
-                new Claim("is_embedded", isEmbedded.ToString()),
+                new("user_id", userId.ToString()),
+                new("room_code", associatedRoomCode),
+                new("is_embedded", isEmbedded.ToString()),
+                new("role", "Client")
             };
 
             var token = new JwtSecurityToken(

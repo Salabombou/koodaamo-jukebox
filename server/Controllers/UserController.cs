@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace KoodaamoJukebox.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Bot")]
     [Route("api/[controller]")]
     public class UserController : ControllerBase
     {

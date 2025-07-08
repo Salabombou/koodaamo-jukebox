@@ -8,7 +8,7 @@ using KoodaamoJukebox.Utilities;
 using System.Security.Claims;
 using KoodaamoJukebox.Services;
 
-namespace server.Controllers
+namespace KoodaamoJukebox.Controllers
 {
     [ApiController]
     [Authorize]
