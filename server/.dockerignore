@@ -4,6 +4,7 @@
 /publish
 /Properties
 /Migrations
+/Tests
 
 .env
 .gitingore
