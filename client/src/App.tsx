@@ -184,6 +184,7 @@ export default function App() {
       audioPlayer.current!.play();
       invokeRoomAction("Seek", 0, false);
     } else {
+      audioPlayer.current.pause();
       if (typeof currentTrackIndex === "number") {
         if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
           console.log("Reached end of queue, looping back to start");
