@@ -1,7 +1,7 @@
-/bin
-/build
-/obj
-/publish
-/Properties
+**/bin
+**/build
+**/obj
+**/publish
+**/Properties
 
 .env
