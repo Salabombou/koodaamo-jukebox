@@ -45,8 +45,8 @@ importers:
         specifier: ^12.20.1
         version: 12.20.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       hls.js:
-        specifier: ^1.6.5
-        version: 1.6.5
+        specifier: ^1.6.7
+        version: 1.6.7
       node-vibrant:
         specifier: ^4.0.3
         version: 4.0.3
@@ -1311,8 +1311,8 @@ packages:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
 
-  hls.js@1.6.5:
-    resolution: {integrity: sha512-KMn5n7JBK+olC342740hDPHnGWfE8FiHtGMOdJPfUjRdARTWj9OB+8c13fnsf9sk1VtpuU2fKSgUjHvg4rNbzQ==}
+  hls.js@1.6.7:
+    resolution: {integrity: sha512-QW2fnwDGKGc9DwQUGLbmMOz8G48UZK7PVNJPcOUql1b8jubKx4/eMHNP5mGqr6tYlJNDG1g10Lx2U/qPzL6zwQ==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -3172,7 +3172,7 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  hls.js@1.6.5: {}
+  hls.js@1.6.7: {}
 
   ieee754@1.2.1: {}
 
