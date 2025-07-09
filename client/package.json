@@ -18,7 +18,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@microsoft/signalr": "^8.0.7",
-    "@tailwindcss/vite": "^4.1.10",
+    "@tailwindcss/vite": "^4.1.11",
     "@types/discord-rpc": "^4.0.9",
     "@xhayper/discord-rpc": "^1.2.2",
     "axios": "^1.10.0",
