@@ -633,7 +633,6 @@ export default function App() {
             setSecret={setSecretUnlocked}
           />
           <Queue
-            key={queueList.length}
             tracks={tracks}
             queueList={queueList}
             currentTrack={currentTrack}
