@@ -1,10 +1,10 @@
-/bin
-/build
-/obj
-/publish
-/Properties
-/Migrations
-/Tests
+**/bin
+**/build
+**/obj
+**/publish
+**/Properties
+**/Migrations
+/tests
 
 .env
 .gitingore

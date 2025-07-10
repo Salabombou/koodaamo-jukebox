@@ -36,6 +36,8 @@ interface QueueProps {
   onPlayNext: (index: number) => void;
 }
 
+const itemHeight = 66;
+
 export default function Queue({ tracks, queueList, currentTrack, currentTrackIndex, onMove, onSkip, onDelete, onPlayNext, controlsDisabled }: QueueProps) {
   const [optimisticQueueList, moveItem] = useOptimistic<QueueItem[], [number, number]>(queueList, (state, [fromIndex, toIndex]) => {
     const newState = [...state];
@@ -48,7 +50,6 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
 
   const itemKey = useCallback((index: number, data: QueueItem[]) => data[index].id, []);
 
-  // Memoize stable props for rowRenderer
   const stableProps = useMemo(
     () => ({
       onDelete,
@@ -58,7 +59,6 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
     [onDelete, onPlayNext, controlsDisabled],
   );
 
-  // Memoize rowRenderer to avoid recreation on height/width changes
   const rowRenderer = useMemo(() => {
     return (props: ListChildComponentProps<QueueItem[]>) => {
       const track = tracks.get(props.data[props.index].track_id) ?? null;
@@ -77,8 +77,6 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
         />
       );
     };
-    // Only depend on things that should trigger a re-render of rows
-    // tracks and currentTrack are assumed stable (from parent or memoized)
   }, [tracks, currentTrack, onSkip, stableProps]);
 
   useEffect(() => {
@@ -90,31 +88,37 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
   }, [draggedIndex]);
 
   const list = useRef<FixedSizeList>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
 
   const scrolledSince = useRef<number | null>(null);
 
-  const isScrolled = useCallback(() => {
-    if (scrolledSince.current === null) return false;
-    return Date.now() - scrolledSince.current < 5000;
+  // Helper to scroll to a specific index and center it
+  const scrollToIndexCentered = useCallback((index: number) => {
+    if (list.current) {
+      const height = outerRef.current ? outerRef.current.clientHeight : Number(list.current.props.height);
+      const visibleCount = Math.floor(height / itemHeight);
+      const offset = Math.max(0, index - Math.floor(visibleCount / 2));
+      list.current.scrollTo(offset * itemHeight);
+    }
   }, []);
 
   useEffect(() => {
     if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
       if (list.current) {
-        if (!isScrolled() && draggedIndex === null) {
-          list.current.scrollToItem(currentTrackIndex, "center");
+        const isScrolled = scrolledSince.current !== null && (Date.now() - scrolledSince.current) < 5000;
+        if (!isScrolled && draggedIndex === null) {
+          scrollToIndexCentered(currentTrackIndex);
         }
-        scrolledSince.current = null;
       }
     }
-  }, [currentTrack, currentTrackIndex, isScrolled]);
+  }, [currentTrack?.itemId, currentTrackIndex, optimisticQueueList]);
 
   // Scroll to current track when arrow is clicked
   const scrollToCurrentTrack = useCallback(() => {
     if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0 && list.current) {
-      list.current.scrollToItem(currentTrackIndex, "center");
+      scrollToIndexCentered(currentTrackIndex);
     }
-  }, [currentTrackIndex]);
+  }, [currentTrackIndex, scrollToIndexCentered]);
 
   const [visibleRange, setVisibleRange] = useState<{
     start: number;
@@ -170,15 +174,16 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
             <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
               <FixedSizeList
                 ref={list}
+                outerRef={outerRef}
                 height={height}
                 width={width}
                 itemData={optimisticQueueList}
                 itemCount={optimisticQueueList.length}
-                onScroll={(e) => {
+                onScroll={async (e) => {
                   if (e.scrollUpdateWasRequested) return;
                   scrolledSince.current = Date.now();
                 }}
-                itemSize={66}
+                itemSize={itemHeight}
                 itemKey={itemKey}
                 style={{
                   overflowX: "hidden",

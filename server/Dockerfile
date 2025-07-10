@@ -3,10 +3,9 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
-COPY ["server.csproj", "./"]
+COPY ["src/server.csproj", "./"]
 RUN dotnet restore "./server.csproj"
-COPY . .
-WORKDIR "/src/."
+COPY src/. .
 RUN dotnet build "server.csproj" -c Release -o /app/build
 
 FROM build AS publish

@@ -202,11 +202,7 @@ export default function App() {
     if (seeking.current) return;
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
-      let elapsedtime = (currentTime - playingSince) / 1000;
-      if (!isLooping && elapsedtime > duration && duration > 0) {
-        return;
-      }
-      elapsedtime = elapsedtime % duration;
+      const elapsedtime = ((currentTime - playingSince) / 1000) % duration;
 
       if (elapsedtime >= 1 && Math.abs(audioPlayer.current.currentTime - elapsedtime) > 1) {
         console.log("Fixing desync, setting currentTime to", elapsedtime);
