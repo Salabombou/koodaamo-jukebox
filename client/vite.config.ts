@@ -3,9 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [tailwindcss(), react()],
-  envDir: mode !== "production" ? "../" : ".",
   server: {
     strictPort: true,
     allowedHosts: true,
@@ -15,12 +14,12 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target: process.env.VITE_API_PROXY || "http://localhost:5000",
         changeOrigin: true,
         ws: true,
       },
     },
-    port: 8080,
+    port: process.env.VITE_PORT ? parseInt(process.env.VITE_PORT) : 8080,
   },
   build: {
     outDir: "build",
@@ -36,4 +35,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+});

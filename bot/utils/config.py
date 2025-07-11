@@ -1,7 +1,7 @@
 import os
 import dotenv
 
-dotenv.load_dotenv()
+dotenv.load_dotenv("../.env")
 
 API_BASE_URL = os.getenv("API_BASE_URL")
 if not API_BASE_URL:

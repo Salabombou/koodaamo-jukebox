@@ -3,14 +3,30 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
-COPY ["src/server.csproj", "./"]
-RUN dotnet restore "./server.csproj"
-COPY src/. .
-RUN dotnet build "server.csproj" -c Release -o /app/build
+COPY KoodaamoJukebox/ ./KoodaamoJukebox/
+WORKDIR /src/KoodaamoJukebox/Api
+RUN dotnet restore "KoodaamoJukebox.Api.csproj"
+RUN dotnet build "KoodaamoJukebox.Api.csproj" -c Release -o /app/build
+
+# Dedicated stage for dotnet-ef tool
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS tools
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="/root/.dotnet/tools:$PATH"
 
 FROM build AS publish
-RUN dotnet publish "server.csproj" -c Release -o /app/publish
+WORKDIR /src/KoodaamoJukebox/Api
+RUN dotnet publish "KoodaamoJukebox.Api.csproj" -c Release -o /app/publish
 
+
+# Stage for running database migration
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS update-database
+WORKDIR /src/KoodaamoJukebox/Database
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="/root/.dotnet/tools:$PATH"
+COPY --from=publish /src/KoodaamoJukebox ../
+CMD ["dotnet-ef", "database", "update", "--startup-project", "../Api"]
+
+# Final stage
 FROM base AS final
 WORKDIR /app
 RUN apk add --no-cache curl python3 ffmpeg
