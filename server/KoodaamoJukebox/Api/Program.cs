@@ -1,5 +1,6 @@
 using KoodaamoJukebox.Api.Services;
 using KoodaamoJukebox.Database;
+using KoodaamoJukebox.Database.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Serialization;
@@ -28,7 +29,7 @@ namespace KoodaamoJukebox.Api
             {
                 options.UseNpgsql(builder.Configuration.GetConnectionString("KoodaamoJukeboxDb"));
             });
-            builder.Services.AddHostedService<CleanupService>();
+            builder.Services.AddHostedService<DatabaseCleanupService>();
             builder.Services.AddScoped<QueueService>();
             builder.Services.AddSignalR(options =>
             {

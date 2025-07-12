@@ -24,6 +24,10 @@ namespace KoodaamoJukebox.Database.Models
         public string? AssociatedRoomCode { get; set; }
 
         public string? ConnectionId { get; set; }
+
+        public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        public long UpdatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
     public class UserDto

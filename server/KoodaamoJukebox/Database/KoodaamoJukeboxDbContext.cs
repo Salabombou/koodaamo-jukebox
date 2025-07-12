@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using KoodaamoJukebox.Database.Models;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace KoodaamoJukebox.Database
 {
@@ -20,7 +21,7 @@ namespace KoodaamoJukebox.Database
         public DbSet<QueueItem> QueueItems { get; set; }
 
         public KoodaamoJukeboxDbContext() { }
-
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>(entity =>
@@ -29,6 +30,7 @@ namespace KoodaamoJukebox.Database
                 entity.HasIndex(u => u.UserId).IsUnique();
                 entity.Property(u => u.UserId).IsRequired();
                 entity.Property(u => u.Username).IsRequired();
+                entity.Property(u => u.IsEmbedded).IsRequired();
             });
 
             modelBuilder.Entity<RoomInfo>(entity =>
@@ -36,7 +38,7 @@ namespace KoodaamoJukebox.Database
                 entity.ToTable("Queues");
                 entity.HasIndex(q => q.RoomCode).IsUnique();
                 entity.HasIndex(q => q.CurrentTrackIndex);
-                entity.HasIndex(q => q.CurrentTrackId); // Add index for CurrentTrackId
+                entity.HasIndex(q => q.CurrentTrackId);
                 entity.Property(q => q.RoomCode).IsRequired();
                 entity.Property(q => q.IsPaused).IsRequired();
                 entity.Property(q => q.IsLooping).IsRequired();
@@ -75,22 +77,26 @@ namespace KoodaamoJukebox.Database
                 entity.Property(s => s.DownloadUrlHash).IsRequired();
             });
         }
+
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            foreach (var entry in ChangeTracker.Entries<QueueItem>())
+            foreach (var entry in ChangeTracker.Entries()
+                .Where(e => (e.Entity is QueueItem || e.Entity is User) &&
+                            (e.State == EntityState.Added || e.State == EntityState.Modified)))
             {
-                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                dynamic entity = entry.Entity;
+                entity.UpdatedAt = currentTime;
+                if (entry.State == EntityState.Added)
                 {
-                    var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    entry.Entity.UpdatedAt = currentTime;
-                    if (entry.State == EntityState.Added)
-                    {
-                        entry.Entity.CreatedAt = currentTime;
-                    }
+                    entity.CreatedAt = currentTime;
                 }
             }
 
             return await base.SaveChangesAsync(cancellationToken);
         }
+
+        
     }
 }
