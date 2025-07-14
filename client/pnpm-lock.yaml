@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@discord/embedded-app-sdk':
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.1.0
+        version: 2.1.0
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -211,8 +211,8 @@ packages:
     resolution: {integrity: sha512-jYnje+JyZG5YThjHiF28oT4SIZLnYOcSBb6+SDaFIyzDVSkXQmQQYclJ2R+YxcdmK0AX6x1E5OQNtuh3jHDrUg==}
     engines: {node: '>=6.9.0'}
 
-  '@discord/embedded-app-sdk@2.0.0':
-    resolution: {integrity: sha512-84XSrJdCLBvOiH8lb0kUjWpiNZlPVU0FBIjbCrndoEFB26z2Xki7Mv9Dh+gLh21NzE9ExkN9PxeInV0R4XD0Kg==}
+  '@discord/embedded-app-sdk@2.1.0':
+    resolution: {integrity: sha512-ef3ikkHHEq8M4tXR3zItEiF+dDzKnTv0CcVPFgaDubjuMbtcc0PreMlNwKXg3uxmThOmULA4eqYyW/Vc/SyBRg==}
 
   '@discordjs/collection@2.1.1':
     resolution: {integrity: sha512-LiSusze9Tc7qF03sLCujF5iZp7K+vRNEDBZ86FT9aQAv3vxMLihUvKvpsCWiQ2DJq1tVckopKm1rxomgNUc9hg==}
@@ -2074,7 +2074,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@discord/embedded-app-sdk@2.0.0':
+  '@discord/embedded-app-sdk@2.1.0':
     dependencies:
       '@types/lodash.transform': 4.6.9
       '@types/uuid': 10.0.0
