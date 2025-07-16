@@ -10,6 +10,38 @@ class Jukebox(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.command(description="Show info about the current user")
+    @commands.is_owner()
+    async def userinfo(self, ctx: commands.Context):
+        """Show info about the user who invoked the command"""
+        async with ctx.typing():
+            users = await utils.api.get_all_users()
+            if len(users) == 0:
+                await safe_reply(ctx, "❌ No users found in the database!")
+                return
+            embed = discord.Embed(
+                title="Users",
+                color=discord.Color.orange(),
+            )
+
+            for user in users:
+                print(f"User: {user}")
+                created_at = int(user["created_at"] // 1000)
+                updated_at = int(user["updated_at"] // 1000)
+                embed.add_field(
+                    name=user["username"],
+                    value=
+                    f"User ID: {user['user_id']}\n"
+                    f"Connection ID: {user['connection_id'] or 'None'}\n"
+                    f"Is Embedded: {'Yes' if user['is_embedded'] else 'No'}\n"
+                    f"Associated Room Code: {user["associated_room_code"] or 'None'}\n"
+                    f"Created At: <t:{created_at}:F>\n"
+                    f"Updated At: <t:{updated_at}:F>",
+                    inline=False,
+                )
+            embed.set_footer(text=f"Total users: {len(users)}")
+            await safe_reply(ctx, embeds=[embed])
+
     @commands.command(description="Get current room status and queue")
     async def status(self, ctx: commands.Context):
         """Get current room information and queue"""

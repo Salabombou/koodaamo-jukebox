@@ -76,10 +76,11 @@ namespace KoodaamoJukebox.Database.Services
                         db.RoomInfos.RemoveRange(orphanRooms);
                         _logger.LogInformation($"Deleted {orphanRooms.Count} orphan rooms.");
                     }
-
-                    // Clear AssociatedRoomCode for inactive users
+                    
+                    // Clear AssociatedRoomCode for inactive users when not connected and last updated more than 1 hour ago
+                    var cutoff = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds();
                     var inactiveUsers = await db.Users
-                        .Where(u => u.AssociatedRoomCode != null && u.ConnectionId == null && u.UpdatedAt < DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds())
+                        .Where(u => u.AssociatedRoomCode != null && u.ConnectionId == null && u.UpdatedAt < cutoff)
                         .ToListAsync(stoppingToken);
                     if (inactiveUsers.Count > 0)
                     {

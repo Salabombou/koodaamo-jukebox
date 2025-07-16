@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Database\KoodaamoJukebox.Database.csproj" />
+    <ProjectReference Include="..\..\KoodaamoJukebox.Api\KoodaamoJukebox.Api.csproj" />
   </ItemGroup>
 
 </Project>

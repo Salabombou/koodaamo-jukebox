@@ -11,7 +11,8 @@ using KoodaamoJukebox.Database;
 namespace KoodaamoJukebox.Api.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "BotOnly")]
+    [Authorize(Policy = "ConnectedUserData")]
     [Route("api/[controller]")]
     public class QueueController : ControllerBase
     {
@@ -101,41 +102,6 @@ namespace KoodaamoJukebox.Api.Controllers
             }
 
             return Ok(queueItems);
-        }
-
-        [HttpGet("items/hash")]
-        public async Task<ActionResult<string>> GetQueueItemsHash()
-        {
-            var roomCode = User.FindFirstValue("room_code");
-            if (string.IsNullOrEmpty(roomCode))
-            {
-                return Unauthorized("RoomCode not found in user claims.");
-            }
-            var queue = await _dbContext.RoomInfos
-                .Where(q => q.RoomCode == roomCode)
-                .FirstOrDefaultAsync();
-            if (queue == null)
-            {
-                return NotFound("Queue not found for the specified room code");
-            }
-
-            var queueItems = await _dbContext.QueueItems
-                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
-                .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
-                .ToListAsync();
-
-            var sha256 = System.Security.Cryptography.SHA256.Create();
-
-            foreach (var item in queueItems)
-            {
-                byte[] trackIdBytes = System.Text.Encoding.UTF8.GetBytes(item.TrackId);
-                sha256.TransformBlock(trackIdBytes, 0, trackIdBytes.Length, null, 0);
-            }
-            sha256.TransformFinalBlock([], 0, 0);
-
-            byte[] hashBytes = sha256.Hash ?? [];
-            string hashHex = BitConverter.ToString(hashBytes).Replace("-", string.Empty).ToLowerInvariant();
-            return Ok(hashHex);
         }
 
         [HttpDelete("items/{id}")]

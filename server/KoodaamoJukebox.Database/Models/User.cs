@@ -37,10 +37,18 @@ namespace KoodaamoJukebox.Database.Models
             UserId = user.UserId;
             Username = user.Username;
             AssociatedRoomCode = user.AssociatedRoomCode;
+            CreatedAt = user.CreatedAt;
+            UpdatedAt = user.UpdatedAt;
+            IsEmbedded = user.IsEmbedded;
+            ConnectionId = user.ConnectionId;
         }
 
         public long UserId { get; set; }
         public string Username { get; set; }
         public string? AssociatedRoomCode { get; set; }
+        public string? ConnectionId { get; set; }
+        public bool IsEmbedded { get; set; }
+        public long CreatedAt { get; set; }
+        public long UpdatedAt { get; set; }
     }
 }

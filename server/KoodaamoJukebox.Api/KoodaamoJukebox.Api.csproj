@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Database\KoodaamoJukebox.Database.csproj" />
+    <ProjectReference Include="..\KoodaamoJukebox.Database\KoodaamoJukebox.Database.csproj" />
   </ItemGroup>
 
 </Project>

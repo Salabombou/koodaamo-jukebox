@@ -79,6 +79,17 @@ export default function useRoomHub() {
     };
   }, [discordSDK.isEmbedded]);
 
+  useEffect(() => {
+    let intervalId = setInterval(() => {
+      if (connection.current?.state === signalR.HubConnectionState.Connected) {
+        connection.current.invoke("Ping");
+      }
+    }, 60_000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+
   const invokeRoomAction = useCallback((action: string, ...args: unknown[]) => {
     if (invokePending) return;
     startTransition(async () => {

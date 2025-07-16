@@ -10,7 +10,7 @@ namespace KoodaamoJukebox.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Bot")]
+    [Authorize(Policy = "ConnectedUserData")]
     public class RoomController : ControllerBase
     {
         private readonly KoodaamoJukeboxDbContext _dbContext;

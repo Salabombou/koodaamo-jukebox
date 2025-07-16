@@ -24,7 +24,6 @@ namespace KoodaamoJukebox.Api.Controllers
             _logger = logger;
         }
 
-
         [HttpPost]
         public async Task<ActionResult<TrackDto[]>> GetTracks([FromBody] TracksRequestDto dto)
         {

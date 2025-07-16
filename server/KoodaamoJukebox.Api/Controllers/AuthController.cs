@@ -50,16 +50,14 @@ namespace KoodaamoJukebox.Api.Controllers
             var claims = new List<Claim>
             {
                 new("user_id", userId.ToString()),
-                new("room_code", associatedRoomCode),
-                new("is_embedded", isEmbedded.ToString()),
-                new("role", "Client")
+                new("room_code", associatedRoomCode)
             };
 
             var token = new JwtSecurityToken(
                 claims: claims,
                 expires: DateTime.UtcNow.AddSeconds(expiresIn),
                 signingCredentials: creds,
-                issuer: "jukebox-KoodaamoJukebox"
+                issuer: "server-KoodaamoJukebox"
             );
             return new JwtSecurityTokenHandler().WriteToken(token);
         }

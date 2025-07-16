@@ -53,8 +53,7 @@ class TracksRequestDto(TypedDict):
 
 API_KEY = jwt.encode(
     {
-        "iss": "jukebox-bot",
-        "role": "Bot",
+        "iss": "bot-KoodaamoJukebox",
         "exp": datetime.now() + timedelta(weeks=9999),
     },
     JWT_SECRET,
@@ -102,12 +101,20 @@ async def get_token_from_context(ctx: commands.Context) -> str:
         "user_id": str(ctx.author.id),
         "room_code": room_code,
         "exp": datetime.now() + timedelta(days=7),
-        "iss": "jukebox-bot",
-        "role": "Bot",
+        "iss": "bot-KoodaamoJukebox",
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
 
+async def get_all_users():
+    """Get all users in the room"""
+    resp = await _client.get(
+        "/api/user",
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        timeout=60,
+    )
+    _handle_api_response(resp)
+    return resp.json()
 
 async def add_to_queue(token: str, url_or_query: str) -> None:
     resp = await _client.post(

@@ -8,16 +8,18 @@ using System.Security.Claims;
 
 namespace KoodaamoJukebox.Api.Hubs
 {
-
-    [Authorize]
+    [Authorize(Policy = "ClientOnly")]
+    [Authorize(Policy = "ConnectedUserData")]
     public class RoomHub : Hub
     {
         private readonly KoodaamoJukeboxDbContext _dbContext;
         private readonly QueueService _queueService;
-        public RoomHub(KoodaamoJukeboxDbContext dbContext, QueueService queueService)
+        private readonly ILogger<RoomHub> _logger;
+        public RoomHub(KoodaamoJukeboxDbContext dbContext, QueueService queueService, ILogger<RoomHub> logger)
         {
             _dbContext = dbContext;
             _queueService = queueService;
+            _logger = logger;
         }
 
         public async ValueTask<object> InvokeMethodAsync(
@@ -76,30 +78,35 @@ namespace KoodaamoJukebox.Api.Hubs
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            if (!long.TryParse(Context.User?.FindFirstValue("user_id"), out long userId))
+            // Try to find user by user_id or by connectionId
+            var user = await _dbContext.Users.Where(u => u.ConnectionId == Context.ConnectionId).FirstOrDefaultAsync();
+            if (user == null)
             {
-                throw new UnauthorizedAccessException("UserId not found in user claims.");
+                if (long.TryParse(Context.User?.FindFirstValue("user_id"), out long userId))
+                {
+                    user = await _dbContext.Users.Where(u => u.UserId == userId).FirstOrDefaultAsync();
+                }
+            }
+            if (user == null)
+            {
+                _logger.LogWarning("User not found for connection {ConnectionId}. Cannot clear ConnectionId.", Context.ConnectionId);
+                return;
             }
 
-            var roomCode = Context.User?.FindFirstValue("room_code");
-            if (string.IsNullOrEmpty(roomCode))
+            user.ConnectionId = null;
+            await _dbContext.SaveChangesAsync();
+
+            if (!string.IsNullOrEmpty(user.AssociatedRoomCode))
             {
-                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, user.AssociatedRoomCode);
             }
-
-            var user = await _dbContext.Users
-                .Where(u => u.UserId == userId)
-                .FirstOrDefaultAsync();
-
-            if (user != null)
-            {
-                user.ConnectionId = null;
-                await _dbContext.SaveChangesAsync();
-            }
-
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomCode);
 
             await base.OnDisconnectedAsync(exception);
+        }
+
+        public async Task Ping(long sentAt)
+        {
+            await Clients.Caller.SendAsync("Pong");
         }
 
         public async Task PauseToggle(long sentAt, bool paused)

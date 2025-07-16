@@ -31,6 +31,8 @@ async def on_ready():
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
     if isinstance(error, ApiError):
         embed = discord.Embed(
             title=f"❌ {error.title}",

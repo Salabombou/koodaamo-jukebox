@@ -3,8 +3,8 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
-COPY KoodaamoJukebox/ ./KoodaamoJukebox/
-WORKDIR /src/KoodaamoJukebox/Api
+COPY . .
+WORKDIR /src/KoodaamoJukebox.Api
 RUN dotnet restore "KoodaamoJukebox.Api.csproj"
 RUN dotnet build "KoodaamoJukebox.Api.csproj" -c Release -o /app/build
 
@@ -14,17 +14,17 @@ RUN dotnet tool install --global dotnet-ef
 ENV PATH="/root/.dotnet/tools:$PATH"
 
 FROM build AS publish
-WORKDIR /src/KoodaamoJukebox/Api
+WORKDIR /src/KoodaamoJukebox.Api
 RUN dotnet publish "KoodaamoJukebox.Api.csproj" -c Release -o /app/publish
 
 
 # Stage for running database migration
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS update-database
-WORKDIR /src/KoodaamoJukebox/Database
+WORKDIR /src/KoodaamoJukebox.Database
 RUN dotnet tool install --global dotnet-ef
 ENV PATH="/root/.dotnet/tools:$PATH"
-COPY --from=publish /src/KoodaamoJukebox ../
-CMD ["dotnet-ef", "database", "update", "--startup-project", "../Api"]
+COPY --from=publish /src ../
+CMD ["dotnet-ef", "database", "update", "--startup-project", "../KoodaamoJukebox.Api"]
 
 # Final stage
 FROM base AS final

@@ -1,18 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using KoodaamoJukebox.Database.Models;
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using KoodaamoJukebox.Api.Utilities;
 using KoodaamoJukebox.Database;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace KoodaamoJukebox.Api.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = "ClientOnly")]
+    [Authorize(Policy = "ConnectedUserData")]
     [Route("api/[controller]")]
     public class AudioController : ControllerBase
     {

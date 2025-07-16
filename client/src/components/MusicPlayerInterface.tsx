@@ -111,12 +111,12 @@ export default function MusicPlayerInterface({
         >
           <figure className="select-none dark:bg-black">
             <div className="hidden xs:[@media(min-height:700px)]:flex w-200 align-middle justify-center aspect-video select-none">
-              <div className="flex items-center justify-center relative select-none">
+              <div className="aspect-video flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
                 <img
                   src={imageBlobUrl || "/black.jpg"}
                   width="100%"
                   height="100%"
-                  className="object-cover w-full h-full select-none"
+                  className="w-full h-full object-cover object-center aspect-square bg-black select-none"
                   onLoad={(e) =>
                     colorService.getProminentColorFromUrl(e.currentTarget.src).then((colors) => {
                       onPrimaryColorChange(colors);

@@ -6,7 +6,8 @@ namespace KoodaamoJukebox.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Policy = "ClientOnly")]
+    [Authorize(Policy = "ConnectedUserData")]
     public class TimeController : ControllerBase
     {
         [HttpGet]

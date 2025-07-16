@@ -1,6 +1,6 @@
 import axios from "axios";
-import type { QueueItem } from "../types/queue";
-import type { RoomInfo } from "../types/room";
+//import type { QueueItem } from "../types/queue";
+//import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
 
 const apiClient = axios.create();
@@ -30,7 +30,7 @@ apiClient.interceptors.response.use(undefined, async (error) => {
   return apiClient(config);
 });
 
-export function getQueueInfo() {
+/*export function getQueueInfo() {
   return apiClient.get<RoomInfo>(`/api/queue`);
 }
 
@@ -42,7 +42,7 @@ export function getQueueItems(startTime?: number, endTime?: number) {
 
 export function getQueueItemsHash() {
   return apiClient.get<string>(`/api/queue/items/hash`);
-}
+}*/
 
 export function getTracks(trackIds: string[]) {
   return apiClient.post<Map<string, Track>>(`/api/track`, {
