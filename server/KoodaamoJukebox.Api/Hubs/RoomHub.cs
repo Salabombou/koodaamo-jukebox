@@ -27,6 +27,11 @@ namespace KoodaamoJukebox.Api.Hubs
             Func<HubInvocationContext, ValueTask<object>> next
         )
         {
+            if (context.HubMethodName == "Ping")
+            {
+                return await next(context);
+            }
+
             // if the time difference between the sentAt and the current time is more than 5 seconds
             var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (context.HubMethodArguments.Count > 0 && context.HubMethodArguments[0] is long sentAt)
@@ -39,6 +44,15 @@ namespace KoodaamoJukebox.Api.Hubs
             else
             {
                 throw new ArgumentException("SentAt argument is required.", nameof(context.HubMethodArguments));
+            }
+
+            var user = await _dbContext.Users
+                .Where(u => u.ConnectionId == Context.ConnectionId)
+                .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("User not found in the database.");
+            var isBanned = user.BannedUntil.HasValue && user.BannedUntil.Value > currentTime;
+            if (isBanned)
+            {
+                throw new UnauthorizedAccessException($"User is banned until {user.BannedUntil}. Reason: {user.BannedReason}");
             }
 
             return await next(context);

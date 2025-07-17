@@ -192,6 +192,10 @@ namespace KoodaamoJukebox.Api.Controllers
             }
             else if (hlsPlaylist.Path != null)
             {
+                if (!System.IO.File.Exists(hlsPlaylist.Path))
+                {
+                    return NotFound("Playlist file not found.");
+                }
                 return PhysicalFile(hlsPlaylist.Path, "application/vnd.apple.mpegurl");
             }
 
@@ -203,6 +207,10 @@ namespace KoodaamoJukebox.Api.Controllers
                 .FirstOrDefaultAsync();
             if (hlsPlaylistPath != null)
             {
+                if (!System.IO.File.Exists(hlsPlaylistPath))
+                {
+                    return NotFound("Playlist file not found.");
+                }
                 return PhysicalFile(hlsPlaylistPath, "application/vnd.apple.mpegurl");
             }
 
@@ -329,6 +337,10 @@ namespace KoodaamoJukebox.Api.Controllers
 
             if (hlsSegment.Path != null)
             {
+                if (!System.IO.File.Exists(hlsSegment.Path))
+                {
+                    return NotFound("Segment file not found.");
+                }
                 return PhysicalFile(hlsSegment.Path, "application/octet-stream");
             }
 
@@ -340,6 +352,10 @@ namespace KoodaamoJukebox.Api.Controllers
                 .FirstOrDefaultAsync();
             if (hlsSegmentPath != null)
             {
+                if (!System.IO.File.Exists(hlsSegmentPath))
+                {
+                    return NotFound("Segment file not found.");
+                }
                 return PhysicalFile(hlsSegmentPath, "application/octet-stream");
             }
 

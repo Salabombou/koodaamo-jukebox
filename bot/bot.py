@@ -31,12 +31,14 @@ async def on_ready():
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
+    # Unwrap the original exception if it's a CommandInvokeError
+    original = getattr(error, "original", None)
     if isinstance(error, commands.CommandNotFound):
         return
-    if isinstance(error, ApiError):
+    if isinstance(original, ApiError):
         embed = discord.Embed(
-            title=f"❌ {error.title}",
-            description=error.detail or "An error occurred.",
+            title=f"❌ {original.title}",
+            description=original.detail or "An error occurred.",
             color=discord.Color.red(),
         )
         await safe_reply(ctx, embeds=[embed])

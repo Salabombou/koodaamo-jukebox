@@ -1,13 +1,16 @@
 import discord
 from discord.ext import commands
+from datetime import datetime, timedelta
 
 import utils.api
 from utils.config import API_BASE_URL_PROD
 from utils.safe_reply import safe_reply
 
+from typing import Optional
+
 
 class Jukebox(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @commands.command(description="Show info about the current user")
@@ -41,6 +44,30 @@ class Jukebox(commands.Cog):
                 )
             embed.set_footer(text=f"Total users: {len(users)}")
             await safe_reply(ctx, embeds=[embed])
+    
+    @commands.command(description="Ban a user from the room")
+    @commands.is_owner()
+    async def ban(self, ctx: commands.Context, user_id: int, reason: Optional[str] = None, until: Optional[int] = None):
+        """Ban a user from the room"""
+        async with ctx.typing():
+            if not reason:
+                reason = "No reason provided"
+            if not until:
+                until = int((datetime.now() + timedelta(hours=1)).timestamp() * 1000)
+            await utils.api.ban_user(user_id, until, reason)
+
+            banned_user = await self.bot.fetch_user(user_id)
+            await safe_reply(ctx, f"✅ Banned user {banned_user.name} (ID: {user_id}) for: {reason}")
+    
+    @commands.command(description="Unban a user from the room")
+    @commands.is_owner()
+    async def unban(self, ctx: commands.Context, user_id: int):
+        """Unban a user from the room"""
+        async with ctx.typing():
+            await utils.api.unban_user(user_id)
+
+            unbanned_user = await self.bot.fetch_user(user_id)
+            await safe_reply(ctx, f"✅ Unbanned user {unbanned_user.name} (ID: {user_id})")
 
     @commands.command(description="Get current room status and queue")
     async def status(self, ctx: commands.Context):

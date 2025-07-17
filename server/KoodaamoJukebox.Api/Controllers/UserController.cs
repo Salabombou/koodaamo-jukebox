@@ -37,5 +37,43 @@ namespace KoodaamoJukebox.Api.Controllers
                 .ToListAsync();
             return Ok(users);
         }
+
+        [HttpPost("{userId}/ban")]
+        public async Task<IActionResult> BanUser(long userId, [FromBody] UserBanDto banDto)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            user.BannedUntil = banDto.Until;
+            user.BannedReason = banDto.Reason;
+            await _dbContext.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpPost("{userId}/unban")]
+        public async Task<IActionResult> UnbanUser(long userId)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            user.BannedUntil = null;
+            user.BannedReason = null;
+            await _dbContext.SaveChangesAsync();
+
+            return NoContent();
+        }
+    }
+
+    public class UserBanDto
+    {
+        public required string Reason { get; set; }
+        public required long Until { get; set; }
     }
 }

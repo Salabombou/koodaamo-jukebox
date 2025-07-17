@@ -115,6 +115,19 @@ namespace KoodaamoJukebox.Api
                             return false;
                         }
 
+                        var isBanned = user.BannedUntil.HasValue && user.BannedUntil.Value > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                        if (isBanned)
+                        {
+                            logger.LogWarning("User with ID {UserId} is banned until {BannedUntil}. Reason: {BannedReason}", userId, user.BannedUntil, user.BannedReason);
+                            return false;
+                        }
+                        else
+                        {
+                            user.BannedUntil = null;
+                            user.BannedReason = null;
+                            await dbContext.SaveChangesAsync();
+                        }
+
                         var roomExists = await dbContext.RoomInfos
                             .AnyAsync(r => r.RoomCode == roomCode && r.IsEmbedded == user.IsEmbedded);
                         if (!roomExists)

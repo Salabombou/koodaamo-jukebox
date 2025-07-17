@@ -2,6 +2,7 @@
 using KoodaamoJukebox.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KoodaamoJukebox.Database.Migrations
 {
     [DbContext(typeof(KoodaamoJukeboxDbContext))]
-    partial class KoodaamoJukeboxDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250717184143_UserBanning")]
+    partial class UserBanning
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

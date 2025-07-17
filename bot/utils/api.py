@@ -324,3 +324,26 @@ async def clear_queue(token: str) -> RoomResponse:
     )
     _handle_api_response(resp)
     return resp.json()
+
+async def ban_user(user_id: int, until: int, reason: str) -> None:
+    """Ban a user from the room"""
+    resp = await _client.post(
+        f"/api/user/{user_id}/ban",
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        json={
+        "until": until,
+        "reason": reason or "No reason provided",
+    },
+        timeout=60,
+    )
+    _handle_api_response(resp)
+
+async def unban_user(user_id: int) -> None:
+    """Unban a user from the room"""
+    resp = await _client.post(
+        f"/api/user/{user_id}/unban",
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        timeout=60,
+    )
+    _handle_api_response(resp)
+
