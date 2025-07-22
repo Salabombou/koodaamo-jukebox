@@ -30,8 +30,8 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
       '@xhayper/discord-rpc':
-        specifier: ^1.2.2
-        version: 1.2.2
+        specifier: ^1.3.0
+        version: 1.3.0
       axios:
         specifier: ^1.10.0
         version: 1.10.0
@@ -894,8 +894,8 @@ packages:
     resolution: {integrity: sha512-RaI5qZo6D2CVS6sTHFKg1v5Ohq/+Bo2LZ5gzUEwZ/WkHhwtGTCB/sVLw8ijOkAUxasZ+WshN/Rzj4ywsABJ5ZA==}
     engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
 
-  '@xhayper/discord-rpc@1.2.2':
-    resolution: {integrity: sha512-P3+uF2Hb7zVNEtk2ZleV7FF2cj1lCZ0Caa82RECwa5oaPNCF12CDhsx8GdBqFaD0zRRVrkheP3LJn0dmbd0KoA==}
+  '@xhayper/discord-rpc@1.3.0':
+    resolution: {integrity: sha512-0NmUTiODl7u3UEjmO6y0Syp3dmgVLAt2EHrH4QKTQcXRwtF8Wl7Eipdn/GSSZ8HkDwxQFvcDGJMxT9VWB0pH8g==}
     engines: {node: '>=18.20.7'}
 
   abort-controller@3.0.0:
@@ -1037,11 +1037,8 @@ packages:
     resolution: {integrity: sha512-3UDv+G9CsCKO1WKMGw9fwq/SWJYbI0c5Y7LU1AXYoDdbhE2AHQ6N6Nb34sG8Fj7T5APy8qXDCKuuIHd1BR0tVA==}
     engines: {node: '>=8'}
 
-  discord-api-types@0.37.120:
-    resolution: {integrity: sha512-7xpNK0EiWjjDFp2nAhHXezE4OUWm7s1zhc/UXXN6hnFFU8dfoPHgV0Hx0RPiCa3ILRpdeh152icc68DGCyXYIw==}
-
-  discord-api-types@0.38.15:
-    resolution: {integrity: sha512-RX3skyRH7p6BlHOW62ztdnIc87+wv4TEJEURMir5k5BbRJ10wK1MCqFEO6USHTol3gkiHLE6wWoHhNQ2pqB4AA==}
+  discord-api-types@0.38.16:
+    resolution: {integrity: sha512-Cz42dC5WqJD17Yk0bRy7YLTJmh3NKo4FGpxZuA8MHqT0RPxKSrll5YhlODZ2z5DiEV/gpHMeTSrTFTWpSXjT1Q==}
 
   discord-rpc@4.0.1:
     resolution: {integrity: sha512-HOvHpbq5STRZJjQIBzwoKnQ0jHplbEWFWlPDwXXKm/bILh4nzjcg7mNqll0UY7RsjFoaXA7e/oYb/4lvpda2zA==}
@@ -2090,7 +2087,7 @@ snapshots:
       '@sapphire/async-queue': 1.5.5
       '@sapphire/snowflake': 3.5.5
       '@vladfrangu/async_event_emitter': 2.4.6
-      discord-api-types: 0.38.15
+      discord-api-types: 0.38.16
       magic-bytes.js: 1.12.1
       tslib: 2.8.1
       undici: 6.21.3
@@ -2725,11 +2722,11 @@ snapshots:
 
   '@vladfrangu/async_event_emitter@2.4.6': {}
 
-  '@xhayper/discord-rpc@1.2.2':
+  '@xhayper/discord-rpc@1.3.0':
     dependencies:
       '@discordjs/rest': 2.5.1
       '@vladfrangu/async_event_emitter': 2.4.6
-      discord-api-types: 0.37.120
+      discord-api-types: 0.38.16
       ws: 8.18.3
     transitivePeerDependencies:
       - bufferutil
@@ -2865,9 +2862,7 @@ snapshots:
 
   detect-libc@2.0.4: {}
 
-  discord-api-types@0.37.120: {}
-
-  discord-api-types@0.38.15: {}
+  discord-api-types@0.38.16: {}
 
   discord-rpc@4.0.1:
     dependencies:
