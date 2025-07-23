@@ -26,27 +26,32 @@ namespace KoodaamoJukebox.Api.Utilities
                 throw new ArgumentException("Invalid URL format.", nameof(webpageUrl));
             }
 
-            var process = new Process
+            // Use a temp file for yt-dlp session info to speed up frequent requests
+            
+
+            var startInfo = new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = _ytDlpPath,
-                    ArgumentList =
-                    {
-                        "--dump-json",
-                        webpageUrl,
-                        "--no-warnings",
-                        "-f", "bestaudio[protocol=m3u8_native]/bestaudio[protocol=https]",
-                        "--no-playlist",
-                        "--skip-download"
-                    },
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                FileName = _ytDlpPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
 
+            // Build arguments
+            startInfo.ArgumentList.Add("--dump-json");
+            startInfo.ArgumentList.Add(webpageUrl);
+            startInfo.ArgumentList.Add("--no-warnings");
+            startInfo.ArgumentList.Add("-f");
+            startInfo.ArgumentList.Add("bestaudio[protocol=m3u8_native]/bestaudio[protocol=https]");
+            startInfo.ArgumentList.Add("--no-playlist");
+            startInfo.ArgumentList.Add("--skip-download");
+
+            string tempSessionFile = Path.Combine(Path.GetTempPath(), "yt-dlp-cookies.txt");
+            startInfo.ArgumentList.Add("--cookies");
+            startInfo.ArgumentList.Add(tempSessionFile);
+
+            var process = new Process { StartInfo = startInfo };
             process.Start();
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();

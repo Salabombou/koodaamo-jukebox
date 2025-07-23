@@ -96,7 +96,5 @@ namespace KoodaamoJukebox.Database
 
             return await base.SaveChangesAsync(cancellationToken);
         }
-
-        
     }
 }

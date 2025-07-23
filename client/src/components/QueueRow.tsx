@@ -1,9 +1,9 @@
+import { memo } from "react";
 import type { ListChildComponentProps } from "react-window";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Track } from "../types/track";
 import { QueueItem } from "../types/queue";
-import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import ContextMenu from "./ContextMenu";
 import { FaGripLines } from "react-icons/fa";
 
@@ -11,6 +11,7 @@ interface QueueRowProps extends ListChildComponentProps {
   data: QueueItem[];
   track: Track | null;
   currentTrack?: (Track & { itemId: number }) | null;
+  thumbnailBlob?: string;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
@@ -18,9 +19,9 @@ interface QueueRowProps extends ListChildComponentProps {
   overlay?: boolean; // for drag overlay
 }
 
-export default function QueueRow({ index, style, data, track, currentTrack, onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueRowProps) {
+function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueRowProps) {
   const item = data.at(index);
-  if (!item) return;
+  if (!item) return null;
 
   const {
     attributes,
@@ -28,7 +29,7 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
     setNodeRef,
     transform,
     transition,
-    isDragging, // when the item itself is being dragged
+    isDragging,
     isSorting,
   } = useSortable({
     id: item.id,
@@ -36,9 +37,6 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
 
   const highlighted = currentTrack?.itemId === item.id;
 
-  const discordSDK = useDiscordSDK();
-
-  // Dropdown menu handlers
   const handleDelete = () => onDelete(index);
   const handlePlayNext = () => onPlayNext(index);
   const handleCopyUrl = () => {
@@ -54,7 +52,6 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
       style={{
         backgroundColor: "transparent",
         color: highlighted ? "#fff" : undefined,
-        //opacity: controlsDisabled ? 0.5 : 1,
         ...style,
         width: "100%",
         height: "64px",
@@ -73,25 +70,43 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
           `${!highlighted && overlay ? "bg-queue-item-hover" : ""}`,
           `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
         ].join(" ")}
-        onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
       >
         <ContextMenu onPlayNext={handlePlayNext} onCopyUrl={handleCopyUrl} onDelete={handleDelete} controlsDisabled={controlsDisabled}>
-          <div className="flex flex-row items-center w-full h-full select-none">
-            <div {...attributes} {...listeners} className={`h-full p-4 mr-1 flex items-center justify-center select-none ${!overlay && !isDragging ? "cursor-grab" : ""}`}>
-              <FaGripLines />
+          <div className="flex flex-row-reverse xl:flex-row items-center w-full h-full select-none">
+            <div className="flex items-center">
+              <button
+                type="button"
+                {...attributes}
+                {...listeners}
+                tabIndex={0}
+                aria-label="Drag to reorder"
+                className={[
+                  "h-14 w-14 min-w-14 min-h-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
+                  overlay ? "cursor-grabbing" : "cursor-grab"
+                ].join(" ")}
+              >
+                <span className="flex items-center justify-center w-full h-full">
+                  <FaGripLines className="w-5 h-5 mr-1" />
+                </span>
+              </button>
             </div>
-            <div className="aspect-video h-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
-              <img
-                src={track?.id ? `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-low` : "/black.jpg"}
-                loading="lazy"
-                className="w-full h-full object-cover object-center aspect-square bg-black select-none"
-                alt={track?.title || "thumbnail"}
-                draggable={false}
-              />
-            </div>
-            <div className="flex flex-col overflow-hidden w-full pl-2 select-none">
-              <label className="text-s font-bold truncate -mb-1 select-none">{track?.title}</label>
-              <label className="text-s truncate select-none">{track?.uploader}</label>
+            <div
+              className="flex items-center w-full min-w-0"
+              onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
+            >
+              <div className="aspect-video h-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
+                <img
+                  src={thumbnailBlob}
+                  loading="lazy"
+                  className="w-full h-full object-cover object-center aspect-square bg-black select-none"
+                  alt={track?.title || "thumbnail"}
+                  draggable={false}
+                />
+              </div>
+              <div className="flex flex-col overflow-hidden w-full pl-2 select-none">
+                <label className="text-s font-bold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
+                <label className="text-s truncate select-none">{track?.uploader}</label>
+              </div>
             </div>
           </div>
         </ContextMenu>
@@ -99,3 +114,7 @@ export default function QueueRow({ index, style, data, track, currentTrack, onDe
     </div>
   );
 }
+
+const QueueRow = memo(QueueRowComponent);
+
+export default QueueRow;

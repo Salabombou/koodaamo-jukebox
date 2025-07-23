@@ -1,9 +1,10 @@
 import { FaBackwardStep, FaForwardStep, FaPlay, FaPause, FaRepeat, FaShuffle } from "react-icons/fa6";
 import Timestamp from "./Timestamp";
 import { FaVolumeMute, FaVolumeUp } from "react-icons/fa";
-import { useEffect, useState, useRef, startTransition } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Track } from "../types/track";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
+import { useThumbnail } from "../hooks/useThumbnail";
 import * as colorService from "../services/colorService";
 import ContextMenu from "./ContextMenu";
 import MarqueeText from "./MarqueeText";
@@ -54,6 +55,7 @@ export default function MusicPlayerInterface({
   const discordSDK = useDiscordSDK();
 
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
+  const { getThumbnail, clearThumbnails, removeThumbnail } = useThumbnail();
   const [seekValue, setSeekValue] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
@@ -75,28 +77,22 @@ export default function MusicPlayerInterface({
   }, [track?.itemId]);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
-    startTransition(async () => {
+    let cancelled = false;
+    async function fetchThumbnail() {
       if (!track?.id) {
         setImageBlobUrl(null);
         return;
       }
-      const thumbnailUrl = `/api/track/${track.id}/thumbnail-high`;
-      try {
-        const response = await fetch(`${discordSDK.isEmbedded ? "/.proxy" : ""}${thumbnailUrl}`);
-        const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
-        setImageBlobUrl(objectUrl);
-      } catch {
-        setImageBlobUrl(null);
-      }
-    });
+      const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high`;
+      const objectUrl = await getThumbnail(thumbnailUrl);
+      if (!cancelled) setImageBlobUrl(objectUrl);
+    }
+    fetchThumbnail();
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
+      cancelled = true;
+      removeThumbnail(track?.id ?? "");
     };
-  }, [track?.id, discordSDK.isEmbedded]);
+  }, [track?.id, discordSDK.isEmbedded, getThumbnail, clearThumbnails]);
 
   return (
     <div className="flex flex-col md:ml-6 w-full md:w-1/2 max-w-200">
@@ -144,7 +140,7 @@ export default function MusicPlayerInterface({
                   type="range"
                   min="0"
                   max={duration}
-                  value={seekValue}
+                  value={Math.floor(seekValue)}
                   className="range range-sm w-full focus:outline-none focus:ring-0 focus:border-0"
                   onChange={(e) => {
                     setSeekValue(Number(e.target.value));

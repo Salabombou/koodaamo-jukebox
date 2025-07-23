@@ -62,9 +62,9 @@ export default function useHlsAudio({ audioPlayer, onDuration, onFatalError }: U
       if (!hls.current) return;
       hls.current.loadSource(src);
       hls.current.startLoad();
-      if (!hls.current.media) {
-        hls.current.attachMedia(audioPlayer.current!);
-      }
+      
+      audioPlayer.current.load();
+      hls.current.attachMedia(audioPlayer.current);
     },
     [audioPlayer],
   );

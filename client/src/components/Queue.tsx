@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useOptimistic, useMemo } from "react";
 import type { ListChildComponentProps } from "react-window";
 import { FixedSizeList } from "react-window";
-import { DndContext, DragOverlay, type Modifier, closestCenter } from "@dnd-kit/core";
+import { DndContext, DragOverlay, type Modifier, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
 import QueueRow from "./QueueRow";
+import { useState as useReactState } from "react";
+import { useDiscordSDK } from "../hooks/useDiscordSdk";
+import { useThumbnail } from "../hooks/useThumbnail";
 import { QueueItem } from "../types/queue";
 import { Track } from "../types/track";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
@@ -38,7 +41,20 @@ interface QueueProps {
 
 const itemHeight = 66;
 
-export default function Queue({ tracks, queueList, currentTrack, currentTrackIndex, onMove, onSkip, onDelete, onPlayNext, controlsDisabled }: QueueProps) {
+export default function Queue({
+  tracks,
+  queueList,
+  currentTrack,
+  currentTrackIndex,
+  controlsDisabled,
+  onMove,
+  onSkip,
+  onDelete,
+  onPlayNext,
+}: QueueProps) {
+  const discordSDK = useDiscordSDK();
+  const { getThumbnail, removeThumbnail } = useThumbnail();
+  const [thumbnailBlobs, setThumbnailBlobs] = useReactState<{ [key: string]: string }>({});
   const [optimisticQueueList, moveItem] = useOptimistic<QueueItem[], [number, number]>(queueList, (state, [fromIndex, toIndex]) => {
     const newState = [...state];
     const [movedItem] = newState.splice(fromIndex, 1);
@@ -47,9 +63,7 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
   });
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
   const itemKey = useCallback((index: number, data: QueueItem[]) => data[index].id, []);
-
   const stableProps = useMemo(
     () => ({
       onDelete,
@@ -59,14 +73,78 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
     [onDelete, onPlayNext, controlsDisabled],
   );
 
+  // Setup DnD sensors for pointer and touch
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 0,
+        tolerance: 5, 
+      },
+    })
+  );
+
+  const [visibleRange, setVisibleRange] = useState<{
+    start: number;
+    stop: number;
+  }>({ start: 0, stop: 0 });
+
+  // Prefetch thumbnails for visible and overscanned items only
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchThumbnails() {
+      const promises: Promise<void>[] = [];
+      // Only fetch thumbnails for visible and overscanned items
+      const start = Math.max(0, visibleRange.start - 5); // overscan before
+      const stop = Math.min(optimisticQueueList.length - 1, visibleRange.stop + 5); // overscan after
+      for (let i = start; i <= stop; i++) {
+        const item = optimisticQueueList[i];
+        if (!item) continue;
+        const track = tracks.get(item.track_id);
+        if (track?.id) {
+          const url = discordSDK.isEmbedded
+            ? `/.proxy/api/track/${track.id}/thumbnail-low`
+            : `/api/track/${track.id}/thumbnail-low`;
+          if (!thumbnailBlobs[url]) {
+            promises.push(
+              (async () => {
+                const objectUrl = await getThumbnail(url);
+                if (!cancelled && objectUrl) {
+                  setThumbnailBlobs(prev => ({ ...prev, [url]: objectUrl }));
+                }
+              })()
+            );
+          }
+        }
+      }
+      await Promise.all(promises);
+    }
+    fetchThumbnails();
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleRange, optimisticQueueList, tracks, discordSDK.isEmbedded]);
+
   const rowRenderer = useMemo(() => {
     return (props: ListChildComponentProps<QueueItem[]>) => {
       const track = tracks.get(props.data[props.index].track_id) ?? null;
+      let thumbnailBlob = "/black.jpg";
+      if (track?.id) {
+        const url = discordSDK.isEmbedded
+          ? `/.proxy/api/track/${track.id}/thumbnail-low`
+          : `/api/track/${track.id}/thumbnail-low`;
+        thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
+      }
       return (
         <QueueRow
           {...props}
           track={track}
           currentTrack={currentTrack}
+          thumbnailBlob={thumbnailBlob}
           onSkip={(i) => {
             scrolledSince.current = Date.now();
             onSkip(i);
@@ -77,15 +155,35 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
         />
       );
     };
-  }, [tracks, currentTrack, onSkip, stableProps]);
+  }, [tracks, currentTrack, onSkip, stableProps, thumbnailBlobs, discordSDK.isEmbedded]);
 
+  // Remove thumbnails for items no longer in the queue to avoid memory leaks
+  const prevQueueIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (draggedIndex !== null) {
-      document.body.style.cursor = "grabbing";
-    } else {
-      document.body.style.cursor = "default";
+    const currentIds = new Set(queueList.map(item => String(item.id)));
+    const prevIds = prevQueueIdsRef.current;
+  // If any previous IDs are no longer present, remove their thumbnails
+    for (const id of prevIds) {
+      if (!currentIds.has(id)) {
+        // Remove thumbnail for this item
+        // Find the previous track_id for this id
+        const prevTrackId = (() => {
+          // Try to find in previous queueList (not available), fallback to tracks map
+          for (const track of tracks.values()) {
+            if (String(track.id) === id) return track.id;
+          }
+          return undefined;
+        })();
+        if (prevTrackId) {
+          const urlLow = `/api/track/${prevTrackId}/thumbnail-low`;
+          const urlProxyLow = `/.proxy/api/track/${prevTrackId}/thumbnail-low`;
+          removeThumbnail(urlLow);
+          removeThumbnail(urlProxyLow);
+        }
+      }
     }
-  }, [draggedIndex]);
+    prevQueueIdsRef.current = currentIds;
+  }, [queueList, tracks, removeThumbnail]);
 
   const list = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -120,16 +218,11 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
     }
   }, [currentTrackIndex, scrollToIndexCentered]);
 
-  const [visibleRange, setVisibleRange] = useState<{
-    start: number;
-    stop: number;
-  }>({ start: 0, stop: 0 });
-
   const topArrowVisible = typeof currentTrackIndex === "number" && currentTrackIndex < visibleRange.start && optimisticQueueList.length > 0;
   const bottomArrowVisible = typeof currentTrackIndex === "number" && currentTrackIndex > visibleRange.stop && optimisticQueueList.length > 0;
 
   return (
-    <div style={{ height: "100%" }} className="relative ml-6 w-full hidden md:flex">
+    <div style={{ height: "100%" }} className="relative ml-6 w-full hidden md:flex touch-manipulation">
       {/* Top arrow */}
       {topArrowVisible && (
         <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">
@@ -157,6 +250,7 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
       <AutoSizer>
         {({ height, width }) => (
           <DndContext
+            sensors={sensors}
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxisCenterY]}
             onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
@@ -179,6 +273,7 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
                 width={width}
                 itemData={optimisticQueueList}
                 itemCount={optimisticQueueList.length}
+                overscanCount={5}
                 onScroll={async (e) => {
                   if (e.scrollUpdateWasRequested) return;
                   scrolledSince.current = Date.now();
@@ -187,8 +282,10 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
                 itemKey={itemKey}
                 style={{
                   overflowX: "hidden",
-                  overflowY: "scroll",
+                  overflowY: "auto",
+                  WebkitOverflowScrolling: "touch", // Enable momentum scroll on iOS
                   scrollbarWidth: "none",
+                  touchAction: "pan-y",
                 }}
                 onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
                   setVisibleRange({
@@ -201,20 +298,31 @@ export default function Queue({ tracks, queueList, currentTrack, currentTrackInd
               </FixedSizeList>
             </SortableContext>
             <DragOverlay>
-              {draggedIndex !== null && (
-                <QueueRow
-                  overlay={true}
-                  index={draggedIndex}
-                  track={tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null}
-                  currentTrack={currentTrack}
-                  onSkip={() => {}}
-                  onDelete={() => {}}
-                  onPlayNext={() => {}}
-                  style={{}}
-                  data={optimisticQueueList}
-                  controlsDisabled={controlsDisabled}
-                />
-              )}
+              {draggedIndex !== null && (() => {
+                const track = tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null;
+                let thumbnailBlob = "/black.jpg";
+                if (track?.id) {
+                  const url = discordSDK.isEmbedded
+                    ? `/.proxy/api/track/${track.id}/thumbnail-low`
+                    : `/api/track/${track.id}/thumbnail-low`;
+                  thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
+                }
+                return (
+                  <QueueRow
+                    overlay={true}
+                    index={draggedIndex}
+                    track={track}
+                    currentTrack={currentTrack}
+                    thumbnailBlob={thumbnailBlob}
+                    onSkip={() => {}}
+                    onDelete={() => {}}
+                    onPlayNext={() => {}}
+                    style={{}}
+                    data={optimisticQueueList}
+                    controlsDisabled={controlsDisabled}
+                  />
+                );
+              })()}
             </DragOverlay>
           </DndContext>
         )}

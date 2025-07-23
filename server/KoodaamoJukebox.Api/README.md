@@ -15,6 +15,7 @@ This project is an ASP.NET Core Web API for the Koodaamo Jukebox application.
 To set up your local development environment, run the following commands in the `server/KoodaamoJukebox/Api` directory:
 
 ```bash
+dotnet user-secrets set "ConnectionStrings:KoodaamoJukeboxDb" "YOUR_CONNECTION_STRING"
 dotnet user-secrets set "Discord:BotToken" "YOUR_DISCORD_BOT_TOKEN"
 dotnet user-secrets set "Discord:ClientSecret" "YOUR_DISCORD_CLIENT_SECRET"
 dotnet user-secrets set "Discord:ClientId" "YOUR_DISCORD_CLIENT_ID"
@@ -35,7 +36,9 @@ Replace the placeholder values with your actual secrets.
    ```
 2. Run the API:
    ```bash
-   dotnet run
+   export ASPNETCORE_URLS="http://localhost:5000"
+   export ASPNETCORE_ENVIRONMENT="Development"
+   dotnet run --project KoodaamoJukebox.Api
    ```
 
 The API will start and listen on the configured port.
