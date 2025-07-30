@@ -13,10 +13,10 @@ importers:
         version: 2.1.0
       '@dnd-kit/core':
         specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+        version: 6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@dnd-kit/sortable':
         specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.1))(react@19.1.1))(react@19.1.1)
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.1.1)
@@ -43,7 +43,7 @@ importers:
         version: 4.0.1
       framer-motion:
         specifier: ^12.23.11
-        version: 12.23.11(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+        version: 12.23.11(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       hls.js:
         specifier: ^1.6.7
         version: 1.6.7
@@ -54,20 +54,20 @@ importers:
         specifier: ^19.1.1
         version: 19.1.1
       react-dom:
-        specifier: ^19.1.0
-        version: 19.1.0(react@19.1.1)
+        specifier: ^19.1.1
+        version: 19.1.1(react@19.1.1)
       react-fast-marquee:
         specifier: ^1.6.5
-        version: 1.6.5(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+        version: 1.6.5(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       react-icons:
         specifier: ^5.5.0
         version: 5.5.0(react@19.1.1)
       react-virtualized-auto-sizer:
         specifier: ^1.0.26
-        version: 1.0.26(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+        version: 1.0.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       react-window:
         specifier: ^1.8.11
-        version: 1.8.11(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+        version: 1.8.11(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       tailwindcss:
         specifier: ^4.1.11
         version: 4.1.11
@@ -79,8 +79,8 @@ importers:
         specifier: ^19.1.9
         version: 19.1.9
       '@types/react-dom':
-        specifier: ^19.1.6
-        version: 19.1.6(@types/react@19.1.9)
+        specifier: ^19.1.7
+        version: 19.1.7(@types/react@19.1.9)
       '@types/react-window':
         specifier: ^1.8.8
         version: 1.8.8
@@ -778,8 +778,8 @@ packages:
   '@types/node@18.19.117':
     resolution: {integrity: sha512-hcxGs9TfQGghOM8atpRT+bBMUX7V8WosdYt98bQ59wUToJck55eCOlemJ+0FpOZOQw5ff7LSi9+IO56KvYEFyQ==}
 
-  '@types/react-dom@19.1.6':
-    resolution: {integrity: sha512-4hOiT/dwO8Ko0gV1m/TJZYk3y0KBnY9vzDh7W+DH17b2HFSOGgdj33dhihPeuy3l0q23+4e+hoXHV6hCC4dCXw==}
+  '@types/react-dom@19.1.7':
+    resolution: {integrity: sha512-i5ZzwYpqjmrKenzkoLM2Ibzt6mAsM7pxB6BCIouEVVmgiqaMj1TjaK7hnA36hbW5aZv20kx7Lw6hWzPWg0Rurw==}
     peerDependencies:
       '@types/react': ^19.0.0
 
@@ -1639,10 +1639,10 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
-  react-dom@19.1.0:
-    resolution: {integrity: sha512-Xs1hdnE+DyKgeHJeJznQmYMIBG3TKIHJJT95Q58nHLSrElKlGQqDTR2HQ9fx5CN/Gk6Vh/kupBTDLU11/nDk/g==}
+  react-dom@19.1.1:
+    resolution: {integrity: sha512-Dlq/5LAZgF0Gaz6yiqZCf6VCcZs1ghAJyrsu84Q/GT0gV+mCxbfmKNoGRKBYMJ8IEdGPqu49YWXD02GCknEDkw==}
     peerDependencies:
-      react: ^19.1.0
+      react: ^19.1.1
 
   react-fast-marquee@1.6.5:
     resolution: {integrity: sha512-swDnPqrT2XISAih0o74zQVE2wQJFMvkx+9VZXYYNSLb/CUcAzU9pNj637Ar2+hyRw6b4tP6xh4GQZip2ZCpQpg==}
@@ -2099,17 +2099,17 @@ snapshots:
       react: 19.1.1
       tslib: 2.8.1
 
-  '@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.1))(react@19.1.1)':
+  '@dnd-kit/core@6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@dnd-kit/accessibility': 3.1.1(react@19.1.1)
       '@dnd-kit/utilities': 3.2.2(react@19.1.1)
       react: 19.1.1
-      react-dom: 19.1.0(react@19.1.1)
+      react-dom: 19.1.1(react@19.1.1)
       tslib: 2.8.1
 
-  '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.0(react@19.1.1))(react@19.1.1))(react@19.1.1)':
+  '@dnd-kit/sortable@10.0.0(@dnd-kit/core@6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)':
     dependencies:
-      '@dnd-kit/core': 6.3.1(react-dom@19.1.0(react@19.1.1))(react@19.1.1)
+      '@dnd-kit/core': 6.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@dnd-kit/utilities': 3.2.2(react@19.1.1)
       react: 19.1.1
       tslib: 2.8.1
@@ -2546,7 +2546,7 @@ snapshots:
     dependencies:
       undici-types: 5.26.5
 
-  '@types/react-dom@19.1.6(@types/react@19.1.9)':
+  '@types/react-dom@19.1.7(@types/react@19.1.9)':
     dependencies:
       '@types/react': 19.1.9
 
@@ -3093,14 +3093,14 @@ snapshots:
       hasown: 2.0.2
       mime-types: 2.1.35
 
-  framer-motion@12.23.11(react-dom@19.1.0(react@19.1.1))(react@19.1.1):
+  framer-motion@12.23.11(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
       motion-dom: 12.23.9
       motion-utils: 12.23.6
       tslib: 2.8.1
     optionalDependencies:
       react: 19.1.1
-      react-dom: 19.1.0(react@19.1.1)
+      react-dom: 19.1.1(react@19.1.1)
 
   fsevents@2.3.3:
     optional: true
@@ -3424,15 +3424,15 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  react-dom@19.1.0(react@19.1.1):
+  react-dom@19.1.1(react@19.1.1):
     dependencies:
       react: 19.1.1
       scheduler: 0.26.0
 
-  react-fast-marquee@1.6.5(react-dom@19.1.0(react@19.1.1))(react@19.1.1):
+  react-fast-marquee@1.6.5(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
       react: 19.1.1
-      react-dom: 19.1.0(react@19.1.1)
+      react-dom: 19.1.1(react@19.1.1)
 
   react-icons@5.5.0(react@19.1.1):
     dependencies:
@@ -3440,17 +3440,17 @@ snapshots:
 
   react-refresh@0.17.0: {}
 
-  react-virtualized-auto-sizer@1.0.26(react-dom@19.1.0(react@19.1.1))(react@19.1.1):
+  react-virtualized-auto-sizer@1.0.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
       react: 19.1.1
-      react-dom: 19.1.0(react@19.1.1)
+      react-dom: 19.1.1(react@19.1.1)
 
-  react-window@1.8.11(react-dom@19.1.0(react@19.1.1))(react@19.1.1):
+  react-window@1.8.11(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
       '@babel/runtime': 7.27.6
       memoize-one: 5.2.1
       react: 19.1.1
-      react-dom: 19.1.0(react@19.1.1)
+      react-dom: 19.1.1(react@19.1.1)
 
   react@19.1.1: {}
 
