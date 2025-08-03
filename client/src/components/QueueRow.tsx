@@ -63,10 +63,10 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
     >
       <div
         className={[
-          "flex h-16 max-h-16 w-full px-1",
+          "flex h-16 max-h-16 w-full md:pl-0 pl-4 ",
           `${highlighted && overlay ? "bg-queue-item-highlight-hover" : ""}`,
           `${highlighted && !overlay ? "bg-queue-item-highlight" : ""}`,
-          `${!highlighted && !overlay ? "bg-queue-item" : ""}`,
+          `${!highlighted && !overlay ? "md:bg-queue-item bg-transparent" : ""}`,
           `${!highlighted && overlay ? "bg-queue-item-hover" : ""}`,
           `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
         ].join(" ")}
@@ -81,7 +81,7 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
                 tabIndex={0}
                 aria-label="Drag to reorder"
                 className={[
-                  "h-14 w-14 min-w-14 min-h-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
+                  "h-14 w-14 min-w-14 min-h-14 -mr-1 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
                   overlay ? "cursor-grabbing" : "cursor-grab"
                 ].join(" ")}
               >
@@ -94,17 +94,17 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
               className="flex items-center w-full min-w-0"
               onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
             >
-              <div className="aspect-video h-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
+              <div className="md:aspect-video aspect-square h-14 w-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
                 <img
                   src={thumbnailBlob}
                   loading="lazy"
-                  className="w-full h-full object-cover object-center aspect-square bg-black select-none"
+                  className="w-full h-full object-cover object-center bg-black select-none md:object-cover"
                   alt={track?.title || "thumbnail"}
                   draggable={false}
                 />
               </div>
               <div className="flex flex-col overflow-hidden w-full pl-2 select-none">
-                <label className="text-s font-bold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
+                <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
                 <label className="text-s truncate select-none">{track?.uploader}</label>
               </div>
             </div>

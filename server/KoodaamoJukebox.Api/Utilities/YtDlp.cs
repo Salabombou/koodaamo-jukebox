@@ -140,7 +140,11 @@ namespace KoodaamoJukebox.Api.Utilities
 
                             var thumbnails = snippet.GetProperty("thumbnails");
 
-                            if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
+                            if (thumbnails.TryGetProperty("medium", out var mediumThumbnailLow))
+                            {
+                                thumbnailLow = mediumThumbnailLow.GetProperty("url").GetString();
+                            }
+                            else if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
                             {
                                 thumbnailLow = defaultThumbnailLow.GetProperty("url").GetString();
                             }
@@ -226,7 +230,11 @@ namespace KoodaamoJukebox.Api.Utilities
                 string? thumbnailLow = null;
                 string? thumbnailHigh = null;
                 var thumbnails = snippet.GetProperty("thumbnails");
-                if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
+                if (thumbnails.TryGetProperty("medium", out var mediumThumbnailLow))
+                {
+                    thumbnailLow = mediumThumbnailLow.GetProperty("url").GetString();
+                }
+                else if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
                 {
                     thumbnailLow = defaultThumbnailLow.GetProperty("url").GetString();
                 }
@@ -265,8 +273,9 @@ namespace KoodaamoJukebox.Api.Utilities
             throw new InvalidOperationException($"No video found for videoId: {videoId}");
         }
 
-        public async Task<Track[]> GetTracks(string query)
+        public async Task<Track[]> GetTracks(string query, bool disablePlaylistFetching = false)
         {
+
             // if query is not a valid URL, prepend "ytsearch1:"
             if (!Uri.IsWellFormedUriString(query, UriKind.Absolute))
             {
@@ -277,6 +286,10 @@ namespace KoodaamoJukebox.Api.Utilities
                 uri.PathAndQuery.Contains("/playlist") && uri.Query.Contains("list=")
             )
             {
+                if (disablePlaylistFetching)
+                {
+                    throw new InvalidOperationException("Playlist fetching is disabled, but a playlist URL was provided.");
+                }
                 return await GetYoutubePlaylist(query);
             }
             else if (Uri.TryCreate(query, UriKind.Absolute, out var videoUri) &&
@@ -295,17 +308,28 @@ namespace KoodaamoJukebox.Api.Utilities
                 }
             }
 
+
+            // Build yt-dlp arguments
+            var ytDlpArgs = new List<string> { "--dump-json", query, "--flat-playlist", "--no-warnings" };
+            if (disablePlaylistFetching)
+            {
+                ytDlpArgs.Add("--no-playlist");
+            }
+
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = _ytDlpPath,
-                    Arguments = $"--dump-json \"{query}\" --flat-playlist --no-warnings",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
             };
+            foreach (var arg in ytDlpArgs)
+            {
+                process.StartInfo.ArgumentList.Add(arg);
+            }
 
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync();

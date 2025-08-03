@@ -29,6 +29,7 @@ namespace KoodaamoJukebox.Api.Hubs
         {
             if (context.HubMethodName == "Ping")
             {
+                // Allow Ping to be called without sentAt
                 return await next(context);
             }
 
@@ -118,7 +119,7 @@ namespace KoodaamoJukebox.Api.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task Ping(long sentAt)
+        public async Task Ping()
         {
             await Clients.Caller.SendAsync("Pong");
         }

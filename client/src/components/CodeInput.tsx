@@ -21,7 +21,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({ value, onChange, onRandom,
   };
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="flex gap-2 md:gap-4">
+      <div className="flex gap-2 sm:gap-4">
         {[...Array(6)].map((_, idx) => (
           <input
             key={idx}
@@ -31,7 +31,7 @@ export const CodeInput: React.FC<CodeInputProps> = ({ value, onChange, onRandom,
             type="text"
             inputMode="numeric"
             maxLength={1}
-            className="input input-bordered text-4xl md:text-6xl w-12 md:w-20 text-center font-mono"
+            className="input input-bordered text-4xl sm:text-6xl w-12 sm:w-20 text-center font-mono"
             value={value[idx] || ""}
             onChange={(e) => handleInput(e, idx)}
             onKeyDown={(e) => handleKeyDown(e, idx)}

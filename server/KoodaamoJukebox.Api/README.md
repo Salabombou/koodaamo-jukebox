@@ -12,8 +12,6 @@ This project is an ASP.NET Core Web API for the Koodaamo Jukebox application.
 
 ### Setting User Secrets
 
-To set up your local development environment, run the following commands in the `server/KoodaamoJukebox/Api` directory:
-
 ```bash
 dotnet user-secrets set "ConnectionStrings:KoodaamoJukeboxDb" "YOUR_CONNECTION_STRING"
 dotnet user-secrets set "Discord:BotToken" "YOUR_DISCORD_BOT_TOKEN"
@@ -25,8 +23,6 @@ dotnet user-secrets set "Jwt:Secret" "YOUR_JWT_SECRET"
 dotnet user-secrets set "Cloudflare:TunnelToken" "YOUR_CLOUDFLARE_TUNNEL_TOKEN"
 dotnet user-secrets set "Api:BaseUrl" "YOUR_API_BASE_URL"
 ```
-
-Replace the placeholder values with your actual secrets.
 
 ### Running the API
 

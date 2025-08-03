@@ -26,7 +26,7 @@ namespace KoodaamoJukebox.Database.Models
 
         public int? CurrentTrackIndex { get; set; }
 
-        public string? CurrentTrackId { get; set; } // New property for current track id
+        public string? CurrentTrackId { get; set; }
 
         public long? PlayingSince { get; set; }
 
@@ -43,8 +43,8 @@ namespace KoodaamoJukebox.Database.Models
             IsShuffled = queue.IsShuffled;
             CurrentTrack = new CurrentTrackDto
             {
-                index = queue.CurrentTrackIndex ?? -1,
-                id = queue.CurrentTrackId ?? string.Empty
+                Index = queue.CurrentTrackIndex ?? -1,
+                Id = queue.CurrentTrackId ?? string.Empty
             };
             PlayingSince = queue.PlayingSince;
         }
@@ -59,7 +59,7 @@ namespace KoodaamoJukebox.Database.Models
 
     public class CurrentTrackDto
     {
-        public int index { get; set; }
-        public string id { get; set; } = string.Empty;
+        public int Index { get; set; }
+        public string Id { get; set; } = string.Empty;
     }
 }

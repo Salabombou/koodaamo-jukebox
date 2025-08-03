@@ -39,15 +39,25 @@
 @theme {
   --color-text: rgba(255, 255, 255, 0.7);
   --color-text-black: rgba(0, 0, 0, 0.7);
+
   --color-music-player-interface: rgba(0, 0, 0, 0.1);
   --color-music-player-interface-button-hover: rgba(255, 255, 255, 0.1);
+
   --color-volume-slider: rgba(0, 0, 0, 0.1);
+
   --color-queue-arrow-button-hover: rgba(255, 255, 255, 0.1);
+
   --color-queue-item: rgba(0, 0, 0, 0.1);
   --color-queue-item-hover: rgba(255, 255, 255, 0.1);
   --color-queue-item-highlight: rgba(0, 0, 0, 0.2);
   --color-queue-item-highlight-hover: rgba(255, 255, 255, 0.1);
   --color-queue-item-border-bottom: rgba(255, 255, 255, 0.05);
+
+  --color-queue-dropdown: rgba(0, 0, 0, 0.2);
+  --color-queue-dropdown-backdrop: rgba(0, 0, 0, 0.5);
+
+  --color-queue-mobile-scroll-button: rgba(0, 0, 0, 0.4);
+  --color-queue-mobile-scroll-button-hover: rgba(0, 0, 0, 0.3);
 
   --color-context-menu: rgba(0, 0, 0, 0.2);
 

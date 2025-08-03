@@ -17,9 +17,9 @@ namespace KoodaamoJukebox.Api
         static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            builder.Configuration.AddUserSecrets<Program>(optional: true);
 
-            // Set default port to 5000 if not specified
-            var port = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+            var port = builder.Configuration["ASPNETCORE_URLS"];
             if (string.IsNullOrEmpty(port))
             {
                 builder.WebHost.UseUrls("http://+:8080");

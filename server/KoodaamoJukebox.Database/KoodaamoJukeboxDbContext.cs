@@ -80,18 +80,22 @@ namespace KoodaamoJukebox.Database
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            foreach (var entry in ChangeTracker.Entries()
-                .Where(e => (e.Entity is QueueItem || e.Entity is User) &&
-                            (e.State == EntityState.Added || e.State == EntityState.Modified)))
+            var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            foreach (var entry in ChangeTracker.Entries<QueueItem>())
             {
-                var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-                dynamic entity = entry.Entity;
-                entity.UpdatedAt = currentTime;
                 if (entry.State == EntityState.Added)
                 {
-                    entity.CreatedAt = currentTime;
+                    entry.Entity.CreatedAt = currentTime;
                 }
+                entry.Entity.UpdatedAt = currentTime;
+            }
+            foreach (var entry in ChangeTracker.Entries<User>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.CreatedAt = currentTime;
+                }
+                entry.Entity.UpdatedAt = currentTime;
             }
 
             return await base.SaveChangesAsync(cancellationToken);

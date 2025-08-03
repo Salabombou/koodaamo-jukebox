@@ -253,12 +253,20 @@ namespace KoodaamoJukebox.Api.Services
                 throw new ArgumentException("URL/Query cannot be null or empty.", nameof(urlOrQuery));
             }
 
-            var queue = await _dbContext.RoomInfos
-                .Where(q => q.RoomCode == roomCode)
-                .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
+            var roomExists = await _dbContext.RoomInfos.AnyAsync(q => q.RoomCode == roomCode);
+            if (!roomExists)
+            {
+                throw new ArgumentException("Instance not found.", nameof(roomCode));
+            }
+
             var updatedItems = new List<QueueItemDto>();
 
-            var tracks = await _ytDlp.GetTracks(urlOrQuery);
+            // Query the database for the current queue size
+            var queueItemCount = await _dbContext.QueueItems.CountAsync(qi => qi.RoomCode == roomCode && !qi.IsDeleted);
+            bool queueIsLarge = queueItemCount > 1000;
+
+            // If queueIsLarge is true, disable playlist fetching in YtDlp
+            var tracks = await _ytDlp.GetTracks(urlOrQuery, queueIsLarge);
             if (tracks == null || tracks.Length == 0)
             {
                 throw new ArgumentException("No valid tracks found for the provided URL/Query.", nameof(urlOrQuery));
@@ -316,17 +324,21 @@ namespace KoodaamoJukebox.Api.Services
 
             await _dbContext.SaveChangesAsync();
 
+            var roomInfo = await _dbContext.RoomInfos
+                .Where(q => q.RoomCode == roomCode)
+                .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
+
             // insert new items into the queue to be played next
             var queueItems = await _dbContext.QueueItems
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .ToListAsync();
 
-            int insertIndex = queue.CurrentTrackIndex ?? -1;
+            int insertIndex = roomInfo.CurrentTrackIndex ?? -1;
             int insertUnshuffledIndex = insertIndex;
             int insertShuffledIndex = insertIndex;
 
             // Find the current track's unshuffled index (for shuffled mode)
-            if (queue.IsShuffled)
+            if (roomInfo.IsShuffled)
             {
                 var currentTrack = queueItems.FirstOrDefault(qi => qi.ShuffleIndex == insertIndex);
                 if (currentTrack != null)
@@ -336,7 +348,7 @@ namespace KoodaamoJukebox.Api.Services
             }
 
             // Shift indices of items after the insertion point
-            if (queue.IsShuffled)
+            if (roomInfo.IsShuffled)
             {
                 foreach (var item in queueItems)
                 {
@@ -371,8 +383,8 @@ namespace KoodaamoJukebox.Api.Services
                     RoomCode = roomCode,
                     TrackId = track.WebpageUrlHash,
                     IsDeleted = false,
-                    Index = (queue.IsShuffled ? insertUnshuffledIndex : insertIndex) + 1 + i,
-                    ShuffleIndex = queue.IsShuffled ? insertShuffledIndex + 1 + i : null
+                    Index = (roomInfo.IsShuffled ? insertUnshuffledIndex : insertIndex) + 1 + i,
+                    ShuffleIndex = roomInfo.IsShuffled ? insertShuffledIndex + 1 + i : null
                 };
                 newQueueItems.Add(queueItem);
             }
@@ -380,11 +392,11 @@ namespace KoodaamoJukebox.Api.Services
             // Update all shifted items
             _dbContext.QueueItems.UpdateRange(queueItems);
 
-            if (queue.CurrentTrackIndex == null && newQueueItems.Count > 0)
+            if (roomInfo.CurrentTrackIndex == null && newQueueItems.Count > 0)
             {
                 // If the queue was empty, set the current track to the first added item
-                queue.CurrentTrackIndex = newQueueItems[0].ShuffleIndex ?? newQueueItems[0].Index;
-                queue.CurrentTrackId = newQueueItems[0].TrackId;
+                roomInfo.CurrentTrackIndex = newQueueItems[0].ShuffleIndex ?? newQueueItems[0].Index;
+                roomInfo.CurrentTrackId = newQueueItems[0].TrackId;
             }
 
             await _dbContext.SaveChangesAsync();
@@ -393,7 +405,7 @@ namespace KoodaamoJukebox.Api.Services
             updatedItems.AddRange(newQueueItems.Select(i => new QueueItemDto(i)));
             updatedItems.AddRange(queueItems.Select(i => new QueueItemDto(i)));
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
+            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), updatedItems);
 
         }
 

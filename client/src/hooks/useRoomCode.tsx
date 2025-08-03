@@ -19,7 +19,7 @@ export function RoomCodeProvider({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-base-200">
         <div className="card bg-base-100 shadow-xl p-8">
-          <h2 className="text-2xl md:text-4xl font-bold mb-6 text-center">Enter Room Code</h2>
+          <h2 className="text-2xl sm:text-4xl font-bold mb-6 text-center">Enter Room Code</h2>
           <CodeInput value={inputCode} onChange={setInputCode} onRandom={handleRandom} onSet={handleSet} />
         </div>
       </div>

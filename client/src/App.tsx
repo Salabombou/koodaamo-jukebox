@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback, startTransition } from "react";
-import Queue from "./components/Queue";
 import MusicPlayerInterface from "./components/MusicPlayerInterface";
 import { Track } from "./types/track";
 import * as apiService from "./services/apiService";
@@ -9,12 +8,15 @@ import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
 import useHlsAudio from "./hooks/useHlsAudio";
 import GradientBackground from "./components/GradientBackground";
+import QueueMobile from "./components/QueueMobile";
+import QueueDesktop from "./components/QueueDesktop";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
   const audioPlayer = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const [modalClosed, setModalClosed] = useState(false);
+  const [dropdownClosed, setDropdownClosed] = useState(true);
   useEffect(() => {
     if (!discordSDK.isEmbedded) {
       // Show modal only if not embedded
@@ -534,6 +536,8 @@ export default function App() {
     }
   }, [audioReady, modalClosed, playingSince, isPaused]);
 
+  const visible = modalClosed && dropdownClosed;
+
   return (
     <>
       <dialog
@@ -551,7 +555,7 @@ export default function App() {
         </div>
       </dialog>
       <div
-        className="h-screen w-screen flex items-center justify-center md:flex-row md:items-center md:justify-center overflow-hidden"
+        className="h-screen w-screen flex items-center justify-center sm:flex-row sm:items-center sm:justify-center overflow-hidden"
         style={{
           position: "relative",
         }}
@@ -575,6 +579,7 @@ export default function App() {
             }}
           />
           <MusicPlayerInterface
+            visible={visible}
             track={currentTrack}
             duration={duration}
             timestamp={timestamp}
@@ -593,14 +598,32 @@ export default function App() {
             onVolumeChange={onVolumeChange}
             setSecret={setSecretUnlocked}
           />
-          <Queue
+          <QueueMobile
+            visible={modalClosed}
+            tracks={tracks}
+            queueList={queueList}
+            currentTrack={currentTrack}
+            currentTrackIndex={currentTrackIndex}
+            paused={isPaused ?? true}
+            controlsDisabled={invokePending}
+            timestamp={timestamp}
+            duration={duration}
+            onDropdownAction={(action) => setDropdownClosed(action === "close")}
+            onPlayToggle={onPlayToggle}
+            onMove={onMove}
+            onSkip={onSkip}
+            onDelete={onDelete}
+            onPlayNext={onPlayNext}
+          />
+          <QueueDesktop
+            visible={visible}
             tracks={tracks}
             queueList={queueList}
             currentTrack={currentTrack}
             currentTrackIndex={currentTrackIndex}
             controlsDisabled={invokePending}
-            onSkip={onSkip}
             onMove={onMove}
+            onSkip={onSkip}
             onDelete={onDelete}
             onPlayNext={onPlayNext}
           />

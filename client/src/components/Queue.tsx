@@ -10,7 +10,6 @@ import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { useThumbnail } from "../hooks/useThumbnail";
 import { QueueItem } from "../types/queue";
 import { Track } from "../types/track";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import AutoSizer from "react-virtualized-auto-sizer";
 
 const restrictToVerticalAxisCenterY: Modifier = ({ transform, draggingNodeRect, activatorEvent }) => {
@@ -28,29 +27,38 @@ const restrictToVerticalAxisCenterY: Modifier = ({ transform, draggingNodeRect, 
 };
 
 interface QueueProps {
+  listRef: React.RefObject<FixedSizeList | null>;
+  outerRef: React.RefObject<HTMLDivElement | null>;
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrack: (Track & { itemId: number }) | null;
   currentTrackIndex: number | null;
   controlsDisabled?: boolean;
+  onItemsRendered: (visibleStartIndex: number, visibleStopIndex: number) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
+  onScroll?: () => void;
+  onDragEnd?: (fromIndex: number, toIndex: number) => void;
 }
 
-const itemHeight = 66;
+export const itemHeight = 66;
 
 export default function Queue({
+  listRef,
+  outerRef,
   tracks,
   queueList,
   currentTrack,
-  currentTrackIndex,
   controlsDisabled,
+  onItemsRendered,
   onMove,
   onSkip,
   onDelete,
   onPlayNext,
+  onScroll,
+  onDragEnd,
 }: QueueProps) {
   const discordSDK = useDiscordSDK();
   const { getThumbnail, removeThumbnail } = useThumbnail();
@@ -146,7 +154,6 @@ export default function Queue({
           currentTrack={currentTrack}
           thumbnailBlob={thumbnailBlob}
           onSkip={(i) => {
-            scrolledSince.current = Date.now();
             onSkip(i);
           }}
           onDelete={stableProps.onDelete}
@@ -185,148 +192,91 @@ export default function Queue({
     prevQueueIdsRef.current = currentIds;
   }, [queueList, tracks, removeThumbnail]);
 
-  const list = useRef<FixedSizeList>(null);
-  const outerRef = useRef<HTMLDivElement>(null);
-
-  const scrolledSince = useRef<number | null>(null);
-
-  // Helper to scroll to a specific index and center it
-  const scrollToIndexCentered = useCallback((index: number) => {
-    if (list.current) {
-      const height = outerRef.current ? outerRef.current.clientHeight : Number(list.current.props.height);
-      const visibleCount = Math.floor(height / itemHeight);
-      const offset = Math.max(0, index - Math.floor(visibleCount / 2));
-      list.current.scrollTo(offset * itemHeight);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0) {
-      if (list.current) {
-        const isScrolled = scrolledSince.current !== null && (Date.now() - scrolledSince.current) < 5000;
-        if (!isScrolled && draggedIndex === null) {
-          scrollToIndexCentered(currentTrackIndex);
-        }
-      }
-    }
-  }, [currentTrack?.itemId, currentTrackIndex, optimisticQueueList]);
-
-  // Scroll to current track when arrow is clicked
-  const scrollToCurrentTrack = useCallback(() => {
-    if (typeof currentTrackIndex === "number" && currentTrackIndex >= 0 && list.current) {
-      scrollToIndexCentered(currentTrackIndex);
-    }
-  }, [currentTrackIndex, scrollToIndexCentered]);
-
-  const topArrowVisible = typeof currentTrackIndex === "number" && currentTrackIndex < visibleRange.start && optimisticQueueList.length > 0;
-  const bottomArrowVisible = typeof currentTrackIndex === "number" && currentTrackIndex > visibleRange.stop && optimisticQueueList.length > 0;
+  const sinceLastScroll = useRef<number>(0);
 
   return (
-    <div style={{ height: "100%" }} className="relative ml-6 w-full hidden md:flex touch-manipulation">
-      {/* Top arrow */}
-      {topArrowVisible && (
-        <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">
-          <button
-            onClick={scrollToCurrentTrack}
-            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
-            aria-label="Scroll to current track"
-          >
-            <FaArrowUp className="animate-bounce pt-2" />
-          </button>
-        </div>
-      )}
-      {/* Bottom arrow */}
-      {bottomArrowVisible && (
-        <div className="hidden md:flex absolute bottom-2 right-2 z-10 pointer-events-none">
-          <button
-            onClick={scrollToCurrentTrack}
-            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
-            aria-label="Scroll to current track"
-          >
-            <FaArrowDown className="animate-bounce pt-2" />
-          </button>
-        </div>
-      )}
-      <AutoSizer>
-        {({ height, width }) => (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            modifiers={[restrictToVerticalAxisCenterY]}
-            onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
-            onDragEnd={(e) => {
-              const fromIndex = draggedIndex;
-              const toIndex = e.over?.data.current?.sortable.index;
-              setDraggedIndex(null);
-              if (typeof fromIndex === "number" && typeof toIndex === "number" && fromIndex !== toIndex && !controlsDisabled) {
-                scrolledSince.current = Date.now();
-                onMove(fromIndex, toIndex);
-                moveItem([fromIndex, toIndex]);
-              }
-            }}
-          >
-            <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
-              <FixedSizeList
-                ref={list}
-                outerRef={outerRef}
-                height={height}
-                width={width}
-                itemData={optimisticQueueList}
-                itemCount={optimisticQueueList.length}
-                overscanCount={5}
-                onScroll={async (e) => {
-                  if (e.scrollUpdateWasRequested) return;
-                  scrolledSince.current = Date.now();
-                }}
-                itemSize={itemHeight}
-                itemKey={itemKey}
-                style={{
-                  overflowX: "hidden",
-                  overflowY: "auto",
-                  WebkitOverflowScrolling: "touch", // Enable momentum scroll on iOS
-                  scrollbarWidth: "none",
-                  touchAction: "pan-y",
-                }}
-                onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
-                  setVisibleRange({
-                    start: visibleStartIndex,
-                    stop: visibleStopIndex,
-                  });
-                }}
-              >
-                {rowRenderer}
-              </FixedSizeList>
-            </SortableContext>
-            <DragOverlay>
-              {draggedIndex !== null && (() => {
-                const track = tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null;
-                let thumbnailBlob = "/black.jpg";
-                if (track?.id) {
-                  const url = discordSDK.isEmbedded
-                    ? `/.proxy/api/track/${track.id}/thumbnail-low`
-                    : `/api/track/${track.id}/thumbnail-low`;
-                  thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
+    <AutoSizer>
+      {({ height, width }) => (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxisCenterY]}
+          onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
+          onDragEnd={(e) => {
+            const fromIndex = draggedIndex;
+            const toIndex = e.over?.data.current?.sortable.index;
+            setDraggedIndex(null);
+            if (typeof fromIndex === "number" && typeof toIndex === "number" && fromIndex !== toIndex && !controlsDisabled) {
+              onMove(fromIndex, toIndex);
+              moveItem([fromIndex, toIndex]);
+              onDragEnd?.(fromIndex, toIndex);
+            }
+          }}
+        >
+          <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
+            <FixedSizeList
+              ref={listRef}
+              outerRef={outerRef}
+              height={height}
+              width={width}
+              itemData={optimisticQueueList}
+              itemCount={optimisticQueueList.length}
+              overscanCount={5}
+              onScroll={async (e) => {
+                const isUserScroll = !e.scrollUpdateWasRequested;
+                const currentTime = Date.now();
+                const msSinceLastScroll = currentTime - sinceLastScroll.current;
+                if (isUserScroll && msSinceLastScroll > 100) {
+                  onScroll?.();
                 }
-                return (
-                  <QueueRow
-                    overlay={true}
-                    index={draggedIndex}
-                    track={track}
-                    currentTrack={currentTrack}
-                    thumbnailBlob={thumbnailBlob}
-                    onSkip={() => {}}
-                    onDelete={() => {}}
-                    onPlayNext={() => {}}
-                    style={{}}
-                    data={optimisticQueueList}
-                    controlsDisabled={controlsDisabled}
-                  />
-                );
-              })()}
-            </DragOverlay>
-          </DndContext>
-        )}
-      </AutoSizer>
-    </div>
+                sinceLastScroll.current = currentTime;
+              }}
+              itemSize={itemHeight}
+              itemKey={itemKey}
+              style={{
+                overflowX: "hidden",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch", // Enable momentum scroll on iOS
+                scrollbarWidth: "none",
+                touchAction: "pan-y",
+              }}
+              onItemsRendered={({ visibleStartIndex, visibleStopIndex }) => {
+                setVisibleRange({ start: visibleStartIndex, stop: visibleStopIndex });
+                onItemsRendered(visibleStartIndex, visibleStopIndex);
+              }}
+            >
+              {rowRenderer}
+            </FixedSizeList>
+          </SortableContext>
+          <DragOverlay>
+            {draggedIndex !== null && (() => {
+              const track = tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null;
+              let thumbnailBlob = "/black.jpg";
+              if (track?.id) {
+                const url = discordSDK.isEmbedded
+                  ? `/.proxy/api/track/${track.id}/thumbnail-low`
+                  : `/api/track/${track.id}/thumbnail-low`;
+                thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
+              }
+              return (
+                <QueueRow
+                  overlay={true}
+                  index={draggedIndex}
+                  track={track}
+                  currentTrack={currentTrack}
+                  thumbnailBlob={thumbnailBlob}
+                  onSkip={() => {}}
+                  onDelete={() => {}}
+                  onPlayNext={() => {}}
+                  style={{}}
+                  data={optimisticQueueList}
+                  controlsDisabled={controlsDisabled}
+                />
+              );
+            })()}
+          </DragOverlay>
+        </DndContext>
+      )}
+    </AutoSizer>
   );
 }
