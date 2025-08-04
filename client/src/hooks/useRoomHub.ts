@@ -37,23 +37,37 @@ export default function useRoomHub() {
       .build();
     connection.current.on("RoomUpdate", (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
       console.log("Room update received:", roomInfo, updatedItems);
-      setPlayingSince(roomInfo.playing_since ?? null);
-      setIsPaused(roomInfo.is_paused);
-      setCurrentTrackIndex(roomInfo.current_track.index ?? null);
-      setCurrentTrackId(roomInfo.current_track.id ?? null);
-      setIsLooping(roomInfo.is_looping);
-      setIsShuffled(roomInfo.is_shuffled);
-
+      
+      // Batch state updates to reduce re-renders
       startTransition(() => {
+        setPlayingSince(roomInfo.playing_since ?? null);
+        setIsPaused(roomInfo.is_paused);
+        setCurrentTrackIndex(roomInfo.current_track.index ?? null);
+        setCurrentTrackId(roomInfo.current_track.id ?? null);
+        setIsLooping(roomInfo.is_looping);
+        setIsShuffled(roomInfo.is_shuffled);
+
         setQueueItems((prev) => {
           const items = new Map(prev);
+          let hasChanges = false;
+          
           updatedItems.forEach((item) => {
             if (item.is_deleted) {
-              items.delete(item.id);
+              if (items.has(item.id)) {
+                items.delete(item.id);
+                hasChanges = true;
+              }
             } else {
-              items.set(item.id, item);
+              const existing = items.get(item.id);
+              if (!existing || JSON.stringify(existing) !== JSON.stringify(item)) {
+                items.set(item.id, item);
+                hasChanges = true;
+              }
             }
           });
+
+          // Only update if there are actual changes
+          if (!hasChanges) return prev;
 
           const sortedItems = Array.from(items.values()).sort((a, b) => {
             const aIndex = a.shuffled_index ?? a.index;

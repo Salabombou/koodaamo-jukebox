@@ -59,7 +59,11 @@ export default function useHlsAudio({ audioPlayer, onDuration, onFatalError }: U
 
   const loadSource = useCallback(
     (src: string) => {
-      if (!hls.current) return;
+      if (!hls.current || !audioPlayer.current) return;
+      
+      // Only load if the source is different from current
+      if (hls.current.url === src) return;
+      
       hls.current.loadSource(src);
       hls.current.startLoad();
       

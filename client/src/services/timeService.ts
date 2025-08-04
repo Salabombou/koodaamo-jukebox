@@ -55,21 +55,21 @@ function removeOutliers(samples: TimeSample[]): TimeSample[] {
 }
 
 export async function syncServerTime(isEmbedded: boolean) {
-  const numSamples = 8;
+  const numSamples = 5; // Reduced from 8 for faster sync
   const samples: TimeSample[] = [];
   
   console.log("Starting time synchronization with", numSamples, "samples...");
   
-  // Collect multiple samples
+  // Collect multiple samples with shorter delay
   for (let i = 0; i < numSamples; i++) {
     try {
       const sample = await performTimeSample(isEmbedded);
       samples.push(sample);
       console.log(`Sample ${i + 1}: offset=${sample.offset.toFixed(2)}ms, rtt=${sample.rtt.toFixed(2)}ms`);
       
-      // Small delay between samples to avoid overwhelming the server
+      // Shorter delay between samples
       if (i < numSamples - 1) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 25)); // Reduced from 50ms
       }
     } catch (error) {
       console.warn(`Time sample ${i + 1} failed:`, error);

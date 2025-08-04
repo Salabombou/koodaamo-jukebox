@@ -9,7 +9,11 @@ export function useRoomCode() {
 
 export function RoomCodeProvider({ children }: { children: ReactNode }) {
   const discordSdk = useDiscordSDK();
-  const [roomCode, setRoomCode] = useState<string | null>(discordSdk.isEmbedded ? discordSdk.instanceId : sessionStorage.getItem("roomCode"));
+  const [roomCode, setRoomCode] = useState<string | null>(
+    discordSdk.isEmbedded
+      ? discordSdk.instanceId
+      : new URL(window.location.href).searchParams.get("room_code")
+  );
   const [inputCode, setInputCode] = useState("");
   const handleRandom = () => setInputCode(Math.floor(100000 + Math.random() * 900000).toString());
   const handleSet = () => {
@@ -25,9 +29,10 @@ export function RoomCodeProvider({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  sessionStorage.setItem("roomCode", roomCode);
+  sessionStorage.setItem("room_code", roomCode);
   const url = new URL(window.location.href);
-  url.searchParams.set("roomCode", roomCode);
+  url.searchParams.delete("room_code");
+  url.searchParams.set("room_code", roomCode);
   window.history.replaceState({}, "", url.toString());
   return <RoomCodeContext.Provider value={roomCode}>{children}</RoomCodeContext.Provider>;
 }

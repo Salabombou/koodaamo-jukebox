@@ -38,19 +38,30 @@ export default function App() {
     timeService.syncServerTime(discordSDK.isEmbedded);
   }, [discordSDK.isEmbedded]);
 
-  const secretUnlockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
-  const secretLockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
-  const diskDriveSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const secretUnlockedSfx = useRef<HTMLAudioElement>(null);
+  const secretLockedSfx = useRef<HTMLAudioElement>(null);
+  const diskDriveSfx = useRef<HTMLAudioElement>(null);
 
+  // Initialize audio elements once to avoid recreating them every render
   useEffect(() => {
-    secretUnlockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-unlocked.mp3`);
-    secretLockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-locked.mp3`);
-    diskDriveSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/disc-drive.ogg`);
+    const basePath = discordSDK.isEmbedded ? "/.proxy" : "";
+    
+    if (!secretUnlockedSfx.current) {
+      secretUnlockedSfx.current = new Audio(`${basePath}/sfx/secret-unlocked.mp3`);
+    }
+    if (!secretLockedSfx.current) {
+      secretLockedSfx.current = new Audio(`${basePath}/sfx/secret-locked.mp3`);
+    }
+    if (!diskDriveSfx.current) {
+      diskDriveSfx.current = new Audio(`${basePath}/sfx/disc-drive.ogg`);
+    }
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
     audioPlayer.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
-    diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
+    if (diskDriveSfx.current) {
+      diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
+    }
   }, []);
 
   const users = useRef<Set<string>>(new Set(discordSDK.clientId));
@@ -166,7 +177,9 @@ export default function App() {
 
   const onVolumeChange = useCallback((volume: number) => {
     audioPlayer.current!.volume = volume;
-    diskDriveSfx.current.volume = volume;
+    if (diskDriveSfx.current) {
+      diskDriveSfx.current.volume = volume;
+    }
     localStorage.setItem("volume", String(volume));
   }, []);
 
@@ -202,48 +215,56 @@ export default function App() {
   const onTimeUpdate = useCallback(() => {
     if (!modalClosed) return;
     if (seeking.current) return;
-    const currentTime = timeService.getServerNow();
-    if (typeof playingSince === "number") {
-      const elapsedtime = ((currentTime - playingSince) / 1000) % duration;
-
-      if (elapsedtime >= 1 && Math.abs(audioPlayer.current.currentTime - elapsedtime) > 1) {
-        console.log("Fixing desync, setting currentTime to", elapsedtime);
-        audioPlayer.current!.currentTime = elapsedtime;
-      }
-      if (!isPaused && audioPlayer.current.paused) {
-        audioPlayer.current.play();
-      }
-    }
-
-    const newTimestamp = Math.max(audioPlayer.current?.currentTime ?? 0, 0);
+    
+    const audioCurrentTime = audioPlayer.current?.currentTime ?? 0;
+    const newTimestamp = Math.max(audioCurrentTime, 0);
+    
+    // Only update timestamp if it's a valid number and different enough to matter
     if (!isNaN(newTimestamp)) {
       setTimestamp(newTimestamp);
     }
 
+    // Early return if no server sync needed
+    if (typeof playingSince !== "number") return;
+    
+    const currentTime = timeService.getServerNow();
+    const elapsedtime = ((currentTime - playingSince) / 1000) % duration;
+
+    // Only sync if there's a significant desync (>1 second)
+    if (elapsedtime >= 1 && Math.abs(audioCurrentTime - elapsedtime) > 1) {
+      console.log("Fixing desync, setting currentTime to", elapsedtime);
+      audioPlayer.current!.currentTime = elapsedtime;
+    }
+    
+    // Only force play if paused when it shouldn't be
+    if (!isPaused && audioPlayer.current.paused) {
+      audioPlayer.current.play();
+    }
+
+    // Early return if no prefetch needed
     if (typeof currentTrackIndex !== "number" || queueItems.size === 0 || duration === 0 || currentTrackIndex < 0 || currentTrackIndex >= queueItems.size) {
       return;
-    } // No next track
-
-    let nextTrack: Track | null = null;
-    for (const item of queueItems.values()) {
-      if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
-        nextTrack = tracks.get(item.track_id) ?? null;
-        break;
-      }
     }
-    if (!nextTrack) return;
-    const timeLeft = duration - (audioPlayer.current?.currentTime ?? 0);
-    if (timeLeft <= 10 && timeLeft > 0) {
-      // Prefetch next track audio
-      const nextTrackId = nextTrack.id;
-      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`
-      const token = localStorage.getItem("auth_token");
-      if (preFetch.current) return;
-      preFetch.current = true;
-      fetch(src, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+
+    // Only prefetch if close to end and not already prefetching
+    const timeLeft = duration - audioCurrentTime;
+    if (timeLeft <= 10 && timeLeft > 0 && !preFetch.current) {
+      // Find next track more efficiently
+      for (const item of queueItems.values()) {
+        if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
+          const nextTrack = tracks.get(item.track_id);
+          if (nextTrack) {
+            preFetch.current = true;
+            const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrack.id}/`;
+            const token = localStorage.getItem("auth_token");
+            fetch(src, {
+              method: "GET",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+          }
+          break;
+        }
+      }
     }
   }, [playingSince, duration, currentTrackIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, modalClosed]);
 
@@ -500,11 +521,15 @@ export default function App() {
     if (!modalClosed) return;
     // Only allow sounds if secret has ever been unlocked
     if (secretUnlocked && secretEverUnlocked.current) {
-      secretUnlockedSfx.current.currentTime = 0;
-      secretUnlockedSfx.current.play();
+      if (secretUnlockedSfx.current) {
+        secretUnlockedSfx.current.currentTime = 0;
+        secretUnlockedSfx.current.play();
+      }
     } else if (secretEverUnlocked.current) {
-      secretLockedSfx.current.currentTime = 0;
-      secretLockedSfx.current.play();
+      if (secretLockedSfx.current) {
+        secretLockedSfx.current.currentTime = 0;
+        secretLockedSfx.current.play();
+      }
     }
     secretEverUnlocked.current = true;
   }, [secretUnlocked, modalClosed]);
@@ -514,13 +539,17 @@ export default function App() {
 
     // Play SFX when unpaused and playback hasn't started yet
     if (!isPaused && playingSince === null) {
-      diskDriveSfx.current.currentTime = 0;
-      diskDriveSfx.current.play();
+      if (diskDriveSfx.current) {
+        diskDriveSfx.current.currentTime = 0;
+        diskDriveSfx.current.play();
+      }
     }
 
     // Pause SFX exactly when playback starts (playingSince transitions from null to a number)
     if (!isPaused && playingSince !== null) {
-      diskDriveSfx.current.pause();
+      if (diskDriveSfx.current) {
+        diskDriveSfx.current.pause();
+      }
     }
   }, [isPaused, playingSince, modalClosed, secretUnlocked]);
 
@@ -605,11 +634,16 @@ export default function App() {
             currentTrack={currentTrack}
             currentTrackIndex={currentTrackIndex}
             paused={isPaused ?? true}
+            loop={isLooping ?? false}
             controlsDisabled={invokePending}
             timestamp={timestamp}
             duration={duration}
-            onDropdownAction={(action) => setDropdownClosed(action === "close")}
+            onDropdownAction={(action) => {
+              setDropdownClosed(action === "close");
+              console.log("Dropdown action:", action);
+            }}
             onPlayToggle={onPlayToggle}
+            onLoopToggle={onLoopToggle}
             onMove={onMove}
             onSkip={onSkip}
             onDelete={onDelete}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { FaChevronUp, FaChevronDown, FaPlay, FaPause, FaBars, FaLocationArrow } from "react-icons/fa";
-import Queue from "./Queue";
+import { FaRepeat } from "react-icons/fa6";
+import QueueList, { itemHeight } from "./QueueList";
 import { FixedSizeList } from "react-window";
 import { Track } from "../types/track";
 import { QueueItem } from "../types/queue";
@@ -18,16 +19,18 @@ interface QueueMobileProps {
   paused: boolean;
   timestamp: number;
   duration: number;
+  loop?: boolean;
   controlsDisabled?: boolean;
   onDropdownAction: (action: "close" | "open") => void;
   onPlayToggle: () => void;
+  onLoopToggle?: () => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
 }
 
-export default function QueueMobile({ visible, tracks, queueList, currentTrack, currentTrackIndex, paused, duration, timestamp, controlsDisabled, onDropdownAction, onPlayToggle, onMove, onSkip, onDelete, onPlayNext }: QueueMobileProps) {
+export default function QueueMobile({ visible, tracks, queueList, currentTrack, currentTrackIndex, paused, duration, timestamp, loop = false, controlsDisabled, onDropdownAction, onPlayToggle, onLoopToggle, onMove, onSkip, onDelete, onPlayNext }: QueueMobileProps) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
@@ -38,10 +41,64 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [showScrollToCurrentButton, setShowScrollToCurrentButton] = useState(false);
+  
+  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const discordSDK = useDiscordSDK();
   const { getThumbnail, removeThumbnail } = useThumbnail();
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
+
+  // Track previous state to detect changes
+  const prevVisibleRef = useRef(visible);
+  const prevWindowHeightRef = useRef(windowHeight);
+  const prevWindowWidthRef = useRef(windowWidth);
+
+  // Listen for window resize to update dimensions
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight);
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle visibility, window height, and media query changes
+  useEffect(() => {
+    const visibilityChanged = prevVisibleRef.current !== visible;
+    const windowHeightChanged = prevWindowHeightRef.current !== windowHeight;
+    const windowWidthChanged = prevWindowWidthRef.current !== windowWidth;
+    
+    // Component should close if:
+    // 1. Not visible prop
+    // 2. Window height too small
+    // 3. Window width >= 768px (md breakpoint) - component is hidden by CSS
+    const shouldClose = !visible || windowHeight <= 200 || windowWidth >= 768;
+
+    if ((visibilityChanged || windowHeightChanged || windowWidthChanged) && shouldClose && isOpen) {
+      setIsOpen(false);
+      setShowScrollToCurrentButton(false);
+      onDropdownAction("close");
+    }
+
+    // Update previous values
+    prevVisibleRef.current = visible;
+    prevWindowHeightRef.current = windowHeight;
+    prevWindowWidthRef.current = windowWidth;
+  }, [visible, windowHeight, windowWidth, isOpen, onDropdownAction]);
+
+  // Cleanup on unmount - use a separate ref to track mount status
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (isOpen) {
+        onDropdownAction("close");
+      }
+    };
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   useEffect(() => {}, [startIndex, stopIndex]);
 
@@ -63,76 +120,43 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       removeThumbnail(currentTrack?.id ?? "");
     };
   }, [currentTrack?.id, discordSDK.isEmbedded, getThumbnail, removeThumbnail]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      
-      // Don't close if clicking within the dropdown
-      if (dropdownRef.current && dropdownRef.current.contains(target)) {
-        return;
-      }
-      
-      // Don't close if clicking within a context menu
-      const contextMenu = (target as Element).closest('[data-custom-context-menu]');
-      if (contextMenu) {
-        return;
-      }
-      
-      setIsOpen(false);
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  // Close dropdown when component becomes invisible due to screen resize (mobile to desktop)
-  useEffect(() => {
-    const handleResize = () => {
-      // Check if we're now on desktop (768px+ based on Tailwind's md breakpoint)
-      const isDesktop = window.matchMedia("(min-width: 768px)").matches;
-      
-      // If queue is open and we've switched to desktop view, close it
-      if (isOpen && isDesktop) {
-        setIsOpen(false);
-        onDropdownAction("close");
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    
-    // Also check on mount in case component loads on desktop
-    handleResize();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [isOpen, onDropdownAction]);
-
+  
   const queueLength = queueList.length;
   const currentTrackNumber = currentTrackIndex !== null ? currentTrackIndex + 1 : 0;
 
   // Function to scroll to current track
   const scrollToCurrentTrack = () => {
     if (listRef.current && currentTrackIndex !== null) {
-      const itemHeight = 66; // Height of each queue item
-      // Scroll to put current track at the top
-      listRef.current.scrollTo(currentTrackIndex * itemHeight);
+      isScrollingToCurrentTrack.current = true;
+      const currentTrackPosition = currentTrackIndex * itemHeight;
+      listRef.current.scrollTo(currentTrackPosition);
       setShowScrollToCurrentButton(false);
+      // Reset the flag after a short delay to allow the scroll to complete
+      setTimeout(() => {
+        isScrollingToCurrentTrack.current = false;
+      }, 100);
     }
   };
 
   const lastAction = useRef<number>(0);
-  const handleScroll = useCallback(() => {
-    setShowScrollToCurrentButton(true);
+
+  const lastScrollPosition = useRef<number>(0);
+  const isScrollingToCurrentTrack = useRef<boolean>(false);
+  
+  const handleScroll = useCallback((scrollOffset: number, userScrolled: boolean) => {
+    const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight : 0;
+    
+    // Don't show the button if we're programmatically scrolling to current track
+    if (isScrollingToCurrentTrack.current) {
+      lastScrollPosition.current = scrollOffset;
+      return;
+    }
+    
+    const showScrollToCurrentButton = userScrolled || scrollOffset !== currentTrackPosition;
+    setShowScrollToCurrentButton(showScrollToCurrentButton);
     lastAction.current = Date.now();
-  }, []);
+    lastScrollPosition.current = scrollOffset;
+  }, [currentTrackIndex]);
 
   const handleMove = useCallback((fromIndex: number, toIndex: number) => {
     lastAction.current = Date.now();
@@ -146,28 +170,22 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
 
   // Auto-scroll to current track when currentTrackIndex changes
   useEffect(() => {
-    if (currentTrackIndex !== null && isOpen) {
+    if (currentTrackIndex !== null) {
       const currentTime = Date.now();
       const msSinceLastAction = currentTime - lastAction.current;
       if (msSinceLastAction > 1000) {
         scrollToCurrentTrack();
+      } else {
+        const showScrollToCurrentButton = lastScrollPosition.current !== (currentTrackIndex * itemHeight);
+        setShowScrollToCurrentButton(showScrollToCurrentButton);
       }
     }
   }, [currentTrackIndex]);
 
-  // Hide scroll button when current track becomes visible or after some time
-  useEffect(() => {
-    if (currentTrackIndex !== null) {
-      const isCurrentTrackVisible = currentTrackIndex >= startIndex && currentTrackIndex <= stopIndex;
-      if (isCurrentTrackVisible && showScrollToCurrentButton) {
-        // Auto-hide the button after 3 seconds when current track is visible
-        const timer = setTimeout(() => {
-          setShowScrollToCurrentButton(false);
-        }, 3000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [startIndex, stopIndex, currentTrackIndex, showScrollToCurrentButton]);
+  // Return null if window height is too small
+  if (windowHeight <= 200) {
+    return null;
+  }
 
   return (
     <div ref={dropdownRef} className={["md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20", visible ? 'opacity-100' : 'opacity-0 pointer-events-none'].join(" ")}>
@@ -186,7 +204,7 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
             />
           </div>
           <div className="flex items-center gap-3 flex-1 min-w-0 relative z-10">
-            <div className="aspect-square h-16 w-16 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
+            <div className="aspect-square h-12 w-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
               <img
                 src={imageBlobUrl || "/black.jpg"}
                 className="w-full h-full object-cover object-center bg-black select-none"
@@ -194,7 +212,7 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
                 draggable={false}
               />
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
+            <div className="flex flex-col min-w-0 flex-1 pl-1">
               <MarqueeText>
                 <h2 className="text-lg font-semibold text-white truncate">
                   {currentTrack?.title || "No track playing"}
@@ -209,6 +227,17 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
           </div>
           <div className="flex items-center gap-2 ml-4 relative z-10">
             <button 
+              onClick={onLoopToggle}
+              disabled={controlsDisabled || !onLoopToggle}
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                loop 
+                  ? 'text-white bg-white/20 hover:bg-white/30' 
+                  : 'text-white hover:bg-white/10'
+              }`}
+            >
+              <FaRepeat className="text-lg" />
+            </button>
+            <button 
               onClick={onPlayToggle}
               disabled={controlsDisabled}
               className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
@@ -219,8 +248,8 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
         </div>
 
         {/* Queue content */}
-        <div className="flex-1 overflow-hidden relative" style={{ height: "calc(100vh - 120px)" }}>
-          <Queue
+        <div className="flex-1 overflow-hidden relative" style={{ height: "calc(100vh - 160px)" }}>
+          <QueueList
             listRef={listRef}
             outerRef={outerRef}
             tracks={tracks}
@@ -256,10 +285,21 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       {/* Mobile toggle button - always visible at bottom */}
       <button
         onClick={() => {
-          setIsOpen(!isOpen);
-          onDropdownAction(isOpen ? "close" : "open");
+          setIsOpen((prev => {
+            const newIsOpen = !prev;
+            if (newIsOpen) {
+              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== (currentTrackIndex * itemHeight);
+              setShowScrollToCurrentButton(showScrollToCurrentButton);
+              onDropdownAction("open");
+            } else {
+              setShowScrollToCurrentButton(false);
+              onDropdownAction("close");
+            }
+            return newIsOpen;
+          }));
         }}
-        className="absolute bottom-0 left-0 right-0 h-20 bg-queue-dropdown backdrop-blur-md border-0 flex items-center justify-between px-6 text-white active:bg-white/10 transition-colors touch-manipulation"
+        className="absolute bottom-0 left-0 right-0 h-20 bg-queue-dropdown backdrop-blur-md border-0 flex items-center justify-between px-6 text-white active:bg-white/10 transition-colors touch-manipulation select-none focus:outline-none focus:ring-0"
+        style={{ WebkitTapHighlightColor: 'transparent' }}
       >
         <div className="flex items-center gap-4">
           <FaBars className="text-lg" />

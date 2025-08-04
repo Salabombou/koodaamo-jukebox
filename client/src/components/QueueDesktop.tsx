@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import Queue, { itemHeight} from "./Queue";
+import QueueList, { itemHeight } from "./QueueList";
 import { Track } from "../types/track";
 import { QueueItem } from "../types/queue";
 import { FixedSizeList } from "react-window";
@@ -82,8 +82,8 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
           </button>
         </div>
       )}
-      
-      <Queue
+
+      <QueueList
         listRef={listRef}
         outerRef={outerRef}
         tracks={tracks}

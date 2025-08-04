@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, ReactNode } from "react";
+import { useRef, useEffect, useState, ReactNode, useCallback } from "react";
 import Marquee from "react-fast-marquee";
 
 interface MarqueeTextProps {
@@ -15,13 +15,17 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
   const [marqueeKey, setMarqueeKey] = useState(0); // key to force re-mount
   const marqueeWidth = scrollWidth + containerOffsetWidth;
 
-  const checkMarquee = () => {
+  // Debounced check function to avoid excessive calculations
+  const checkMarquee = useCallback(() => {
     if (textRef.current && containerRef.current) {
-      setShouldMarquee(textRef.current.scrollWidth > containerRef.current.offsetWidth);
-      setScrollWidth(textRef.current.scrollWidth);
-      setContainerOffsetWidth(containerRef.current.offsetWidth);
+      const needsMarquee = textRef.current.scrollWidth > containerRef.current.offsetWidth;
+      if (needsMarquee !== shouldMarquee) {
+        setShouldMarquee(needsMarquee);
+        setScrollWidth(textRef.current.scrollWidth);
+        setContainerOffsetWidth(containerRef.current.offsetWidth);
+      }
     }
-  };
+  }, [shouldMarquee]);
 
   // Reset marquee scroll when shouldMarquee becomes false
   useEffect(() => {
@@ -32,13 +36,22 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
 
   useEffect(() => {
     checkMarquee();
-    window.addEventListener("resize", checkMarquee);
-    window.addEventListener("orientationchange", checkMarquee);
-    return () => {
-      window.removeEventListener("resize", checkMarquee);
-      window.removeEventListener("orientationchange", checkMarquee);
+    
+    // Debounced resize handler
+    let timeoutId: NodeJS.Timeout;
+    const debouncedCheckMarquee = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkMarquee, 100);
     };
-  }, [children]);
+    
+    window.addEventListener("resize", debouncedCheckMarquee);
+    window.addEventListener("orientationchange", debouncedCheckMarquee);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", debouncedCheckMarquee);
+      window.removeEventListener("orientationchange", debouncedCheckMarquee);
+    };
+  }, [children, checkMarquee]);
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>

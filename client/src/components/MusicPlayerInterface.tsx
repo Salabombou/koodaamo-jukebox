@@ -133,10 +133,10 @@ export default function MusicPlayerInterface({
         <div className="card-body h-50">
           <div>
             <MarqueeText>
-              <h2 className="card-title font-bold select-none">{track?.title?.trim() || "???"}</h2>
+              <h2 className="card-title font-semibold select-none">{track?.title?.trim() || "???"}</h2>
             </MarqueeText>
             <MarqueeText>
-              <h4 className="text-sm select-none">{track?.uploader?.trim() ?? "???"}</h4>
+              <h4 className="text-s opacity-75 select-none">{track?.uploader?.trim() ?? "???"}</h4>
             </MarqueeText>
           </div>
           <div className="card-actions w-full">

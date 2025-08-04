@@ -81,7 +81,7 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
                 tabIndex={0}
                 aria-label="Drag to reorder"
                 className={[
-                  "h-14 w-14 min-w-14 min-h-14 -mr-1 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
+                  "h-14 w-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
                   overlay ? "cursor-grabbing" : "cursor-grab"
                 ].join(" ")}
               >
@@ -94,7 +94,7 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
               className="flex items-center w-full min-w-0"
               onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
             >
-              <div className="md:aspect-video aspect-square h-14 w-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
+              <div className="md:aspect-video aspect-square h-12 w-12 md:h-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
                 <img
                   src={thumbnailBlob}
                   loading="lazy"
@@ -103,9 +103,9 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
                   draggable={false}
                 />
               </div>
-              <div className="flex flex-col overflow-hidden w-full pl-2 select-none">
+              <div className="flex flex-col overflow-hidden w-full pl-4 select-none">
                 <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
-                <label className="text-s truncate select-none">{track?.uploader}</label>
+                <label className="text-s truncate select-none opacity-75">{track?.uploader}</label>
               </div>
             </div>
           </div>

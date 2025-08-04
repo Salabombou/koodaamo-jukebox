@@ -10,10 +10,6 @@ type UseWebAudioHlsProps = {
 };
 
 export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate, onEnded, onCanPlayThrough }: UseWebAudioHlsProps) {
-  const audioContext = useRef<AudioContext | null>(null);
-  const sourceNode = useRef<MediaElementAudioSourceNode | null>(null);
-  const compressorNode = useRef<DynamicsCompressorNode | null>(null);
-  const gainNode = useRef<GainNode | null>(null);
   const audioElement = useRef<HTMLAudioElement | null>(null);
   const hls = useRef<Hls | null>(null);
   const animationFrame = useRef<number | null>(null);
@@ -22,34 +18,14 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
-  // Initialize Web Audio Context and nodes
+  // Initialize HLS and audio element
   useEffect(() => {
-    const initAudioContext = async () => {
+    const initAudio = async () => {
       try {
-        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-
         // Create audio element for HLS
         audioElement.current = new Audio();
         audioElement.current.crossOrigin = "anonymous";
         audioElement.current.preload = "auto";
-
-        // Create Web Audio nodes
-        sourceNode.current = audioContext.current.createMediaElementSource(audioElement.current);
-        compressorNode.current = audioContext.current.createDynamicsCompressor();
-        // Configure compressor for normalization
-        if (compressorNode.current) {
-          compressorNode.current.threshold.setValueAtTime(-24, audioContext.current.currentTime); // dB
-          compressorNode.current.knee.setValueAtTime(30, audioContext.current.currentTime); // dB
-          compressorNode.current.ratio.setValueAtTime(12, audioContext.current.currentTime);
-          compressorNode.current.attack.setValueAtTime(0.003, audioContext.current.currentTime); // seconds
-          compressorNode.current.release.setValueAtTime(0.25, audioContext.current.currentTime); // seconds
-        }
-        gainNode.current = audioContext.current.createGain();
-
-        // Connect the audio graph: source -> compressor -> gain -> destination
-        sourceNode.current.connect(compressorNode.current!);
-        compressorNode.current!.connect(gainNode.current);
-        gainNode.current.connect(audioContext.current.destination);
 
         // Set up HLS
         if (Hls.isSupported()) {
@@ -64,11 +40,11 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
           window.location.reload();
         }
       } catch (error) {
-        console.error("Failed to initialize Web Audio Context:", error);
+        console.error("Failed to initialize audio:", error);
       }
     };
 
-    initAudioContext();
+    initAudio();
 
     return () => {
       if (animationFrame.current) {
@@ -77,18 +53,6 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
       if (hls.current) {
         hls.current.destroy();
         hls.current = null;
-      }
-      if (sourceNode.current) {
-        sourceNode.current.disconnect();
-      }
-      if (gainNode.current) {
-        gainNode.current.disconnect();
-      }
-      if (compressorNode.current) {
-        compressorNode.current.disconnect();
-      }
-      if (audioContext.current && audioContext.current.state !== "closed") {
-        audioContext.current.close();
       }
     };
   }, []);
@@ -189,7 +153,10 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
     if (!hls.current || !audioElement.current) return;
 
     // Stop any existing playback
-    pause();
+    if (audioElement.current) {
+      audioElement.current.pause();
+      setIsPlaying(false);
+    }
 
     // Always unload before loading new source
     try {
@@ -226,20 +193,16 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
       audioElement.current.removeAttribute("src");
       audioElement.current.load();
     }
+    
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
   }, []);
 
   const play = useCallback(async () => {
-    if (!audioElement.current || !audioContext.current) return false;
+    if (!audioElement.current) return false;
 
     try {
-      // Resume audio context if it's suspended
-      if (audioContext.current.state === "suspended") {
-        await audioContext.current.resume();
-      }
-
       await audioElement.current.play();
       setIsPlaying(true);
       return true;
@@ -276,24 +239,9 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
     const clampedVolume = Math.max(0, Math.min(1, level));
     setVolume(clampedVolume);
 
-    if (gainNode.current) {
-      gainNode.current.gain.setValueAtTime(clampedVolume, audioContext.current?.currentTime || 0);
+    if (audioElement.current) {
+      audioElement.current.volume = clampedVolume;
     }
-  }, []);
-
-  // Get audio analysis data
-  const getAnalyserNode = useCallback(() => {
-    if (!audioContext.current || !sourceNode.current || !compressorNode.current || !gainNode.current) return null;
-
-    const analyser = audioContext.current.createAnalyser();
-    analyser.fftSize = 256;
-
-    // Disconnect compressor node temporarily and insert analyser between compressor and gain
-    compressorNode.current.disconnect();
-    compressorNode.current.connect(analyser);
-    analyser.connect(gainNode.current);
-
-    return analyser;
   }, []);
 
   return {
@@ -303,12 +251,10 @@ export default function useWebAudioHls({ onDuration, onFatalError, onTimeUpdate,
     pause,
     seek,
     setVolume: setVolumeLevel,
-    getAnalyserNode,
     currentTime,
     duration,
     isPlaying,
     volume,
-    audioContext: audioContext.current,
     paused: !isPlaying,
   };
 }

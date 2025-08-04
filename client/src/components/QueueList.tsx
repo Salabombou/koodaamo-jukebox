@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef, useOptimistic, useMemo } from "react";
-import type { ListChildComponentProps } from "react-window";
+import React, { useState, useEffect, useCallback, useRef, useOptimistic, useMemo } from "react";
+import type { ListChildComponentProps} from "react-window";
 import { FixedSizeList } from "react-window";
 import { DndContext, DragOverlay, type Modifier, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
-import QueueRow from "./QueueRow";
+import QueueListRow from "./QueueListRow";
 import { useState as useReactState } from "react";
 import { useDiscordSDK } from "../hooks/useDiscordSdk";
 import { useThumbnail } from "../hooks/useThumbnail";
@@ -39,7 +39,7 @@ interface QueueProps {
   onSkip: (index: number) => void;
   onDelete: (index: number) => void;
   onPlayNext: (index: number) => void;
-  onScroll?: () => void;
+  onScroll?: (crollPosition: number, userScroll: boolean) => void;
   onDragEnd?: (fromIndex: number, toIndex: number) => void;
 }
 
@@ -101,14 +101,17 @@ export default function Queue({
     stop: number;
   }>({ start: 0, stop: 0 });
 
-  // Prefetch thumbnails for visible and overscanned items only
+  // Prefetch thumbnails for visible and overscanned items only - optimized
   useEffect(() => {
     let cancelled = false;
     async function fetchThumbnails() {
-      const promises: Promise<void>[] = [];
       // Only fetch thumbnails for visible and overscanned items
-      const start = Math.max(0, visibleRange.start - 5); // overscan before
-      const stop = Math.min(optimisticQueueList.length - 1, visibleRange.stop + 5); // overscan after
+      const start = Math.max(0, visibleRange.start - 3); // reduced overscan
+      const stop = Math.min(optimisticQueueList.length - 1, visibleRange.stop + 3);
+      
+      const promises: Promise<void>[] = [];
+      const batchSize = 2; // Limit concurrent requests
+      
       for (let i = start; i <= stop; i++) {
         const item = optimisticQueueList[i];
         if (!item) continue;
@@ -128,14 +131,23 @@ export default function Queue({
             );
           }
         }
+        
+        // Process in batches to avoid overwhelming the browser
+        if (promises.length >= batchSize) {
+          await Promise.all(promises.splice(0, batchSize));
+        }
       }
-      await Promise.all(promises);
+      
+      // Process remaining promises
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
     }
     fetchThumbnails();
     return () => {
       cancelled = true;
     };
-  }, [visibleRange, optimisticQueueList, tracks, discordSDK.isEmbedded]);
+  }, [visibleRange, optimisticQueueList, tracks, discordSDK.isEmbedded, getThumbnail, thumbnailBlobs]);
 
   const rowRenderer = useMemo(() => {
     return (props: ListChildComponentProps<QueueItem[]>) => {
@@ -148,7 +160,7 @@ export default function Queue({
         thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
       }
       return (
-        <QueueRow
+        <QueueListRow
           {...props}
           track={track}
           currentTrack={currentTrack}
@@ -192,8 +204,6 @@ export default function Queue({
     prevQueueIdsRef.current = currentIds;
   }, [queueList, tracks, removeThumbnail]);
 
-  const sinceLastScroll = useRef<number>(0);
-
   return (
     <AutoSizer>
       {({ height, width }) => (
@@ -219,18 +229,12 @@ export default function Queue({
               outerRef={outerRef}
               height={height}
               width={width}
+              onScroll={({ scrollOffset, scrollUpdateWasRequested }) => {
+                onScroll?.(scrollOffset, !scrollUpdateWasRequested);
+              }}
               itemData={optimisticQueueList}
               itemCount={optimisticQueueList.length}
               overscanCount={5}
-              onScroll={async (e) => {
-                const isUserScroll = !e.scrollUpdateWasRequested;
-                const currentTime = Date.now();
-                const msSinceLastScroll = currentTime - sinceLastScroll.current;
-                if (isUserScroll && msSinceLastScroll > 100) {
-                  onScroll?.();
-                }
-                sinceLastScroll.current = currentTime;
-              }}
               itemSize={itemHeight}
               itemKey={itemKey}
               style={{
@@ -259,7 +263,7 @@ export default function Queue({
                 thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
               }
               return (
-                <QueueRow
+                <QueueListRow
                   overlay={true}
                   index={draggedIndex}
                   track={track}
