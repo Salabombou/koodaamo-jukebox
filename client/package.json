@@ -25,7 +25,7 @@
     "daisyui": "^5.0.50",
     "discord-rpc": "^4.0.1",
     "framer-motion": "^12.23.12",
-    "hls.js": "^1.6.7",
+    "hls.js": "^1.6.8",
     "node-vibrant": "^4.0.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
