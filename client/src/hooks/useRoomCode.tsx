@@ -9,11 +9,7 @@ export function useRoomCode() {
 
 export function RoomCodeProvider({ children }: { children: ReactNode }) {
   const discordSdk = useDiscordSDK();
-  const [roomCode, setRoomCode] = useState<string | null>(
-    discordSdk.isEmbedded
-      ? discordSdk.instanceId
-      : new URL(window.location.href).searchParams.get("room_code")
-  );
+  const [roomCode, setRoomCode] = useState<string | null>(discordSdk.isEmbedded ? discordSdk.instanceId : new URL(window.location.href).searchParams.get("room_code"));
   const [inputCode, setInputCode] = useState("");
   const handleRandom = () => setInputCode(Math.floor(100000 + Math.random() * 900000).toString());
   const handleSet = () => {

@@ -1,4 +1,3 @@
-
 import { useRef, useCallback } from "react";
 
 interface UseThumbnailResult {
@@ -16,17 +15,17 @@ export function useThumbnail(): UseThumbnailResult {
   // Fetch and cache thumbnail blob, return object URL
   const getThumbnail = useCallback(async (url: string): Promise<string | null> => {
     if (!url) return null;
-    
+
     // Return cached version if available
     if (thumbnailMap.current.has(url)) {
       return thumbnailMap.current.get(url)!;
     }
-    
+
     // Return pending request if already in progress
     if (pendingRequests.current.has(url)) {
       return pendingRequests.current.get(url)!;
     }
-    
+
     // Create new request
     const request = (async (): Promise<string | null> => {
       try {
@@ -43,7 +42,7 @@ export function useThumbnail(): UseThumbnailResult {
         pendingRequests.current.delete(url);
       }
     })();
-    
+
     pendingRequests.current.set(url, request);
     return request;
   }, []);

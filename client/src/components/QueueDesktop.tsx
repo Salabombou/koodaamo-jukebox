@@ -35,7 +35,7 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
       const offset = Math.max(0, index - Math.floor(visibleCount / 2));
       listRef.current.scrollTo(offset * itemHeight);
     }
-  }
+  };
 
   // Auto-scroll to current track when currentTrackIndex changes
   useEffect(() => {
@@ -51,13 +51,13 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
   const lastAction = useRef<number>(0);
   const handleScroll = () => {
     lastAction.current = Date.now();
-  };  
+  };
   const handleDragEnd = () => {
     lastAction.current = Date.now();
   };
 
   return (
-    <div style={{ height: "100%" }} className={["relative w-full flex m-0 md:ml-6 transition-opacity duration-300 ease-in-out", visible ? 'opacity-100' : 'opacity-0 pointer-events-none'].join(" ")}>
+    <div style={{ height: "100%" }} className={["relative w-full flex m-0 md:ml-6 transition-opacity duration-300 ease-in-out", visible ? "opacity-100" : "opacity-0 pointer-events-none"].join(" ")}>
       {/* Top arrow */}
       {topArrowVisible && (
         <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">

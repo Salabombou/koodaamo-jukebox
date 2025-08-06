@@ -23,15 +23,7 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
   const item = data.at(index);
   if (!item) return null;
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-    isSorting,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id: item.id,
   });
 
@@ -80,28 +72,16 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
                 {...listeners}
                 tabIndex={0}
                 aria-label="Drag to reorder"
-                className={[
-                  "h-14 w-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none",
-                  overlay ? "cursor-grabbing" : "cursor-grab"
-                ].join(" ")}
+                className={["h-14 w-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none", overlay ? "cursor-grabbing" : "cursor-grab"].join(" ")}
               >
                 <span className="flex items-center justify-center w-full h-full">
                   <FaGripLines className="w-5 h-5 mr-1" />
                 </span>
               </button>
             </div>
-            <div
-              className="flex items-center w-full min-w-0"
-              onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}
-            >
+            <div className="flex items-center w-full min-w-0" onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}>
               <div className="md:aspect-video aspect-square h-12 w-12 md:h-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
-                <img
-                  src={thumbnailBlob}
-                  loading="lazy"
-                  className="w-full h-full object-cover object-center bg-black select-none md:object-cover"
-                  alt={track?.title || "thumbnail"}
-                  draggable={false}
-                />
+                <img src={thumbnailBlob} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
               </div>
               <div className="flex flex-col overflow-hidden w-full pl-4 select-none">
                 <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>

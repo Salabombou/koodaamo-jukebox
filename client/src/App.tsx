@@ -6,23 +6,23 @@ import * as timeService from "./services/timeService";
 import { useDiscordSDK } from "./hooks/useDiscordSdk";
 import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
-import useHlsAudio from "./hooks/useHlsAudio";
 import GradientBackground from "./components/GradientBackground";
 import QueueMobile from "./components/QueueMobile";
 import QueueDesktop from "./components/QueueDesktop";
+import { useHls } from "./hooks/useHls";
+import { ErrorData } from "hls.js";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
-  const audioPlayer = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
-  const [modalClosed, setModalClosed] = useState(false);
+  const audioElementRef = useRef<HTMLAudioElement>(null);
+  const [isReady, setIsReady] = useState(false);
   const [dropdownClosed, setDropdownClosed] = useState(true);
   useEffect(() => {
     if (!discordSDK.isEmbedded) {
-      // Show modal only if not embedded
       modalRef.current.showModal();
     } else {
-      setModalClosed(true);
+      setIsReady(true);
       modalRef.current.close();
     }
   }, [discordSDK.isEmbedded]);
@@ -38,30 +38,19 @@ export default function App() {
     timeService.syncServerTime(discordSDK.isEmbedded);
   }, [discordSDK.isEmbedded]);
 
-  const secretUnlockedSfx = useRef<HTMLAudioElement>(null);
-  const secretLockedSfx = useRef<HTMLAudioElement>(null);
-  const diskDriveSfx = useRef<HTMLAudioElement>(null);
+  const secretUnlockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const secretLockedSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
+  const diskDriveSfx = useRef<HTMLAudioElement>(null as unknown as HTMLAudioElement);
 
-  // Initialize audio elements once to avoid recreating them every render
   useEffect(() => {
-    const basePath = discordSDK.isEmbedded ? "/.proxy" : "";
-    
-    if (!secretUnlockedSfx.current) {
-      secretUnlockedSfx.current = new Audio(`${basePath}/sfx/secret-unlocked.mp3`);
-    }
-    if (!secretLockedSfx.current) {
-      secretLockedSfx.current = new Audio(`${basePath}/sfx/secret-locked.mp3`);
-    }
-    if (!diskDriveSfx.current) {
-      diskDriveSfx.current = new Audio(`${basePath}/sfx/disc-drive.ogg`);
-    }
+    secretUnlockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-unlocked.mp3`);
+    secretLockedSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/secret-locked.mp3`);
+    diskDriveSfx.current = new Audio(`${discordSDK.isEmbedded ? "/.proxy" : ""}/sfx/disc-drive.ogg`);
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioPlayer.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
-    if (diskDriveSfx.current) {
-      diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
-    }
+    audioElementRef.current!.volume = Number(localStorage.getItem("volume") ?? 0.01);
+    diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
   }, []);
 
   const users = useRef<Set<string>>(new Set(discordSDK.clientId));
@@ -82,11 +71,16 @@ export default function App() {
   const { playingSince, currentTrackIndex, currentTrackId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
 
   const seeking = useRef(true);
+  const hasSeekToBeginning = useRef(false);
 
   const [backgroundColors, setBackgroundColors] = useState<[string, string]>(["#ffffff", "#000000"]);
 
   const onSkip = useCallback((index: number) => invokeRoomAction("Skip", index), [invokeRoomAction]);
-  const onMove = useCallback((fromIndex: number, toIndex: number) => invokeRoomAction("Move", fromIndex, toIndex), [invokeRoomAction]);
+  const onMove = useCallback((fromIndex: number, toIndex: number) => {
+    if (invokePending) return;
+    console.log("Moving item from index", fromIndex, "to", toIndex);
+    invokeRoomAction("Move", fromIndex, toIndex);
+  }, [invokeRoomAction, invokePending]);
   const onDelete = useCallback(
     (index: number) => {
       if (index !== currentTrackIndex) invokeRoomAction("Delete", index);
@@ -95,12 +89,18 @@ export default function App() {
   );
   const onPlayNext = useCallback(
     (index: number) => {
+      if (invokePending) return;
       if (typeof currentTrackIndex === "number") {
-        if (index < currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex);
-        else if (index > currentTrackIndex) invokeRoomAction("Move", index, currentTrackIndex + 1);
+        if (index < currentTrackIndex) {
+          console.log("Moving item", index, "to play next (position", currentTrackIndex, ")");
+          invokeRoomAction("Move", index, currentTrackIndex);
+        } else if (index > currentTrackIndex) {
+          console.log("Moving item", index, "to play next (position", currentTrackIndex + 1, ")");
+          invokeRoomAction("Move", index, currentTrackIndex + 1);
+        }
       }
     },
-    [currentTrackIndex, invokeRoomAction],
+    [currentTrackIndex, invokeRoomAction, invokePending],
   );
 
   useEffect(() => {
@@ -131,13 +131,13 @@ export default function App() {
       if (invokePending) return;
       seekTime = Math.floor(Math.max(0, Math.min(seekTime, duration)));
       seeking.current = true;
-      audioPlayer.current!.currentTime = seekTime;
-      audioPlayer.current!.pause();
+      audioPlayer.seek(seekTime);
+      audioPlayer.pause();
       setTimestamp(seekTime);
       console.log("Seeking to", seekTime, "Pausing:", pause);
       invokeRoomAction("Seek", seekTime, pause);
     },
-    [invokePending, duration, invokeRoomAction, audioPlayer],
+    [invokePending, duration, invokeRoomAction],
   );
 
   const onPlayToggle = useCallback(() => {
@@ -148,7 +148,7 @@ export default function App() {
 
   const onBackward = useCallback(() => {
     if (invokePending) return;
-    if (audioPlayer.current.currentTime >= 5) {
+    if (audioPlayer.currentTime >= 5) {
       console.log("Rewinding to start of track");
       onSeek(0, false);
     } else {
@@ -176,30 +176,28 @@ export default function App() {
   }, [invokePending, isLooping, invokeRoomAction]);
 
   const onVolumeChange = useCallback((volume: number) => {
-    audioPlayer.current!.volume = volume;
-    if (diskDriveSfx.current) {
-      diskDriveSfx.current.volume = volume;
-    }
+    audioPlayer.setVolume(volume);
+    diskDriveSfx.current.volume = volume;
     localStorage.setItem("volume", String(volume));
   }, []);
 
-  const onCanPlayThrough = useCallback(() => {
-    if (!modalClosed) return;
+  const handleCanPlayThrough = useCallback(() => {
+    if (!isReady) return;
     setAudioReady(true);
     if (!isPaused && playingSince === null) {
       console.log("Resuming playback after can play through");
       invokeRoomAction("PauseToggle", false);
     }
-  }, [isPaused, playingSince, invokeRoomAction, modalClosed]);
+  }, [isPaused, playingSince, invokeRoomAction, isReady]);
 
-  const onEnded = useCallback(() => {
-    if (!modalClosed) return;
+  const handleEnded = useCallback(() => {
+    if (!isReady) return;
     if (isLooping) {
-      audioPlayer.current!.currentTime = 0;
-      audioPlayer.current!.play();
+      audioPlayer.seek(0);
+      audioPlayer.play();
       invokeRoomAction("Seek", 0, false);
     } else {
-      audioPlayer.current.pause();
+      audioPlayer.pause();
       if (typeof currentTrackIndex === "number") {
         if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
           console.log("Reached end of queue, looping back to start");
@@ -210,66 +208,72 @@ export default function App() {
         }
       }
     }
-  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, modalClosed]);
+  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, isReady]);
 
-  const onTimeUpdate = useCallback(() => {
-    if (!modalClosed) return;
+  const handleTimeUpdate = useCallback(() => {
+    if (!isReady) return;
     if (seeking.current) return;
+    if (invokePending) return; // Don't fix desync during pending operations (like queue moves)
     
-    const audioCurrentTime = audioPlayer.current?.currentTime ?? 0;
-    const newTimestamp = Math.max(audioCurrentTime, 0);
-    
-    // Only update timestamp if it's a valid number and different enough to matter
+    const currentTime = timeService.getServerNow();
+    if (typeof playingSince === "number") {
+      const rawElapsedTime = (currentTime - playingSince) / 1000;
+      const elapsedtime = isLooping && duration > 0 ? rawElapsedTime % duration : rawElapsedTime;
+
+      if (rawElapsedTime > duration && duration > 0) {
+        if (isLooping) {
+          // For looping tracks, don't invoke seek action - just let the modulo handle the position
+          // The server should handle the looping logic
+        } else {
+          // Don't pause here - let the audio element naturally reach its end
+          // so that onEnded event can fire and trigger track skipping
+          return;
+        }
+      }
+
+      if (elapsedtime >= 1 && Math.abs(audioPlayer.currentTime - elapsedtime) > 1) {
+        console.log("Fixing desync, setting currentTime to", elapsedtime);
+        audioPlayer.seek(elapsedtime);
+      }
+      if (!isPaused && audioPlayer.paused) {
+        audioPlayer.play();
+      }
+    }
+
+    const newTimestamp = Math.max(audioPlayer.currentTime ?? 0, 0);
     if (!isNaN(newTimestamp)) {
       setTimestamp(newTimestamp);
     }
 
-    // Early return if no server sync needed
-    if (typeof playingSince !== "number") return;
-    
-    const currentTime = timeService.getServerNow();
-    const elapsedtime = ((currentTime - playingSince) / 1000) % duration;
-
-    // Only sync if there's a significant desync (>1 second)
-    if (elapsedtime >= 1 && Math.abs(audioCurrentTime - elapsedtime) > 1) {
-      console.log("Fixing desync, setting currentTime to", elapsedtime);
-      audioPlayer.current!.currentTime = elapsedtime;
-    }
-    
-    // Only force play if paused when it shouldn't be
-    if (!isPaused && audioPlayer.current.paused) {
-      audioPlayer.current.play();
-    }
-
-    // Early return if no prefetch needed
     if (typeof currentTrackIndex !== "number" || queueItems.size === 0 || duration === 0 || currentTrackIndex < 0 || currentTrackIndex >= queueItems.size) {
       return;
-    }
+    } // No next track
 
-    // Only prefetch if close to end and not already prefetching
-    const timeLeft = duration - audioCurrentTime;
-    if (timeLeft <= 10 && timeLeft > 0 && !preFetch.current) {
-      // Find next track more efficiently
-      for (const item of queueItems.values()) {
-        if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
-          const nextTrack = tracks.get(item.track_id);
-          if (nextTrack) {
-            preFetch.current = true;
-            const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrack.id}/`;
-            const token = localStorage.getItem("auth_token");
-            fetch(src, {
-              method: "GET",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-          }
-          break;
-        }
+    let nextTrack: Track | null = null;
+    for (const item of queueItems.values()) {
+      if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
+        nextTrack = tracks.get(item.track_id) ?? null;
+        break;
       }
     }
-  }, [playingSince, duration, currentTrackIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, modalClosed]);
+    if (!nextTrack) return;
+    const timeLeft = duration - (audioPlayer.currentTime ?? 0);
+    if (timeLeft <= 10 && timeLeft > 0) {
+      // Prefetch next track audio
+      const nextTrackId = nextTrack.id;
+      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
+      const token = localStorage.getItem("auth_token");
+      if (preFetch.current) return;
+      preFetch.current = true;
+      fetch(src, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  }, [playingSince, duration, currentTrackIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, isLooping, invokePending]);
 
   useEffect(() => {
-    if (!modalClosed) return;
+    if (!isReady) return;
     if (!currentTrack) return;
     if (typeof playingSince !== "number") return;
     if (duration <= 0) return;
@@ -304,12 +308,12 @@ export default function App() {
       .catch((error) => {
         console.error("Failed to set Discord activity:", error);
       });
-  }, [currentTrack, playingSince, duration, discordSDK, users, modalClosed]);
+  }, [currentTrack, playingSince, duration, discordSDK, users, isReady]);
 
   // Media session API support
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
-    if (!modalClosed) return;
+    if (!isReady) return;
 
     navigator.mediaSession.setActionHandler("play", onPlayToggle);
     navigator.mediaSession.setActionHandler("pause", onPlayToggle);
@@ -333,12 +337,12 @@ export default function App() {
       navigator.mediaSession.setActionHandler("nexttrack", null);
       navigator.mediaSession.setActionHandler("seekto", null);
     };
-  }, [onPlayToggle, onSeek, onBackward, onForward, modalClosed]);
+  }, [onPlayToggle, onSeek, onBackward, onForward, isReady]);
 
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
-    if (!modalClosed) return;
-    if (!currentTrack || !audioPlayer.current) return;
+    if (!isReady) return;
+    if (!currentTrack) return;
 
     // Update media session metadata
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -351,7 +355,7 @@ export default function App() {
       ],
     });
 
-    const playbackRate = audioPlayer.current.playbackRate;
+    const playbackRate = 1;
     const safeDuration = isFinite(duration) ? duration : undefined;
     const safePosition = isFinite(timestamp) ? Math.min(safeDuration ?? 0, timestamp) : 0;
 
@@ -360,58 +364,85 @@ export default function App() {
       playbackRate: playbackRate,
       position: safePosition,
     });
-  }, [currentTrack, timestamp, duration, discordSDK, modalClosed]);
+  }, [currentTrack, timestamp, duration, discordSDK, isReady]);
 
   useEffect(() => {
-    if (!modalClosed) return;
+    if (!isReady) return;
     if (playingSince === null) return;
     if (!isFinite(duration) || duration <= 0) return;
     if (!audioReady) return;
+    
+    // If we just seeked to beginning due to estimated time being past duration,
+    // don't calculate timestamp from the old playingSince value
+    if (hasSeekToBeginning.current) {
+      return;
+    }
+    
     const currentTime = timeService.getServerNow();
-    const elapsedTime = ((currentTime - playingSince) % (duration * 1000)) / 1000;
+    const rawElapsedTime = (currentTime - playingSince) / 1000;
+    const elapsedTime = isLooping && duration > 0 ? rawElapsedTime % duration : rawElapsedTime;
 
     if (!isFinite(elapsedTime)) return;
+    
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
-  }, [playingSince, duration, modalClosed, audioReady]);
+  }, [playingSince, duration, isReady, audioReady, isLooping]);
 
   useEffect(() => {
-    if (!modalClosed) return;
+    if (!isReady) return;
     if (!audioReady) return;
-    
+
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
+      hasSeekToBeginning.current = false; // Clear flag when playingSince becomes null
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      if (msSince >= (duration * 1000) && duration > 0) {
-        console.log("Invoking seek to normalize playback position");
+      
+      // Check if estimated resume time is past the duration
+      const estimatedResumeTime = msSince / 1000;
+      if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
+        console.log("Estimated resume time is past duration, skipping to beginning");
+        hasSeekToBeginning.current = true; // Set flag to prevent timestamp calculation from old playingSince
         seeking.current = true;
-        audioPlayer.current.currentTime = 0;
-        invokeRoomAction("Seek", 0);
+        audioPlayer.seek(0);
+        setTimestamp(0); // Explicitly reset timestamp
+        // Seek with current server time to restart playback from beginning
+        invokeRoomAction("Seek", 0, isPaused);
+        return; // Exit early to prevent other seek logic from running
+      } else if (msSince >= duration * 1000 && duration > 0 && !isLooping) {
+        console.log("Invoking seek to normalize playback position");
+        hasSeekToBeginning.current = true; // Set flag to prevent timestamp calculation from old playingSince
+        seeking.current = true;
+        audioPlayer.seek(0);
+        setTimestamp(0); // Explicitly reset timestamp
+        invokeRoomAction("Seek", 0, isPaused);
+        return; // Exit early to prevent other seek logic from running
+      } else {
+        // Clear the flag if we don't need to seek to beginning
+        hasSeekToBeginning.current = false;
       }
+      
       if (msSince < 0) {
         setTimeout(() => {
           // Only play if all conditions are met
-          if (!isPaused && audioReady && modalClosed && audioPlayer.current.paused) {
+          if (!isPaused && audioReady && isReady && audioPlayer.paused) {
             console.log("Centralized: Ensuring playback after delay");
-            audioPlayer.current!.play();
+            audioPlayer.play();
           }
         }, Math.abs(msSince));
-        audioPlayer.current.currentTime = 0;
+        audioPlayer.seek(0);
         setTimestamp(0);
       }
       if (isPaused) {
         console.log("Pausing audio playback");
-        audioPlayer.current.pause();
-      } else if (audioPlayer.current.paused) {
+        audioPlayer.pause();
+      } else if (audioPlayer.paused) {
         console.log("Resuming audio playback");
-        audioPlayer.current.play().catch((error) => {
-          console.error("Failed to resume audio playback:", error);
-        });
+        audioPlayer.play();
       }
     }
-  }, [playingSince, isPaused, duration, modalClosed, audioReady, invokeRoomAction]);
+  }, [playingSince, isPaused, duration, isReady, audioReady, invokeRoomAction, isLooping]);
 
   useEffect(() => {
     if (typeof invokeError !== "string") return;
@@ -421,10 +452,20 @@ export default function App() {
   useEffect(() => {
     // Update currentTrack if either the track ID or the queue item ID changes
     if (typeof currentTrackId === "string" && typeof currentTrackIndex === "number") {
-      const item = queueList.find((item) => {
+      // First try to find by both index and track_id (normal case)
+      let item = queueList.find((item) => {
         const indexToCompare = isShuffled ? item.shuffled_index : item.index;
         return indexToCompare === currentTrackIndex && item.track_id === currentTrackId;
       });
+      
+      // If not found, fallback to finding by track_id only (handles move operations)
+      if (!item) {
+        item = queueList.find((item) => item.track_id === currentTrackId);
+        if (item) {
+          console.log("Current track found by ID only after queue move, index mismatch detected");
+        }
+      }
+      
       const track = tracks.get(currentTrackId);
       if (!item || !track) {
         return;
@@ -435,7 +476,7 @@ export default function App() {
         document.title = `Now playing: ${track.title} • ${track.uploader}`;
       }
     }
-  }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList]);
+  }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList, isShuffled]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -464,205 +505,208 @@ export default function App() {
   const lastHlsTrackId = useRef<string | null>(null);
   const skipOnFatalError = useRef(false);
   const preFetch = useRef(false);
-  const { loadSource } = useHlsAudio({
-    audioPlayer,
-    onDuration: setDuration,
-    onFatalError(data) {
-      console.log("HLS fatal error:", data);
+
+  const handleFatalError = useCallback(
+    (data: ErrorData | Event | string) => {
       if (skipOnFatalError.current) return; // Prevent multiple skips
       skipOnFatalError.current = true;
-      switch (data.type) {
-        case Hls.ErrorTypes.NETWORK_ERROR:
-          console.error("Network error occurred while loading audio:", data);
-          break;
-        case Hls.ErrorTypes.MEDIA_ERROR:
-          console.error("Media error occurred while loading audio:", data);
-          break;
-        case Hls.ErrorTypes.OTHER_ERROR:
-          console.error("An unknown error occurred while loading audio:", data);
-          break;
-        default:
-          console.error("Unhandled HLS error type:", data.type, data);
-          break;
+
+      if (typeof data === "string") return;
+
+      if ("fatal" in data) {
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.error("Network error occurred while loading audio:", data);
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.error("Media error occurred while loading audio:", data);
+            break;
+          case Hls.ErrorTypes.OTHER_ERROR:
+            console.error("An unknown error occurred while loading audio:", data);
+            break;
+          default:
+            console.error("Unhandled HLS error type:", data.type, data);
+            break;
+        }
+      } else if (data instanceof Event) {
+        console.error("Audio Player error:", data);
       }
+
       if (typeof currentTrackIndex === "number") {
         invokeRoomAction("Skip", currentTrackIndex + 1);
       }
     },
-  });
+    [currentTrackIndex, invokeRoomAction],
+  );
 
   useEffect(() => {
-    if (!modalClosed) return;
-    const currentUniqueId = currentTrack ? `${currentTrack.id}:${currentTrack.itemId}` : null;
+    if (!isReady) return;
+    // Use only track ID for uniqueness - item ID changes during queue moves but shouldn't trigger reloading
+    const currentUniqueId = currentTrack ? currentTrack.id : null;
     const lastUniqueId = lastHlsTrackId.current;
+    
     if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
       setAudioReady(false); // Reset readiness on new track
       const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
-      if (audioPlayer.current) {
-        loadSource(src);
-      }
+      audioPlayer.loadSource(src);
       setDuration(0);
       setTimestamp(0);
+      console.log("Loading new track:", currentTrack.title);
     } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
-      // If the track is already loaded, just reset the audio player
-      audioPlayer.current!.currentTime = 0;
-      audioPlayer.current!.pause();
-      setTimestamp(0);
+      // If the track is already loaded, restore the correct position based on server time
+      if (typeof playingSince === "number" && duration > 0) {
+        const currentTime = timeService.getServerNow();
+        const elapsedTime = (currentTime - playingSince) / 1000;
+        const seekPosition = Math.max(0, Math.min(elapsedTime, duration));
+        audioPlayer.seek(seekPosition);
+        setTimestamp(seekPosition);
+        console.log("Restoring playback position to", seekPosition, "seconds");
+      } else {
+        audioPlayer.seek(0);
+        setTimestamp(0);
+      }
+      // Set audioReady to true since the track is already loaded
+      setAudioReady(true);
+      // Don't pause here - let the playback state management handle play/pause
+    } else if (!currentTrack && lastUniqueId) {
+      // Current track became null (might happen during queue operations)
+      console.log("Current track became null, keeping last track loaded");
+      // Don't change the loaded track, just pause playback
+      audioPlayer.pause();
     }
-  }, [currentTrack, discordSDK.isEmbedded, loadSource, modalClosed]);
+  }, [currentTrack, discordSDK.isEmbedded, isReady, playingSince, duration]);
 
   const [secretUnlocked, setSecretUnlocked] = useState(localStorage.getItem("secret") === "true");
   const secretEverUnlocked = useRef(false);
 
   useEffect(() => {
-    if (!modalClosed) return;
+    if (!isReady) return;
     // Only allow sounds if secret has ever been unlocked
     if (secretUnlocked && secretEverUnlocked.current) {
-      if (secretUnlockedSfx.current) {
-        secretUnlockedSfx.current.currentTime = 0;
-        secretUnlockedSfx.current.play();
-      }
+      secretUnlockedSfx.current.currentTime = 0;
+      secretUnlockedSfx.current.play();
     } else if (secretEverUnlocked.current) {
-      if (secretLockedSfx.current) {
-        secretLockedSfx.current.currentTime = 0;
-        secretLockedSfx.current.play();
-      }
+      secretLockedSfx.current.currentTime = 0;
+      secretLockedSfx.current.play();
     }
     secretEverUnlocked.current = true;
-  }, [secretUnlocked, modalClosed]);
+  }, [secretUnlocked, isReady]);
   useEffect(() => {
-    if (!modalClosed) return;
+    if (!isReady) return;
     if (!secretUnlocked) return;
 
     // Play SFX when unpaused and playback hasn't started yet
     if (!isPaused && playingSince === null) {
-      if (diskDriveSfx.current) {
-        diskDriveSfx.current.currentTime = 0;
-        diskDriveSfx.current.play();
-      }
+      diskDriveSfx.current.currentTime = 0;
+      diskDriveSfx.current.play();
     }
 
     // Pause SFX exactly when playback starts (playingSince transitions from null to a number)
     if (!isPaused && playingSince !== null) {
-      if (diskDriveSfx.current) {
-        diskDriveSfx.current.pause();
-      }
+      diskDriveSfx.current.pause();
     }
-  }, [isPaused, playingSince, modalClosed, secretUnlocked]);
+  }, [isPaused, playingSince, isReady, secretUnlocked]);
 
   useEffect(() => {
-    // Ensure playback starts if modalClosed becomes true after audioReady
-    if (!modalClosed) return;
+    // Ensure playback starts if isReady becomes true after audioReady
+    if (!isReady) return;
     if (!audioReady) return;
     if (playingSince === null) return;
     if (isPaused) return;
     // Only play if not already playing
-    if (audioPlayer.current && audioPlayer.current.paused) {
-      audioPlayer.current.play();
+    if (audioPlayer.paused) {
+      audioPlayer.play();
     }
-  }, [audioReady, modalClosed, playingSince, isPaused]);
+  }, [audioReady, isReady, playingSince, isPaused]);
 
-  const visible = modalClosed && dropdownClosed;
+  // Ensure audioPlayer is only created when audioElement is available
+  const audioPlayer = useHls({
+    audioElement: audioElementRef,
+    onDuration: setDuration,
+    onFatalError: handleFatalError,
+  });
 
   return (
     <>
-      <dialog
-        className="modal backdrop-blur-xs"
-        ref={modalRef}
-        onClose={() => {
-          setModalClosed(true);
-          modalRef.current?.close();
-        }}
-      >
-        <div className="modal-action">
-          <form method="dialog">
-            <button className="btn size-50 font-bold text-6xl">Start</button>
-          </form>
-        </div>
-      </dialog>
-      <div
-        className="h-screen w-screen flex items-center justify-center sm:flex-row sm:items-center sm:justify-center overflow-hidden"
-        style={{
-          position: "relative",
-        }}
-      >
+        {/* Hidden audio element for HLS playback */}
+        <audio ref={audioElementRef} className="sr-only" controls={false} autoPlay={false} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
+
         <GradientBackground backgroundColors={backgroundColors} />
-        <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }} className="flex flex-1 items-center justify-center">
-          <audio
-            ref={audioPlayer}
-            className="hidden pointer-events-none select-none"
-            autoPlay={false}
-            controls={false}
-            onTimeUpdate={onTimeUpdate}
-            onEnded={onEnded}
-            onCanPlayThrough={onCanPlayThrough}
-            onError={(e) => {
-              console.error("Audio player error:", e);
-              if (currentTrack) {
-                const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
-                loadSource(src);
-              }
-            }}
-          />
-          <MusicPlayerInterface
-            visible={visible}
-            track={currentTrack}
-            duration={duration}
-            timestamp={timestamp}
-            paused={isPaused ?? true}
-            looping={isLooping ?? false}
-            shuffled={isShuffled ?? false}
-            disabled={invokePending}
-            onPrimaryColorChange={setBackgroundColors}
-            backgroundColor={backgroundColors[0]}
-            onShuffle={onShuffle}
-            onBackward={onBackward}
-            onForward={onForward}
-            onPlayToggle={onPlayToggle}
-            onLoopToggle={onLoopToggle}
-            onSeek={onSeek}
-            onVolumeChange={onVolumeChange}
-            setSecret={setSecretUnlocked}
-          />
-          <QueueMobile
-            visible={modalClosed}
-            tracks={tracks}
-            queueList={queueList}
-            currentTrack={currentTrack}
-            currentTrackIndex={currentTrackIndex}
-            paused={isPaused ?? true}
-            loop={isLooping ?? false}
-            controlsDisabled={invokePending}
-            timestamp={timestamp}
-            duration={duration}
-            onDropdownAction={(action) => {
-              setDropdownClosed(action === "close");
-              console.log("Dropdown action:", action);
-            }}
-            onPlayToggle={onPlayToggle}
-            onLoopToggle={onLoopToggle}
-            onMove={onMove}
-            onSkip={onSkip}
-            onDelete={onDelete}
-            onPlayNext={onPlayNext}
-          />
-          <QueueDesktop
-            visible={visible}
-            tracks={tracks}
-            queueList={queueList}
-            currentTrack={currentTrack}
-            currentTrackIndex={currentTrackIndex}
-            controlsDisabled={invokePending}
-            onMove={onMove}
-            onSkip={onSkip}
-            onDelete={onDelete}
-            onPlayNext={onPlayNext}
-          />
-        </div>
-      </div>
+
+        {/* Startup Modal */}
+        <dialog className="modal backdrop-blur-xs" ref={modalRef} onClose={() => setIsReady(true)}>
+          <div className="modal-action">
+            <form method="dialog">
+              <button className="btn size-50 font-bold text-6xl">Start</button>
+            </form>
+          </div>
+        </dialog>
+
+        {/* Main App */}
+        {isReady && (
+          <main className="h-screen w-screen flex items-center justify-center overflow-hidden">
+            <div className="relative z-2 w-full h-full flex flex-1 items-center justify-center">
+              <MusicPlayerInterface
+                visible={dropdownClosed}
+                track={currentTrack}
+                duration={duration}
+                timestamp={timestamp}
+                paused={isPaused ?? true}
+                looping={isLooping ?? false}
+                shuffled={isShuffled ?? false}
+                disabled={invokePending}
+                onPrimaryColorChange={setBackgroundColors}
+                backgroundColor={backgroundColors[0]}
+                onShuffle={onShuffle}
+                onBackward={onBackward}
+                onForward={onForward}
+                onPlayToggle={onPlayToggle}
+                onLoopToggle={onLoopToggle}
+                onSeek={onSeek}
+                onVolumeChange={onVolumeChange}
+                setSecret={setSecretUnlocked}
+              />
+
+              <QueueMobile
+                tracks={tracks}
+                queueList={queueList}
+                currentTrack={currentTrack}
+                currentTrackIndex={currentTrackIndex}
+                paused={isPaused ?? true}
+                loop={isLooping ?? false}
+                controlsDisabled={invokePending}
+                timestamp={timestamp}
+                duration={duration}
+                onDropdownAction={(action) => {
+                  setDropdownClosed(action === "close");
+                  console.log("Dropdown action:", action);
+                }}
+                onPlayToggle={onPlayToggle}
+                onLoopToggle={onLoopToggle}
+                onMove={onMove}
+                onSkip={onSkip}
+                onDelete={onDelete}
+                onPlayNext={onPlayNext}
+              />
+
+              <QueueDesktop
+                visible={dropdownClosed}
+                tracks={tracks}
+                queueList={queueList}
+                currentTrack={currentTrack}
+                currentTrackIndex={currentTrackIndex}
+                controlsDisabled={invokePending}
+                onMove={onMove}
+                onSkip={onSkip}
+                onDelete={onDelete}
+                onPlayNext={onPlayNext}
+              />
+            </div>
+          </main>
+        )}
     </>
   );
 }

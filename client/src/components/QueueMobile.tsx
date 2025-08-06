@@ -11,7 +11,6 @@ import { useThumbnail } from "../hooks/useThumbnail";
 import { useCallback } from "react";
 
 interface QueueMobileProps {
-  visible: boolean;
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrack: (Track & { itemId: number }) | null;
@@ -30,18 +29,35 @@ interface QueueMobileProps {
   onPlayNext: (index: number) => void;
 }
 
-export default function QueueMobile({ visible, tracks, queueList, currentTrack, currentTrackIndex, paused, duration, timestamp, loop = false, controlsDisabled, onDropdownAction, onPlayToggle, onLoopToggle, onMove, onSkip, onDelete, onPlayNext }: QueueMobileProps) {
+export default function QueueMobile({
+  tracks,
+  queueList,
+  currentTrack,
+  currentTrackIndex,
+  paused,
+  duration,
+  timestamp,
+  loop = false,
+  controlsDisabled,
+  onDropdownAction,
+  onPlayToggle,
+  onLoopToggle,
+  onMove,
+  onSkip,
+  onDelete,
+  onPlayNext,
+}: QueueMobileProps) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
   const [startIndex, setStartIndex] = useState(0);
   const [stopIndex, setStopIndex] = useState(0);
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const [showScrollToCurrentButton, setShowScrollToCurrentButton] = useState(false);
-  
+
   const [windowHeight, setWindowHeight] = useState(window.innerHeight);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
@@ -49,8 +65,6 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
   const { getThumbnail, removeThumbnail } = useThumbnail();
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
 
-  // Track previous state to detect changes
-  const prevVisibleRef = useRef(visible);
   const prevWindowHeightRef = useRef(windowHeight);
   const prevWindowWidthRef = useRef(windowWidth);
 
@@ -61,33 +75,30 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       setWindowWidth(window.innerWidth);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Handle visibility, window height, and media query changes
   useEffect(() => {
-    const visibilityChanged = prevVisibleRef.current !== visible;
     const windowHeightChanged = prevWindowHeightRef.current !== windowHeight;
     const windowWidthChanged = prevWindowWidthRef.current !== windowWidth;
-    
+
     // Component should close if:
     // 1. Not visible prop
     // 2. Window height too small
     // 3. Window width >= 768px (md breakpoint) - component is hidden by CSS
-    const shouldClose = !visible || windowHeight <= 200 || windowWidth >= 768;
+    const shouldClose = windowHeight <= 200 || windowWidth >= 768;
 
-    if ((visibilityChanged || windowHeightChanged || windowWidthChanged) && shouldClose && isOpen) {
+    if ((windowHeightChanged || windowWidthChanged) && shouldClose && isOpen) {
       setIsOpen(false);
       setShowScrollToCurrentButton(false);
       onDropdownAction("close");
     }
 
-    // Update previous values
-    prevVisibleRef.current = visible;
     prevWindowHeightRef.current = windowHeight;
     prevWindowWidthRef.current = windowWidth;
-  }, [visible, windowHeight, windowWidth, isOpen, onDropdownAction]);
+  }, [windowHeight, windowWidth, isOpen, onDropdownAction]);
 
   // Cleanup on unmount - use a separate ref to track mount status
   const isMountedRef = useRef(true);
@@ -120,7 +131,7 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       removeThumbnail(currentTrack?.id ?? "");
     };
   }, [currentTrack?.id, discordSDK.isEmbedded, getThumbnail, removeThumbnail]);
-  
+
   const queueLength = queueList.length;
   const currentTrackNumber = currentTrackIndex !== null ? currentTrackIndex + 1 : 0;
 
@@ -142,31 +153,40 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
 
   const lastScrollPosition = useRef<number>(0);
   const isScrollingToCurrentTrack = useRef<boolean>(false);
-  
-  const handleScroll = useCallback((scrollOffset: number, userScrolled: boolean) => {
-    const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight : 0;
-    
-    // Don't show the button if we're programmatically scrolling to current track
-    if (isScrollingToCurrentTrack.current) {
+
+  const handleScroll = useCallback(
+    (scrollOffset: number, userScrolled: boolean) => {
+      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight : 0;
+
+      // Don't show the button if we're programmatically scrolling to current track
+      if (isScrollingToCurrentTrack.current) {
+        lastScrollPosition.current = scrollOffset;
+        return;
+      }
+
+      const showScrollToCurrentButton = userScrolled || scrollOffset !== currentTrackPosition;
+      setShowScrollToCurrentButton(showScrollToCurrentButton);
+      lastAction.current = Date.now();
       lastScrollPosition.current = scrollOffset;
-      return;
-    }
-    
-    const showScrollToCurrentButton = userScrolled || scrollOffset !== currentTrackPosition;
-    setShowScrollToCurrentButton(showScrollToCurrentButton);
-    lastAction.current = Date.now();
-    lastScrollPosition.current = scrollOffset;
-  }, [currentTrackIndex]);
+    },
+    [currentTrackIndex],
+  );
 
-  const handleMove = useCallback((fromIndex: number, toIndex: number) => {
-    lastAction.current = Date.now();
-    onMove(fromIndex, toIndex);
-  }, [onMove]);
+  const handleMove = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      lastAction.current = Date.now();
+      onMove(fromIndex, toIndex);
+    },
+    [onMove],
+  );
 
-  const handleSkip = useCallback((index: number) => {
-    lastAction.current = Date.now();
-    onSkip(index);
-  }, [onSkip]);
+  const handleSkip = useCallback(
+    (index: number) => {
+      lastAction.current = Date.now();
+      onSkip(index);
+    },
+    [onSkip],
+  );
 
   // Auto-scroll to current track when currentTrackIndex changes
   useEffect(() => {
@@ -176,7 +196,7 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       if (msSinceLastAction > 1000) {
         scrollToCurrentTrack();
       } else {
-        const showScrollToCurrentButton = lastScrollPosition.current !== (currentTrackIndex * itemHeight);
+        const showScrollToCurrentButton = lastScrollPosition.current !== currentTrackIndex * itemHeight;
         setShowScrollToCurrentButton(showScrollToCurrentButton);
       }
     }
@@ -188,60 +208,45 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
   }
 
   return (
-    <div ref={dropdownRef} className={["md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20", visible ? 'opacity-100' : 'opacity-0 pointer-events-none'].join(" ")}>
+    <div ref={dropdownRef} className={["md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20"].join(" ")}>
       {/* Full-screen queue overlay for mobile */}
-      <div className={`absolute inset-0 bg-queue-dropdown-backdrop backdrop-blur-lg transition-all duration-500 ${isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none"}`}>
+      <div
+        className={`absolute inset-0 bg-queue-dropdown-backdrop backdrop-blur-lg transition-all duration-500 ${isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none"}`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-0 relative">
           {/* Progress bar background */}
           <div className="absolute inset-0 bg-transparent">
-            <div 
+            <div
               className="h-full bg-white/20"
-              style={{ 
-                width: duration > 0 ? `${Math.min((timestamp / duration) * 100, 100)}%` : '0%',
-                transition: 'width 0.2s linear',
+              style={{
+                width: duration > 0 ? `${Math.min((timestamp / duration) * 100, 100)}%` : "0%",
+                transition: "width 0.2s linear",
               }}
             />
           </div>
           <div className="flex items-center gap-3 flex-1 min-w-0 relative z-10">
             <div className="aspect-square h-12 w-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
-              <img
-                src={imageBlobUrl || "/black.jpg"}
-                className="w-full h-full object-cover object-center bg-black select-none"
-                alt={currentTrack?.title || "thumbnail"}
-                draggable={false}
-              />
+              <img src={imageBlobUrl || "/black.jpg"} className="w-full h-full object-cover object-center bg-black select-none" alt={currentTrack?.title || "thumbnail"} draggable={false} />
             </div>
             <div className="flex flex-col min-w-0 flex-1 pl-1">
               <MarqueeText>
-                <h2 className="text-lg font-semibold text-white truncate">
-                  {currentTrack?.title || "No track playing"}
-                </h2>
+                <h2 className="text-lg font-semibold text-white truncate">{currentTrack?.title || "No track playing"}</h2>
               </MarqueeText>
               <MarqueeText>
-                <p className="text-sm text-white/70 truncate">
-                  {currentTrack?.uploader || "Unknown artist"}
-                </p>
+                <p className="text-sm text-white/70 truncate">{currentTrack?.uploader || "Unknown artist"}</p>
               </MarqueeText>
             </div>
           </div>
           <div className="flex items-center gap-2 ml-4 relative z-10">
-            <button 
+            <button
               onClick={onLoopToggle}
               disabled={controlsDisabled || !onLoopToggle}
-              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                loop 
-                  ? 'text-white bg-white/20 hover:bg-white/30' 
-                  : 'text-white hover:bg-white/10'
-              }`}
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${loop ? "text-white bg-white/20 hover:bg-white/30" : "text-white hover:bg-white/10"}`}
             >
               <FaRepeat className="text-lg" />
             </button>
-            <button 
-              onClick={onPlayToggle}
-              disabled={controlsDisabled}
-              className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
-            >
+            <button onClick={onPlayToggle} disabled={controlsDisabled} className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50">
               {paused ? <FaPlay className="text-lg" /> : <FaPause className="text-lg" />}
             </button>
           </div>
@@ -268,11 +273,25 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
             onScroll={handleScroll}
           />
         </div>
-        
+
         {/* Scroll to current track button - positioned above mobile toggle button */}
         {showScrollToCurrentButton && currentTrackIndex !== null && (
           <button
             onClick={scrollToCurrentTrack}
+            onTouchStart={(e) => {
+              // Allow the touch to pass through for scrolling
+              e.currentTarget.style.pointerEvents = 'none';
+              // Re-enable pointer events after a short delay to allow for taps
+              setTimeout(() => {
+                if (e.currentTarget) {
+                  e.currentTarget.style.pointerEvents = 'auto';
+                }
+              }, 100);
+            }}
+            onTouchEnd={(e) => {
+              // Ensure pointer events are re-enabled
+              e.currentTarget.style.pointerEvents = 'auto';
+            }}
             className="absolute bottom-24 left-4 right-4 py-3 px-4 bg-queue-mobile-scroll-button hover:bg-queue-mobile-scroll-button-hover text-white rounded-lg shadow-lg transition-colors z-10 flex items-center justify-center gap-2"
             title="Scroll to current track"
           >
@@ -285,10 +304,10 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
       {/* Mobile toggle button - always visible at bottom */}
       <button
         onClick={() => {
-          setIsOpen((prev => {
+          setIsOpen((prev) => {
             const newIsOpen = !prev;
             if (newIsOpen) {
-              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== (currentTrackIndex * itemHeight);
+              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * itemHeight;
               setShowScrollToCurrentButton(showScrollToCurrentButton);
               onDropdownAction("open");
             } else {
@@ -296,10 +315,10 @@ export default function QueueMobile({ visible, tracks, queueList, currentTrack, 
               onDropdownAction("close");
             }
             return newIsOpen;
-          }));
+          });
         }}
         className="absolute bottom-0 left-0 right-0 h-20 bg-queue-dropdown backdrop-blur-md border-0 flex items-center justify-between px-6 text-white active:bg-white/10 transition-colors touch-manipulation select-none focus:outline-none focus:ring-0"
-        style={{ WebkitTapHighlightColor: 'transparent' }}
+        style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="flex items-center gap-4">
           <FaBars className="text-lg" />

@@ -37,7 +37,7 @@ export default function useRoomHub() {
       .build();
     connection.current.on("RoomUpdate", (roomInfo: RoomInfo, updatedItems: QueueItem[]) => {
       console.log("Room update received:", roomInfo, updatedItems);
-      
+
       // Batch state updates to reduce re-renders
       startTransition(() => {
         setPlayingSince(roomInfo.playing_since ?? null);
@@ -50,7 +50,7 @@ export default function useRoomHub() {
         setQueueItems((prev) => {
           const items = new Map(prev);
           let hasChanges = false;
-          
+
           updatedItems.forEach((item) => {
             if (item.is_deleted) {
               if (items.has(item.id)) {

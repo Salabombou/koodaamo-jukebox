@@ -26,15 +26,16 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(undefined, async (error) => {
   const config = error.config;
-  if (!config || config.__retryCount >= 3) { // Reduced from 5 retries
+  if (!config || config.__retryCount >= 3) {
+    // Reduced from 5 retries
     return Promise.reject(error);
   }
   config.__retryCount = (config.__retryCount || 0) + 1;
-  
+
   // Exponential backoff for retries
   const delay = Math.min(1000 * Math.pow(2, config.__retryCount - 1), 5000);
-  await new Promise(resolve => setTimeout(resolve, delay));
-  
+  await new Promise((resolve) => setTimeout(resolve, delay));
+
   return apiClient(config);
 });
 
@@ -54,20 +55,22 @@ export function getQueueItemsHash() {
 
 export function getTracks(trackIds: string[]): Promise<{ data: Map<string, Track> }> {
   // Create a cache key for request deduplication
-  const cacheKey = `getTracks:${trackIds.sort().join(',')}`;
-  
+  const cacheKey = `getTracks:${trackIds.sort().join(",")}`;
+
   // Return pending request if one exists for the same track IDs
   if (pendingRequests.has(cacheKey)) {
     return pendingRequests.get(cacheKey) as Promise<{ data: Map<string, Track> }>;
   }
-  
-  const request = apiClient.post<Map<string, Track>>(`/api/track`, {
-    webpage_url_hashes: trackIds,
-  }).finally(() => {
-    // Clean up pending request when done
-    pendingRequests.delete(cacheKey);
-  });
-  
+
+  const request = apiClient
+    .post<Map<string, Track>>(`/api/track`, {
+      webpage_url_hashes: trackIds,
+    })
+    .finally(() => {
+      // Clean up pending request when done
+      pendingRequests.delete(cacheKey);
+    });
+
   pendingRequests.set(cacheKey, request);
   return request;
 }

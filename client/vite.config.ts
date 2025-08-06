@@ -32,6 +32,7 @@ export default defineConfig({
           discord: ["@discord/embedded-app-sdk", "@xhayper/discord-rpc"],
           microsoft: ["@microsoft/signalr"],
           hlsjs: ["hls.js"],
+          dnd: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
         },
       },
     },

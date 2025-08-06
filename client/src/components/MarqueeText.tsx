@@ -36,14 +36,14 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
 
   useEffect(() => {
     checkMarquee();
-    
+
     // Debounced resize handler
     let timeoutId: NodeJS.Timeout;
     const debouncedCheckMarquee = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(checkMarquee, 100);
     };
-    
+
     window.addEventListener("resize", debouncedCheckMarquee);
     window.addEventListener("orientationchange", debouncedCheckMarquee);
     return () => {

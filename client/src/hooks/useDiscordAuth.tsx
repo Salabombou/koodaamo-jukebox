@@ -77,9 +77,12 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
   // Set up interval to refresh auth every 60 minutes
   useEffect(() => {
     if (!auth) return;
-    const interval = setInterval(() => {
-      refreshAuth();
-    }, 60 * 60 * 1000); // 60 minutes
+    const interval = setInterval(
+      () => {
+        refreshAuth();
+      },
+      60 * 60 * 1000,
+    ); // 60 minutes
     return () => clearInterval(interval);
   }, [auth, discordSDK, oAuth2Code, roomCode]);
   if (auth === null) return <p>Loading...</p>;

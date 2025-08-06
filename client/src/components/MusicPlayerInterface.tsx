@@ -1,5 +1,6 @@
 import { FaBackwardStep, FaForwardStep, FaPlay, FaPause, FaRepeat, FaShuffle } from "react-icons/fa6";
 import Timestamp from "./Timestamp";
+import RoomCodeButton from "./RoomCodeButton";
 import { FaVolumeMute, FaVolumeUp } from "react-icons/fa";
 import { useEffect, useState, useRef } from "react";
 import { Track } from "../types/track";
@@ -8,6 +9,7 @@ import { useThumbnail } from "../hooks/useThumbnail";
 import * as colorService from "../services/colorService";
 import ContextMenu from "./ContextMenu";
 import MarqueeText from "./MarqueeText";
+import AboutModal from "./AboutModal";
 
 interface MusicPlayerInterfaceProps {
   visible: boolean;
@@ -97,11 +99,13 @@ export default function MusicPlayerInterface({
   }, [track?.id, discordSDK.isEmbedded, getThumbnail, clearThumbnails]);
 
   return (
-    <div className={`flex flex-col md:ml-6 w-full md:w-1/2 max-w-200 transition-opacity duration-300 ease-in-out ${
-      visible 
-        ? 'opacity-100' 
-        : 'opacity-0 pointer-events-none'
-    }`}>
+    <div className={`flex flex-col md:ml-6 w-full md:w-1/2 max-w-200 transition-opacity duration-300 ease-in-out ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+      <div className="hidden xs:flex justify-between items-center">
+        <RoomCodeButton />
+        <div className="flex-1" />
+        <AboutModal />
+      </div>
+
       <div className="card bg-transparent xs:bg-music-player-interface h-38 xs:h-auto rounded-none">
         <ContextMenu
           controlsDisabled={disabled}
