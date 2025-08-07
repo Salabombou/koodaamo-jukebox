@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import QueueList, { itemHeight } from "./QueueList";
-import { Track } from "../types/track";
-import { QueueItem } from "../types/queue";
+import QueueList, { itemHeight } from "../common/QueueList";
+import { Track } from "../../types/track";
+import { QueueItem } from "../../types/queue";
 import { FixedSizeList } from "react-window";
 
 interface QueueDesktopProps {
@@ -31,9 +31,9 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
   const scrollToIndexCentered = (index: number) => {
     if (listRef.current) {
       const height = outerRef.current ? outerRef.current.clientHeight : Number(listRef.current.props.height);
-      const visibleCount = Math.floor(height / itemHeight);
+      const visibleCount = Math.floor(height / itemHeight.desktop);
       const offset = Math.max(0, index - Math.floor(visibleCount / 2));
-      listRef.current.scrollTo(offset * itemHeight);
+      listRef.current.scrollTo(offset * itemHeight.desktop);
     }
   };
 
@@ -57,13 +57,13 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
   };
 
   return (
-    <div style={{ height: "100%" }} className={["relative w-full flex m-0 md:ml-6 transition-opacity duration-300 ease-in-out", visible ? "opacity-100" : "opacity-0 pointer-events-none"].join(" ")}>
+    <div style={{ height: "100%" }} className={["relative w-full flex m-0 ml-6 transition-opacity duration-300 ease-in-out", visible ? "opacity-100" : "opacity-0 pointer-events-none"].join(" ")}>
       {/* Top arrow */}
       {topArrowVisible && (
-        <div className="hidden md:flex absolute top-2 right-2 z-10 pointer-events-none">
+        <div className="absolute top-2 right-2 z-10">
           <button
             onClick={() => scrollToIndexCentered(currentTrackIndex ?? 0)}
-            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
+            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white"
             aria-label="Scroll to current track"
           >
             <FaArrowUp className="animate-bounce pt-2" />
@@ -72,10 +72,10 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
       )}
       {/* Bottom arrow */}
       {bottomArrowVisible && (
-        <div className="hidden md:flex absolute bottom-2 right-2 z-10 pointer-events-none">
+        <div className="absolute bottom-2 right-2 z-10">
           <button
             onClick={() => scrollToIndexCentered(currentTrackIndex ?? 0)}
-            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white cursor-pointer pointer-events-auto"
+            className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white"
             aria-label="Scroll to current track"
           >
             <FaArrowDown className="animate-bounce pt-2" />
@@ -84,6 +84,7 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
       )}
 
       <QueueList
+        type="desktop"
         listRef={listRef}
         outerRef={outerRef}
         tracks={tracks}

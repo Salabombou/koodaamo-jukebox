@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useCallback } from "react";
 
 interface UseThumbnailResult {
   getThumbnail: (url: string) => Promise<string | null>;
@@ -6,24 +6,25 @@ interface UseThumbnailResult {
   removeThumbnail: (url: string) => void;
 }
 
-export function useThumbnail(): UseThumbnailResult {
-  // Map from URL to object URL string
-  const thumbnailMap = useRef<Map<string, string>>(new Map());
-  // Track pending requests to avoid duplicates
-  const pendingRequests = useRef<Map<string, Promise<string | null>>>(new Map());
+// Global cache shared across all useThumbnail instances
+// Map from URL to object URL string
+const thumbnailMap = new Map<string, string>();
+// Track pending requests to avoid duplicates
+const pendingRequests = new Map<string, Promise<string | null>>();
 
+export function useThumbnail(): UseThumbnailResult {
   // Fetch and cache thumbnail blob, return object URL
   const getThumbnail = useCallback(async (url: string): Promise<string | null> => {
     if (!url) return null;
 
     // Return cached version if available
-    if (thumbnailMap.current.has(url)) {
-      return thumbnailMap.current.get(url)!;
+    if (thumbnailMap.has(url)) {
+      return thumbnailMap.get(url)!;
     }
 
     // Return pending request if already in progress
-    if (pendingRequests.current.has(url)) {
-      return pendingRequests.current.get(url)!;
+    if (pendingRequests.has(url)) {
+      return pendingRequests.get(url)!;
     }
 
     // Create new request
@@ -33,35 +34,35 @@ export function useThumbnail(): UseThumbnailResult {
         if (!response.ok) throw new Error("Failed to fetch thumbnail");
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob);
-        thumbnailMap.current.set(url, objectUrl);
+        thumbnailMap.set(url, objectUrl);
         return objectUrl;
       } catch {
         return null;
       } finally {
         // Clean up pending request
-        pendingRequests.current.delete(url);
+        pendingRequests.delete(url);
       }
     })();
 
-    pendingRequests.current.set(url, request);
+    pendingRequests.set(url, request);
     return request;
   }, []);
 
   // Clear all cached thumbnails and revoke object URLs
   const clearThumbnails = useCallback(() => {
-    for (const objectUrl of thumbnailMap.current.values()) {
+    for (const objectUrl of thumbnailMap.values()) {
       URL.revokeObjectURL(objectUrl);
     }
-    thumbnailMap.current.clear();
+    thumbnailMap.clear();
   }, []);
 
   const removeThumbnail = useCallback((url: string) => {
-    if (!thumbnailMap.current.has(url)) return;
-    const objectUrl = thumbnailMap.current.get(url);
+    if (!thumbnailMap.has(url)) return;
+    const objectUrl = thumbnailMap.get(url);
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl);
     }
-    thumbnailMap.current.delete(url);
+    thumbnailMap.delete(url);
   }, []);
 
   return { getThumbnail, clearThumbnails, removeThumbnail };

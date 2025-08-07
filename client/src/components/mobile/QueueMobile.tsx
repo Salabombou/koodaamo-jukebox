@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { FaChevronUp, FaChevronDown, FaPlay, FaPause, FaBars, FaLocationArrow } from "react-icons/fa";
 import { FaRepeat } from "react-icons/fa6";
-import QueueList, { itemHeight } from "./QueueList";
+import QueueList, { itemHeight } from "../common/QueueList";
 import { FixedSizeList } from "react-window";
-import { Track } from "../types/track";
-import { QueueItem } from "../types/queue";
-import MarqueeText from "./MarqueeText";
-import { useDiscordSDK } from "../hooks/useDiscordSdk";
-import { useThumbnail } from "../hooks/useThumbnail";
+import { Track } from "../../types/track";
+import { QueueItem } from "../../types/queue";
+import MarqueeText from "../common/MarqueeText";
+import { useDiscordSDK } from "../../hooks/useDiscordSdk";
+import { useThumbnail } from "../../hooks/useThumbnail";
 import { useCallback } from "react";
 
 interface QueueMobileProps {
@@ -58,47 +58,9 @@ export default function QueueMobile({
 
   const [showScrollToCurrentButton, setShowScrollToCurrentButton] = useState(false);
 
-  const [windowHeight, setWindowHeight] = useState(window.innerHeight);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-
   const discordSDK = useDiscordSDK();
   const { getThumbnail, removeThumbnail } = useThumbnail();
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
-
-  const prevWindowHeightRef = useRef(windowHeight);
-  const prevWindowWidthRef = useRef(windowWidth);
-
-  // Listen for window resize to update dimensions
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowHeight(window.innerHeight);
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Handle visibility, window height, and media query changes
-  useEffect(() => {
-    const windowHeightChanged = prevWindowHeightRef.current !== windowHeight;
-    const windowWidthChanged = prevWindowWidthRef.current !== windowWidth;
-
-    // Component should close if:
-    // 1. Not visible prop
-    // 2. Window height too small
-    // 3. Window width >= 768px (md breakpoint) - component is hidden by CSS
-    const shouldClose = windowHeight <= 200 || windowWidth >= 768;
-
-    if ((windowHeightChanged || windowWidthChanged) && shouldClose && isOpen) {
-      setIsOpen(false);
-      setShowScrollToCurrentButton(false);
-      onDropdownAction("close");
-    }
-
-    prevWindowHeightRef.current = windowHeight;
-    prevWindowWidthRef.current = windowWidth;
-  }, [windowHeight, windowWidth, isOpen, onDropdownAction]);
 
   // Cleanup on unmount - use a separate ref to track mount status
   const isMountedRef = useRef(true);
@@ -139,7 +101,7 @@ export default function QueueMobile({
   const scrollToCurrentTrack = () => {
     if (listRef.current && currentTrackIndex !== null) {
       isScrollingToCurrentTrack.current = true;
-      const currentTrackPosition = currentTrackIndex * itemHeight;
+      const currentTrackPosition = currentTrackIndex * itemHeight.mobile;
       listRef.current.scrollTo(currentTrackPosition);
       setShowScrollToCurrentButton(false);
       // Reset the flag after a short delay to allow the scroll to complete
@@ -156,7 +118,7 @@ export default function QueueMobile({
 
   const handleScroll = useCallback(
     (scrollOffset: number, userScrolled: boolean) => {
-      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight : 0;
+      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight.mobile : 0;
 
       // Don't show the button if we're programmatically scrolling to current track
       if (isScrollingToCurrentTrack.current) {
@@ -164,12 +126,12 @@ export default function QueueMobile({
         return;
       }
 
-      const showScrollToCurrentButton = userScrolled || scrollOffset !== currentTrackPosition;
+      const showScrollToCurrentButton = (isOpen && userScrolled) || scrollOffset !== currentTrackPosition;
       setShowScrollToCurrentButton(showScrollToCurrentButton);
       lastAction.current = Date.now();
       lastScrollPosition.current = scrollOffset;
     },
-    [currentTrackIndex],
+    [currentTrackIndex, isOpen],
   );
 
   const handleMove = useCallback(
@@ -196,25 +158,20 @@ export default function QueueMobile({
       if (msSinceLastAction > 1000) {
         scrollToCurrentTrack();
       } else {
-        const showScrollToCurrentButton = lastScrollPosition.current !== currentTrackIndex * itemHeight;
+        const showScrollToCurrentButton = lastScrollPosition.current !== currentTrackIndex * itemHeight.mobile;
         setShowScrollToCurrentButton(showScrollToCurrentButton);
       }
     }
   }, [currentTrackIndex]);
 
-  // Return null if window height is too small
-  if (windowHeight <= 200) {
-    return null;
-  }
-
   return (
-    <div ref={dropdownRef} className={["md:hidden fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20"].join(" ")}>
+    <div ref={dropdownRef} className={["fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20"].join(" ")}>
       {/* Full-screen queue overlay for mobile */}
       <div
         className={`absolute inset-0 bg-queue-dropdown-backdrop backdrop-blur-lg transition-all duration-500 ${isOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-full pointer-events-none"}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-0 relative">
+        <div className="flex items-center justify-between border-0 relative p-4 pr-0 bg-black/10">
           {/* Progress bar background */}
           <div className="absolute inset-0 bg-transparent">
             <div
@@ -226,8 +183,8 @@ export default function QueueMobile({
             />
           </div>
           <div className="flex items-center gap-3 flex-1 min-w-0 relative z-10">
-            <div className="aspect-square h-12 w-12 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
-              <img src={imageBlobUrl || "/black.jpg"} className="w-full h-full object-cover object-center bg-black select-none" alt={currentTrack?.title || "thumbnail"} draggable={false} />
+            <div className="aspect-square h-14 w-14 flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
+              <img src={imageBlobUrl || "/black.jpg"} className="w-full h-full object-cover object-center bg-black select-none rounded-xs" alt={currentTrack?.title || "thumbnail"} draggable={false} />
             </div>
             <div className="flex flex-col min-w-0 flex-1 pl-1">
               <MarqueeText>
@@ -238,7 +195,7 @@ export default function QueueMobile({
               </MarqueeText>
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-4 relative z-10">
+          <div className="flex justify-end pr-4 z-10">
             <button
               onClick={onLoopToggle}
               disabled={controlsDisabled || !onLoopToggle}
@@ -253,8 +210,9 @@ export default function QueueMobile({
         </div>
 
         {/* Queue content */}
-        <div className="flex-1 overflow-hidden relative" style={{ height: "calc(100vh - 160px)" }}>
+        <div className="flex-1 overflow-hidden relative" style={{ height: "calc(100vh - 168px)" }}>
           <QueueList
+            type="mobile"
             listRef={listRef}
             outerRef={outerRef}
             tracks={tracks}
@@ -280,19 +238,19 @@ export default function QueueMobile({
             onClick={scrollToCurrentTrack}
             onTouchStart={(e) => {
               // Allow the touch to pass through for scrolling
-              e.currentTarget.style.pointerEvents = 'none';
+              e.currentTarget.style.pointerEvents = "none";
               // Re-enable pointer events after a short delay to allow for taps
               setTimeout(() => {
                 if (e.currentTarget) {
-                  e.currentTarget.style.pointerEvents = 'auto';
+                  e.currentTarget.style.pointerEvents = "auto";
                 }
               }, 100);
             }}
             onTouchEnd={(e) => {
               // Ensure pointer events are re-enabled
-              e.currentTarget.style.pointerEvents = 'auto';
+              e.currentTarget.style.pointerEvents = "auto";
             }}
-            className="absolute bottom-24 left-4 right-4 py-3 px-4 bg-queue-mobile-scroll-button hover:bg-queue-mobile-scroll-button-hover text-white rounded-lg shadow-lg transition-colors z-10 flex items-center justify-center gap-2"
+            className="absolute bottom-21 left-20 right-20 py-3 px-4 bg-queue-mobile-scroll-button hover:bg-queue-mobile-scroll-button-hover text-white rounded-lg shadow-lg transition-colors z-10 flex items-center justify-center gap-2"
             title="Scroll to current track"
           >
             <FaLocationArrow className="text-sm" />
@@ -307,7 +265,7 @@ export default function QueueMobile({
           setIsOpen((prev) => {
             const newIsOpen = !prev;
             if (newIsOpen) {
-              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * itemHeight;
+              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * itemHeight.mobile;
               setShowScrollToCurrentButton(showScrollToCurrentButton);
               onDropdownAction("open");
             } else {
@@ -317,7 +275,7 @@ export default function QueueMobile({
             return newIsOpen;
           });
         }}
-        className="absolute bottom-0 left-0 right-0 h-20 bg-queue-dropdown backdrop-blur-md border-0 flex items-center justify-between px-6 text-white active:bg-white/10 transition-colors touch-manipulation select-none focus:outline-none focus:ring-0"
+        className="absolute bottom-0 left-0 right-0 h-20 bg-queue-dropdown backdrop-blur-md border-0 flex items-center justify-between px-6 text-white transition-colors touch-manipulation select-none focus:outline-none focus:ring-0"
         style={{ WebkitTapHighlightColor: "transparent" }}
       >
         <div className="flex items-center gap-4">

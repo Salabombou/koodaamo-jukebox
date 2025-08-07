@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState, useCallback, startTransition } from "react";
-import MusicPlayerInterface from "./components/MusicPlayerInterface";
+import InterfaceDesktop from "./components/desktop/InterfaceDesktop";
+import InterfaceMobile from "./components/mobile/InterfaceMobile";
 import { Track } from "./types/track";
 import * as apiService from "./services/apiService";
 import * as timeService from "./services/timeService";
+import * as colorService from "./services/colorService";
 import { useDiscordSDK } from "./hooks/useDiscordSdk";
 import Hls from "hls.js";
 import useRoomHub from "./hooks/useRoomHub";
-import GradientBackground from "./components/GradientBackground";
-import QueueMobile from "./components/QueueMobile";
-import QueueDesktop from "./components/QueueDesktop";
+import GradientBackground from "./components/common/GradientBackground";
+import QueueMobile from "./components/mobile/QueueMobile";
+import QueueDesktop from "./components/desktop/QueueDesktop";
 import { useHls } from "./hooks/useHls";
+import { useThumbnail } from "./hooks/useThumbnail";
 import { ErrorData } from "hls.js";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
+  const { getThumbnail, removeThumbnail } = useThumbnail();
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const audioElementRef = useRef<HTMLAudioElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -76,11 +80,14 @@ export default function App() {
   const [backgroundColors, setBackgroundColors] = useState<[string, string]>(["#ffffff", "#000000"]);
 
   const onSkip = useCallback((index: number) => invokeRoomAction("Skip", index), [invokeRoomAction]);
-  const onMove = useCallback((fromIndex: number, toIndex: number) => {
-    if (invokePending) return;
-    console.log("Moving item from index", fromIndex, "to", toIndex);
-    invokeRoomAction("Move", fromIndex, toIndex);
-  }, [invokeRoomAction, invokePending]);
+  const onMove = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (invokePending) return;
+      console.log("Moving item from index", fromIndex, "to", toIndex);
+      invokeRoomAction("Move", fromIndex, toIndex);
+    },
+    [invokeRoomAction, invokePending],
+  );
   const onDelete = useCallback(
     (index: number) => {
       if (index !== currentTrackIndex) invokeRoomAction("Delete", index);
@@ -214,7 +221,7 @@ export default function App() {
     if (!isReady) return;
     if (seeking.current) return;
     if (invokePending) return; // Don't fix desync during pending operations (like queue moves)
-    
+
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
       const rawElapsedTime = (currentTime - playingSince) / 1000;
@@ -371,19 +378,19 @@ export default function App() {
     if (playingSince === null) return;
     if (!isFinite(duration) || duration <= 0) return;
     if (!audioReady) return;
-    
+
     // If we just seeked to beginning due to estimated time being past duration,
     // don't calculate timestamp from the old playingSince value
     if (hasSeekToBeginning.current) {
       return;
     }
-    
+
     const currentTime = timeService.getServerNow();
     const rawElapsedTime = (currentTime - playingSince) / 1000;
     const elapsedTime = isLooping && duration > 0 ? rawElapsedTime % duration : rawElapsedTime;
 
     if (!isFinite(elapsedTime)) return;
-    
+
     setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
   }, [playingSince, duration, isReady, audioReady, isLooping]);
 
@@ -398,7 +405,7 @@ export default function App() {
     } else {
       const msSince = timeService.getServerNow() - playingSince;
       console.log("Milliseconds since playing started:", msSince);
-      
+
       // Check if estimated resume time is past the duration
       const estimatedResumeTime = msSince / 1000;
       if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
@@ -422,7 +429,7 @@ export default function App() {
         // Clear the flag if we don't need to seek to beginning
         hasSeekToBeginning.current = false;
       }
-      
+
       if (msSince < 0) {
         setTimeout(() => {
           // Only play if all conditions are met
@@ -457,7 +464,7 @@ export default function App() {
         const indexToCompare = isShuffled ? item.shuffled_index : item.index;
         return indexToCompare === currentTrackIndex && item.track_id === currentTrackId;
       });
-      
+
       // If not found, fallback to finding by track_id only (handles move operations)
       if (!item) {
         item = queueList.find((item) => item.track_id === currentTrackId);
@@ -465,7 +472,7 @@ export default function App() {
           console.log("Current track found by ID only after queue move, index mismatch detected");
         }
       }
-      
+
       const track = tracks.get(currentTrackId);
       if (!item || !track) {
         return;
@@ -477,6 +484,34 @@ export default function App() {
       }
     }
   }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList, isShuffled]);
+
+  // Extract colors from current track thumbnail
+  useEffect(() => {
+    if (!currentTrack?.id) {
+      return;
+    }
+
+    const extractColors = async () => {
+      try {
+        const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`;
+        const blobUrl = await getThumbnail(thumbnailUrl);
+
+        if (blobUrl) {
+          const colors = await colorService.getProminentColorFromUrl(blobUrl);
+          setBackgroundColors(colors);
+        }
+      } catch (error) {
+        console.warn("Failed to extract colors from thumbnail:", error);
+      }
+    };
+
+    extractColors();
+
+    // Cleanup function to remove thumbnail when track changes
+    return () => {
+      removeThumbnail(currentTrack.id);
+    };
+  }, [currentTrack?.id, discordSDK.isEmbedded, getThumbnail, removeThumbnail]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -544,7 +579,7 @@ export default function App() {
     // Use only track ID for uniqueness - item ID changes during queue moves but shouldn't trigger reloading
     const currentUniqueId = currentTrack ? currentTrack.id : null;
     const lastUniqueId = lastHlsTrackId.current;
-    
+
     if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
@@ -561,9 +596,12 @@ export default function App() {
         const currentTime = timeService.getServerNow();
         const elapsedTime = (currentTime - playingSince) / 1000;
         const seekPosition = Math.max(0, Math.min(elapsedTime, duration));
-        audioPlayer.seek(seekPosition);
-        setTimestamp(seekPosition);
-        console.log("Restoring playback position to", seekPosition, "seconds");
+
+        if (Math.abs(audioPlayer.currentTime - seekPosition) > 1) {
+          audioPlayer.seek(seekPosition);
+          setTimestamp(seekPosition);
+          console.log("Restoring playback position to", seekPosition, "seconds");
+        }
       } else {
         audioPlayer.seek(0);
         setTimestamp(0);
@@ -631,82 +669,104 @@ export default function App() {
 
   return (
     <>
-        {/* Hidden audio element for HLS playback */}
-        <audio ref={audioElementRef} className="sr-only" controls={false} autoPlay={false} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
+      {/* Hidden audio element for HLS playback */}
+      <audio ref={audioElementRef} className="sr-only" controls={false} autoPlay={false} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
 
-        <GradientBackground backgroundColors={backgroundColors} />
+      <GradientBackground backgroundColors={backgroundColors} />
 
-        {/* Startup Modal */}
-        <dialog className="modal backdrop-blur-xs" ref={modalRef} onClose={() => setIsReady(true)}>
-          <div className="modal-action">
-            <form method="dialog">
-              <button className="btn size-50 font-bold text-6xl">Start</button>
-            </form>
+      {/* Startup Modal */}
+      <dialog className="modal backdrop-blur-xs" ref={modalRef} onClose={() => setIsReady(true)}>
+        <div className="modal-action">
+          <form method="dialog">
+            <button className="btn size-50 font-bold text-6xl">Start</button>
+          </form>
+        </div>
+      </dialog>
+
+      {/* Main App */}
+      {isReady && (
+        <main className="h-screen w-screen flex items-center justify-center overflow-hidden">
+          {/* Mobile UI - visible on screens smaller than md (768px) */}
+          <div className="flex md:hidden relative z-2 w-full justify-center h-full items-center">
+            <InterfaceMobile
+              visible={dropdownClosed}
+              track={currentTrack}
+              duration={duration}
+              timestamp={timestamp}
+              paused={isPaused ?? true}
+              looping={isLooping ?? false}
+              shuffled={isShuffled ?? false}
+              disabled={invokePending}
+              backgroundColor={backgroundColors[0]}
+              onShuffle={onShuffle}
+              onBackward={onBackward}
+              onForward={onForward}
+              onPlayToggle={onPlayToggle}
+              onLoopToggle={onLoopToggle}
+              onSeek={onSeek}
+              onVolumeChange={onVolumeChange}
+              setSecret={setSecretUnlocked}
+            />
+
+            <QueueMobile
+              tracks={tracks}
+              queueList={queueList}
+              currentTrack={currentTrack}
+              currentTrackIndex={currentTrackIndex}
+              paused={isPaused ?? true}
+              loop={isLooping ?? false}
+              controlsDisabled={invokePending}
+              timestamp={timestamp}
+              duration={duration}
+              onDropdownAction={(action) => {
+                setDropdownClosed(action === "close");
+                console.log("Dropdown action:", action);
+              }}
+              onPlayToggle={onPlayToggle}
+              onLoopToggle={onLoopToggle}
+              onMove={onMove}
+              onSkip={onSkip}
+              onDelete={onDelete}
+              onPlayNext={onPlayNext}
+            />
           </div>
-        </dialog>
 
-        {/* Main App */}
-        {isReady && (
-          <main className="h-screen w-screen flex items-center justify-center overflow-hidden">
-            <div className="relative z-2 w-full h-full flex flex-1 items-center justify-center">
-              <MusicPlayerInterface
-                visible={dropdownClosed}
-                track={currentTrack}
-                duration={duration}
-                timestamp={timestamp}
-                paused={isPaused ?? true}
-                looping={isLooping ?? false}
-                shuffled={isShuffled ?? false}
-                disabled={invokePending}
-                onPrimaryColorChange={setBackgroundColors}
-                backgroundColor={backgroundColors[0]}
-                onShuffle={onShuffle}
-                onBackward={onBackward}
-                onForward={onForward}
-                onPlayToggle={onPlayToggle}
-                onLoopToggle={onLoopToggle}
-                onSeek={onSeek}
-                onVolumeChange={onVolumeChange}
-                setSecret={setSecretUnlocked}
-              />
+          {/* Desktop UI - visible on screens md (768px) and larger */}
+          <div className="hidden md:flex relative z-2 w-full h-full flex-1 items-center justify-center">
+            <InterfaceDesktop
+              track={currentTrack}
+              duration={duration}
+              timestamp={timestamp}
+              paused={isPaused ?? true}
+              looping={isLooping ?? false}
+              shuffled={isShuffled ?? false}
+              disabled={invokePending}
+              backgroundColor={backgroundColors[0]}
+              onShuffle={onShuffle}
+              onBackward={onBackward}
+              onForward={onForward}
+              onPlayToggle={onPlayToggle}
+              onLoopToggle={onLoopToggle}
+              onSeek={onSeek}
+              onVolumeChange={onVolumeChange}
+              setSecret={setSecretUnlocked}
+            />
 
-              <QueueMobile
-                tracks={tracks}
-                queueList={queueList}
-                currentTrack={currentTrack}
-                currentTrackIndex={currentTrackIndex}
-                paused={isPaused ?? true}
-                loop={isLooping ?? false}
-                controlsDisabled={invokePending}
-                timestamp={timestamp}
-                duration={duration}
-                onDropdownAction={(action) => {
-                  setDropdownClosed(action === "close");
-                  console.log("Dropdown action:", action);
-                }}
-                onPlayToggle={onPlayToggle}
-                onLoopToggle={onLoopToggle}
-                onMove={onMove}
-                onSkip={onSkip}
-                onDelete={onDelete}
-                onPlayNext={onPlayNext}
-              />
-
-              <QueueDesktop
-                visible={dropdownClosed}
-                tracks={tracks}
-                queueList={queueList}
-                currentTrack={currentTrack}
-                currentTrackIndex={currentTrackIndex}
-                controlsDisabled={invokePending}
-                onMove={onMove}
-                onSkip={onSkip}
-                onDelete={onDelete}
-                onPlayNext={onPlayNext}
-              />
-            </div>
-          </main>
-        )}
+            <QueueDesktop
+              visible={dropdownClosed}
+              tracks={tracks}
+              queueList={queueList}
+              currentTrack={currentTrack}
+              currentTrackIndex={currentTrackIndex}
+              controlsDisabled={invokePending}
+              onMove={onMove}
+              onSkip={onSkip}
+              onDelete={onDelete}
+              onPlayNext={onPlayNext}
+            />
+          </div>
+        </main>
+      )}
     </>
   );
 }

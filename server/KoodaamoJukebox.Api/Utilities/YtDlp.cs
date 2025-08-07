@@ -140,36 +140,37 @@ namespace KoodaamoJukebox.Api.Utilities
 
                             var thumbnails = snippet.GetProperty("thumbnails");
 
-                            if (thumbnails.TryGetProperty("medium", out var mediumThumbnailLow))
+                            // Filter thumbnails to only those with 16:9 aspect ratio
+                            var filteredThumbnails = new List<JsonProperty>();
+                            foreach (var thumbProp in thumbnails.EnumerateObject())
                             {
-                                thumbnailLow = mediumThumbnailLow.GetProperty("url").GetString();
+                                var thumb = thumbProp.Value;
+                                if (thumb.TryGetProperty("width", out var w) && thumb.TryGetProperty("height", out var h))
+                                {
+                                    int width = w.GetInt32();
+                                    int height = h.GetInt32();
+                                    if (width > 0 && height > 0 && Math.Abs((width / (double)height) - (16.0 / 9.0)) < 0.01)
+                                    {
+                                        filteredThumbnails.Add(thumbProp);
+                                    }
+                                }
                             }
-                            else if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
+
+                            // Helper to get thumbnail by name from filtered list
+                            string? GetFilteredThumbnailUrl(string name)
                             {
-                                thumbnailLow = defaultThumbnailLow.GetProperty("url").GetString();
+                                var prop = filteredThumbnails.FirstOrDefault(t => t.Name == name);
+                                return prop.Value.ValueKind != JsonValueKind.Undefined ? prop.Value.GetProperty("url").GetString() : null;
                             }
-                            else
+
+                            thumbnailLow = GetFilteredThumbnailUrl("medium") ?? GetFilteredThumbnailUrl("default");
+                            if (thumbnailLow == null)
                             {
                                 continue;
                             }
 
-                            if (thumbnails.TryGetProperty("maxres", out var maxresThumbnail))
-                            {
-                                thumbnailHigh = maxresThumbnail.GetProperty("url").GetString();
-                            }
-                            else if (thumbnails.TryGetProperty("standard", out var standardThumbnail))
-                            {
-                                thumbnailHigh = standardThumbnail.GetProperty("url").GetString();
-                            }
-                            else if (thumbnails.TryGetProperty("high", out var highThumbnail))
-                            {
-                                thumbnailHigh = highThumbnail.GetProperty("url").GetString();
-                            }
-                            else if (thumbnails.TryGetProperty("medium", out var mediumThumbnail))
-                            {
-                                thumbnailHigh = mediumThumbnail.GetProperty("url").GetString();
-                            }
-                            else
+                            thumbnailHigh = GetFilteredThumbnailUrl("maxres") ?? GetFilteredThumbnailUrl("standard") ?? GetFilteredThumbnailUrl("high") ?? GetFilteredThumbnailUrl("medium");
+                            if (thumbnailHigh == null)
                             {
                                 thumbnailHigh = thumbnailLow; // Fallback to low quality if no high quality thumbnail is available
                             }
@@ -230,31 +231,38 @@ namespace KoodaamoJukebox.Api.Utilities
                 string? thumbnailLow = null;
                 string? thumbnailHigh = null;
                 var thumbnails = snippet.GetProperty("thumbnails");
-                if (thumbnails.TryGetProperty("medium", out var mediumThumbnailLow))
+
+                // Filter thumbnails to only those with 16:9 aspect ratio
+                var filteredThumbnails = new List<JsonProperty>();
+                foreach (var thumbProp in thumbnails.EnumerateObject())
                 {
-                    thumbnailLow = mediumThumbnailLow.GetProperty("url").GetString();
+                    var thumb = thumbProp.Value;
+                    if (thumb.TryGetProperty("width", out var w) && thumb.TryGetProperty("height", out var h))
+                    {
+                        int width = w.GetInt32();
+                        int height = h.GetInt32();
+                        if (width > 0 && height > 0 && Math.Abs((width / (double)height) - (16.0 / 9.0)) < 0.01)
+                        {
+                            filteredThumbnails.Add(thumbProp);
+                        }
+                    }
                 }
-                else if (thumbnails.TryGetProperty("default", out var defaultThumbnailLow))
+
+                // Helper to get thumbnail by name from filtered list
+                string? GetFilteredThumbnailUrl(string name)
                 {
-                    thumbnailLow = defaultThumbnailLow.GetProperty("url").GetString();
+                    var prop = filteredThumbnails.FirstOrDefault(t => t.Name == name);
+                    return prop.Value.ValueKind != JsonValueKind.Undefined ? prop.Value.GetProperty("url").GetString() : null;
                 }
-                if (thumbnails.TryGetProperty("maxres", out var maxresThumbnail))
+
+                thumbnailLow = GetFilteredThumbnailUrl("medium") ?? GetFilteredThumbnailUrl("default");
+                if (thumbnailLow == null)
                 {
-                    thumbnailHigh = maxresThumbnail.GetProperty("url").GetString();
+                    thumbnailLow = null;
                 }
-                else if (thumbnails.TryGetProperty("standard", out var standardThumbnail))
-                {
-                    thumbnailHigh = standardThumbnail.GetProperty("url").GetString();
-                }
-                else if (thumbnails.TryGetProperty("high", out var highThumbnail))
-                {
-                    thumbnailHigh = highThumbnail.GetProperty("url").GetString();
-                }
-                else if (thumbnails.TryGetProperty("medium", out var mediumThumbnail))
-                {
-                    thumbnailHigh = mediumThumbnail.GetProperty("url").GetString();
-                }
-                else
+
+                thumbnailHigh = GetFilteredThumbnailUrl("maxres") ?? GetFilteredThumbnailUrl("standard") ?? GetFilteredThumbnailUrl("high") ?? GetFilteredThumbnailUrl("medium");
+                if (thumbnailHigh == null)
                 {
                     thumbnailHigh = thumbnailLow;
                 }

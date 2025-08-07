@@ -1,25 +1,13 @@
 import { memo } from "react";
-import type { ListChildComponentProps } from "react-window";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Track } from "../types/track";
-import { QueueItem } from "../types/queue";
-import ContextMenu from "./ContextMenu";
+import ContextMenu from "../common/ContextMenu";
 import { FaGripLines } from "react-icons/fa";
+import { QueueItemProps } from "../common/QueueList";
 
-interface QueueRowProps extends ListChildComponentProps {
-  data: QueueItem[];
-  track: Track | null;
-  currentTrack?: (Track & { itemId: number }) | null;
-  thumbnailBlob?: string;
-  onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
-  onPlayNext: (index: number) => void;
-  controlsDisabled?: boolean;
-  overlay?: boolean; // for drag overlay
-}
+interface QueueItemDesktopProps extends QueueItemProps {}
 
-function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueRowProps) {
+function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueItemDesktopProps) {
   const item = data.at(index);
   if (!item) return null;
 
@@ -36,6 +24,23 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
       navigator.clipboard.writeText(track.webpage_url);
     }
   };
+
+  // Create context menu items
+  const contextMenuItems = [
+    {
+      children: "Play Next",
+      action: handlePlayNext,
+    },
+    {
+      children: "Copy URL",
+      action: handleCopyUrl,
+    },
+    {
+      children: "Delete",
+      action: handleDelete,
+      className: "text-red-500 hover:text-red-700",
+    },
+  ];
 
   return (
     <div
@@ -63,7 +68,7 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
           `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
         ].join(" ")}
       >
-        <ContextMenu onPlayNext={handlePlayNext} onCopyUrl={handleCopyUrl} onDelete={handleDelete} controlsDisabled={controlsDisabled}>
+        <ContextMenu items={contextMenuItems} controlsDisabled={controlsDisabled}>
           <div className="flex flex-row-reverse xl:flex-row items-center w-full h-full select-none">
             <div className="flex items-center">
               <button
@@ -72,14 +77,14 @@ function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailB
                 {...listeners}
                 tabIndex={0}
                 aria-label="Drag to reorder"
-                className={["h-14 w-14 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none", overlay ? "cursor-grabbing" : "cursor-grab"].join(" ")}
+                className={["h-16 w-16 touch-none p-0 flex items-center justify-center select-none bg-transparent border-none outline-none", overlay ? "cursor-grabbing" : "cursor-grab"].join(" ")}
               >
                 <span className="flex items-center justify-center w-full h-full">
                   <FaGripLines className="w-5 h-5 mr-1" />
                 </span>
               </button>
             </div>
-            <div className="flex items-center w-full min-w-0" onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}>
+            <div className="flex items-center w-full min-w-0" onClick={controlsDisabled ? undefined : () => onSkip(index)}>
               <div className="md:aspect-video aspect-square h-12 w-12 md:h-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
                 <img src={thumbnailBlob} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
               </div>

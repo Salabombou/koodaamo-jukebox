@@ -1,23 +1,23 @@
 import { useRef, useEffect, useCallback, RefObject } from "react";
 import Hls, { Events, type ErrorData, type ManifestParsedData } from "hls.js";
 
-interface IaudioElement {
+interface IUseHls {
   loadSource: (src: string) => void;
   setVolume: (volume: number) => void;
-  play: () => Promise<void>;
+  play: () => void;
   pause: () => void;
   seek: (time: number) => void;
   get paused(): boolean;
   get currentTime(): number;
 }
 
-interface UseaudioElementProps {
+interface UseHlsProps {
   audioElement: RefObject<HTMLAudioElement | null>;
   onDuration: (duration: number) => void;
   onFatalError: (data: ErrorData | Event | string) => void;
 }
 
-export function useHls({ audioElement, onDuration, onFatalError }: UseaudioElementProps): IaudioElement {
+export function useHls({ audioElement, onDuration, onFatalError }: UseHlsProps): IUseHls {
   const hls = useRef<Hls | null>(null);
 
   useEffect(() => {
@@ -71,22 +71,6 @@ export function useHls({ audioElement, onDuration, onFatalError }: UseaudioEleme
     };
   }, [onDuration, onFatalError]);
 
-  const loadSource = useCallback(
-    (src: string) => {
-      if (!hls.current || !audioElement.current) return;
-      
-      // Only load if the source is different from current
-      if (hls.current.url === src) return;
-      
-      hls.current.loadSource(src);
-      hls.current.startLoad();
-      
-      audioElement.current.load();
-      hls.current.attachMedia(audioElement.current);
-    },
-    [audioElement],
-  );
-
   useEffect(() => {
     const player = audioElement.current;
     if (!player || !hls.current) return;
@@ -100,40 +84,51 @@ export function useHls({ audioElement, onDuration, onFatalError }: UseaudioEleme
     };
   }, [audioElement]);
 
+  const loadSource = useCallback((src: string) => {
+    if (!hls.current || !audioElement.current) return;
+
+    // Only load if the source is different from current
+    if (hls.current.url === src) return;
+
+    hls.current.loadSource(src);
+    hls.current.startLoad();
+
+    audioElement.current.load();
+    hls.current.attachMedia(audioElement.current);
+  }, []);
+
+  const play = useCallback(() => {
+    if (audioElement.current) {
+      audioElement.current.play();
+    }
+  }, []);
+
+  const pause = useCallback(() => {
+    audioElement.current?.pause();
+  }, []);
+
+  const seek = useCallback((time: number) => {
+    if (audioElement.current) {
+      audioElement.current.currentTime = time;
+    }
+  }, []);
+
+  const setVolume = useCallback((volume: number) => {
+    if (audioElement.current) {
+      audioElement.current.volume = volume;
+    }
+  }, []);
+
   return {
     loadSource,
-
-    setVolume(volume: number) {
-      if (audioElement.current) {
-        audioElement.current.volume = volume;
-      }
-    },
-
-    seek(time: number) {
-      if (audioElement.current) {
-        audioElement.current.currentTime = time;
-      }
-    },
-
-    async play(): Promise<void> {
-      if (audioElement.current) {
-        try {
-          await audioElement.current.play();
-        } catch (error) {
-          console.error("Failed to play audio:", error);
-          throw error;
-        }
-      }
-    },
-
-    pause() {
-      audioElement.current?.pause();
-    },
+    play,
+    pause,
+    seek,
+    setVolume,
 
     get paused() {
       return audioElement.current?.paused ?? true;
     },
-
     get currentTime() {
       return audioElement.current?.currentTime ?? 0;
     },

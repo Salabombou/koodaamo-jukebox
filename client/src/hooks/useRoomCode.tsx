@@ -1,6 +1,6 @@
 import { type ReactNode, createContext, useContext, useState } from "react";
 import { useDiscordSDK } from "./useDiscordSdk";
-import { CodeInput } from "../components/CodeInput";
+import { CodeInput } from "../components/common/CodeInput";
 
 const RoomCodeContext = createContext<string | null>(null);
 export function useRoomCode() {

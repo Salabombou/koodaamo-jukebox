@@ -4,18 +4,31 @@ import { FixedSizeList } from "react-window";
 import { DndContext, DragOverlay, type Modifier, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
-import QueueListRow from "./QueueListRow";
+import QueueItemDesktop from "../desktop/QueueItemDesktop";
+import QueueItemMobile from "../mobile/QueueItemMobile";
 import { useState as useReactState } from "react";
-import { useDiscordSDK } from "../hooks/useDiscordSdk";
-import { useThumbnail } from "../hooks/useThumbnail";
-import { QueueItem } from "../types/queue";
-import { Track } from "../types/track";
+import { useDiscordSDK } from "../../hooks/useDiscordSdk";
+import { useThumbnail } from "../../hooks/useThumbnail";
+import { QueueItem } from "../../types/queue";
+import { Track } from "../../types/track";
 import AutoSizer from "react-virtualized-auto-sizer";
+
+export interface QueueItemProps extends ListChildComponentProps {
+  data: QueueItem[];
+  track: Track | null;
+  currentTrack?: (Track & { itemId: number }) | null;
+  thumbnailBlob?: string;
+  onSkip: (index: number) => void;
+  onDelete: (index: number) => void;
+  onPlayNext: (index: number) => void;
+  controlsDisabled?: boolean;
+  overlay?: boolean; // for drag overlay
+}
 
 const restrictToVerticalAxisCenterY: Modifier = ({ transform, draggingNodeRect, activatorEvent }) => {
   if (draggingNodeRect && activatorEvent) {
     const activatorCoordinates = getEventCoordinates(activatorEvent);
-    if (!activatorCoordinates) return transform;
+    if (!activatorCoordinates) return { ...transform, x: 0 };
     const offsetY = activatorCoordinates.y - draggingNodeRect.top;
     return {
       ...transform,
@@ -23,10 +36,11 @@ const restrictToVerticalAxisCenterY: Modifier = ({ transform, draggingNodeRect, 
       y: transform.y + offsetY - draggingNodeRect.height / 2,
     };
   }
-  return transform;
+  return { ...transform, x: 0 };
 };
 
 interface QueueProps {
+  type: "desktop" | "mobile";
   listRef: React.RefObject<FixedSizeList | null>;
   outerRef: React.RefObject<HTMLDivElement | null>;
   tracks: Map<string, Track>;
@@ -43,9 +57,12 @@ interface QueueProps {
   onDragEnd?: (fromIndex: number, toIndex: number) => void;
 }
 
-export const itemHeight = 66;
+export const itemHeight = {
+  desktop: 66,
+  mobile: 64,
+};
 
-export default function Queue({ listRef, outerRef, tracks, queueList, currentTrack, controlsDisabled, onItemsRendered, onMove, onSkip, onDelete, onPlayNext, onScroll, onDragEnd }: QueueProps) {
+export default function Queue({ type, listRef, outerRef, tracks, queueList, currentTrack, controlsDisabled, onItemsRendered, onMove, onSkip, onDelete, onPlayNext, onScroll, onDragEnd }: QueueProps) {
   const discordSDK = useDiscordSDK();
   const { getThumbnail, removeThumbnail } = useThumbnail();
   const [thumbnailBlobs, setThumbnailBlobs] = useReactState<{ [key: string]: string }>({});
@@ -62,9 +79,10 @@ export default function Queue({ listRef, outerRef, tracks, queueList, currentTra
     () => ({
       onDelete,
       onPlayNext,
+      onSkip,
       controlsDisabled,
     }),
-    [onDelete, onPlayNext, controlsDisabled],
+    [onDelete, onPlayNext, onSkip, controlsDisabled],
   );
 
   // Setup DnD sensors for pointer and touch
@@ -77,7 +95,7 @@ export default function Queue({ listRef, outerRef, tracks, queueList, currentTra
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 0,
-        tolerance: 0
+        tolerance: 0,
       },
     }),
   );
@@ -141,22 +159,23 @@ export default function Queue({ listRef, outerRef, tracks, queueList, currentTra
         const url = discordSDK.isEmbedded ? `/.proxy/api/track/${track.id}/thumbnail-low` : `/api/track/${track.id}/thumbnail-low`;
         thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
       }
+
+      const QueueItemComponent = type === "desktop" ? QueueItemDesktop : QueueItemMobile;
+
       return (
-        <QueueListRow
+        <QueueItemComponent
           {...props}
           track={track}
           currentTrack={currentTrack}
           thumbnailBlob={thumbnailBlob}
-          onSkip={(i) => {
-            onSkip(i);
-          }}
+          onSkip={stableProps.onSkip}
           onDelete={stableProps.onDelete}
           onPlayNext={stableProps.onPlayNext}
           controlsDisabled={stableProps.controlsDisabled}
         />
       );
     };
-  }, [tracks, currentTrack, onSkip, stableProps, thumbnailBlobs, discordSDK.isEmbedded]);
+  }, [type, tracks, currentTrack, onSkip, stableProps, thumbnailBlobs, discordSDK.isEmbedded]);
 
   // Remove thumbnails for items no longer in the queue to avoid memory leaks
   const prevQueueIdsRef = useRef<Set<string>>(new Set());
@@ -217,7 +236,7 @@ export default function Queue({ listRef, outerRef, tracks, queueList, currentTra
               itemData={optimisticQueueList}
               itemCount={optimisticQueueList.length}
               overscanCount={5}
-              itemSize={itemHeight}
+              itemSize={type === "desktop" ? itemHeight.desktop : itemHeight.mobile}
               itemKey={itemKey}
               style={{
                 overflowX: "hidden",
@@ -243,8 +262,11 @@ export default function Queue({ listRef, outerRef, tracks, queueList, currentTra
                   const url = discordSDK.isEmbedded ? `/.proxy/api/track/${track.id}/thumbnail-low` : `/api/track/${track.id}/thumbnail-low`;
                   thumbnailBlob = thumbnailBlobs[url] || "/black.jpg";
                 }
+
+                const QueueItemComponent = type === "desktop" ? QueueItemDesktop : QueueItemMobile;
+
                 return (
-                  <QueueListRow
+                  <QueueItemComponent
                     overlay={true}
                     index={draggedIndex}
                     track={track}

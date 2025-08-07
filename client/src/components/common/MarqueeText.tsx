@@ -18,11 +18,13 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
   // Debounced check function to avoid excessive calculations
   const checkMarquee = useCallback(() => {
     if (textRef.current && containerRef.current) {
-      const needsMarquee = textRef.current.scrollWidth > containerRef.current.offsetWidth;
+      const currentScrollWidth = textRef.current.scrollWidth;
+      const currentContainerOffsetWidth = containerRef.current.offsetWidth;
+      setScrollWidth(currentScrollWidth);
+      setContainerOffsetWidth(currentContainerOffsetWidth);
+      const needsMarquee = currentScrollWidth > currentContainerOffsetWidth;
       if (needsMarquee !== shouldMarquee) {
         setShouldMarquee(needsMarquee);
-        setScrollWidth(textRef.current.scrollWidth);
-        setContainerOffsetWidth(containerRef.current.offsetWidth);
       }
     }
   }, [shouldMarquee]);

@@ -6,7 +6,7 @@ import { DiscordSDKProvider } from "./hooks/useDiscordSdk";
 import { DiscordAuthProvider } from "./hooks/useDiscordAuth";
 import { RoomCodeProvider } from "./hooks/useRoomCode";
 import { OAuth2CodeProvider } from "./hooks/useOAuth2Code";
-import ErrorBoundary from "./components/ErrorBoundary";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

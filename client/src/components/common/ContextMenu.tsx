@@ -1,15 +1,19 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
 import ReactDOM from "react-dom";
 
+export interface ContextMenuItem {
+  children: React.ReactNode;
+  action: () => unknown;
+  className?: string;
+}
+
 interface ContextMenuProps {
   children: React.ReactNode;
   controlsDisabled?: boolean;
-  onPlayNext?: () => void;
-  onDelete?: () => void;
-  onCopyUrl: () => void;
+  items: ContextMenuItem[];
 }
 
-export default function ContextMenu({ children, controlsDisabled, onPlayNext, onDelete, onCopyUrl }: ContextMenuProps) {
+export default function ContextMenu({ children, controlsDisabled, items }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -88,53 +92,46 @@ export default function ContextMenu({ children, controlsDisabled, onPlayNext, on
         visible &&
         typeof window !== "undefined" &&
         ReactDOM.createPortal(
-          <div
-            ref={menuRef}
-            data-custom-context-menu // Add this attribute for global context menu logic
-            style={{
-              position: "fixed",
-              top: pos.y,
-              left: pos.x,
-              zIndex: 1000,
-            }}
-          >
-            <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-context-menu backdrop-blur">
-              {onPlayNext && (
-                <li>
-                  <button
-                    onClick={() => {
-                      onPlayNext();
-                      setVisible(false);
-                    }}
-                  >
-                    Play Next
-                  </button>
-                </li>
-              )}
-              <li>
-                <button
-                  onClick={() => {
-                    onCopyUrl();
-                    setVisible(false);
-                  }}
-                >
-                  Copy URL
-                </button>
-              </li>
-              {onDelete && (
-                <li className="text-red-500 hover:text-red-700">
-                  <button
-                    onClick={() => {
-                      onDelete();
-                      setVisible(false);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </li>
-              )}
-            </ul>
-          </div>,
+          <>
+            {/* Invisible backdrop to prevent accidental clicks */}
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 999,
+                backgroundColor: "transparent",
+              }}
+              onClick={() => setVisible(false)}
+            />
+            <div
+              ref={menuRef}
+              data-custom-context-menu // Add this attribute for global context menu logic
+              style={{
+                position: "fixed",
+                top: pos.y,
+                left: pos.x,
+                zIndex: 1000,
+              }}
+            >
+              <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-context-menu backdrop-blur">
+                {items.map((item, index) => (
+                  <li key={index} className={item.className}>
+                    <button
+                      onClick={() => {
+                        item.action();
+                        setVisible(false);
+                      }}
+                    >
+                      {item.children}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>,
           document.body,
         )}
     </div>
