@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useImperativeHandle, RefObject } from "react";
 import { FaTimes } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,7 +8,11 @@ export interface AboutModalRef {
   close: () => void;
 }
 
-const AboutModal = forwardRef<AboutModalRef>((_, ref) => {
+interface AboutModalProps {
+  ref: RefObject<AboutModalRef | null>;
+}
+
+const AboutModal = ({ ref }: AboutModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [markdownContent, setMarkdownContent] = useState<string>("");
 
@@ -45,8 +49,6 @@ const AboutModal = forwardRef<AboutModalRef>((_, ref) => {
       <div className="modal-backdrop" onClick={() => setIsOpen(false)} />
     </div>
   );
-});
-
-AboutModal.displayName = "AboutModal";
+};
 
 export default AboutModal;

@@ -11,15 +11,15 @@ import useRoomHub from "./hooks/useRoomHub";
 import GradientBackground from "./components/common/GradientBackground";
 import QueueMobile from "./components/mobile/QueueMobile";
 import QueueDesktop from "./components/desktop/QueueDesktop";
-import { useHls } from "./hooks/useHls";
 import { useThumbnail } from "./hooks/useThumbnail";
 import { ErrorData } from "hls.js";
+import AudioPlayer, { AudioPlayerRef } from "./components/common/AudioPlayer";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
   const { getThumbnail, removeThumbnail } = useThumbnail();
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
-  const audioElementRef = useRef<HTMLAudioElement>(null);
+  const player = useRef<AudioPlayerRef>(null);
   const [isReady, setIsReady] = useState(false);
   const [dropdownClosed, setDropdownClosed] = useState(true);
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    audioElementRef.current!.volume = Number(localStorage.getItem("volume") ?? 0.01);
+    player.current!.setVolume(Number(localStorage.getItem("volume") ?? 0.01));
     diskDriveSfx.current.volume = Number(localStorage.getItem("volume") ?? 0.01);
   }, []);
 
@@ -75,7 +75,6 @@ export default function App() {
   const { playingSince, currentTrackIndex, currentTrackId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
 
   const seeking = useRef(true);
-  const hasSeekToBeginning = useRef(false);
 
   const [backgroundColors, setBackgroundColors] = useState<[string, string]>(["#ffffff", "#000000"]);
 
@@ -135,11 +134,12 @@ export default function App() {
 
   const onSeek = useCallback(
     (seekTime: number, pause: boolean = false) => {
+      if (!player.current) return;
       if (invokePending) return;
       seekTime = Math.floor(Math.max(0, Math.min(seekTime, duration)));
       seeking.current = true;
-      audioPlayer.seek(seekTime);
-      audioPlayer.pause();
+      player.current.seek(seekTime);
+      player.current.pause();
       setTimestamp(seekTime);
       console.log("Seeking to", seekTime, "Pausing:", pause);
       invokeRoomAction("Seek", seekTime, pause);
@@ -154,8 +154,9 @@ export default function App() {
   }, [invokePending, isPaused, invokeRoomAction]);
 
   const onBackward = useCallback(() => {
+    if (!player.current) return;
     if (invokePending) return;
-    if (audioPlayer.currentTime >= 5) {
+    if (player.current.currentTime >= 5) {
       console.log("Rewinding to start of track");
       onSeek(0, false);
     } else {
@@ -183,7 +184,8 @@ export default function App() {
   }, [invokePending, isLooping, invokeRoomAction]);
 
   const onVolumeChange = useCallback((volume: number) => {
-    audioPlayer.setVolume(volume);
+    if (!player.current) return;
+    player.current.setVolume(volume);
     diskDriveSfx.current.volume = volume;
     localStorage.setItem("volume", String(volume));
   }, []);
@@ -198,13 +200,14 @@ export default function App() {
   }, [isPaused, playingSince, invokeRoomAction, isReady]);
 
   const handleEnded = useCallback(() => {
+    if (!player.current) return;
     if (!isReady) return;
     if (isLooping) {
-      audioPlayer.seek(0);
-      audioPlayer.play();
+      player.current.seek(0);
+      player.current.play();
       invokeRoomAction("Seek", 0, false);
     } else {
-      audioPlayer.pause();
+      player.current.pause();
       if (typeof currentTrackIndex === "number") {
         if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
           console.log("Reached end of queue, looping back to start");
@@ -218,36 +221,29 @@ export default function App() {
   }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, isReady]);
 
   const handleTimeUpdate = useCallback(() => {
+    if (!player.current) return;
     if (!isReady) return;
     if (seeking.current) return;
-    if (invokePending) return; // Don't fix desync during pending operations (like queue moves)
+    if (invokePending) return;
 
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
-      const rawElapsedTime = (currentTime - playingSince) / 1000;
-      const elapsedtime = isLooping && duration > 0 ? rawElapsedTime % duration : rawElapsedTime;
+      const elapsedTime = (currentTime - playingSince) / 1000;
 
-      if (rawElapsedTime > duration && duration > 0) {
-        if (isLooping) {
-          // For looping tracks, don't invoke seek action - just let the modulo handle the position
-          // The server should handle the looping logic
-        } else {
-          // Don't pause here - let the audio element naturally reach its end
-          // so that onEnded event can fire and trigger track skipping
-          return;
-        }
+      if (elapsedTime > duration && duration > 0) {
+        return
       }
 
-      if (elapsedtime >= 1 && Math.abs(audioPlayer.currentTime - elapsedtime) > 1) {
-        console.log("Fixing desync, setting currentTime to", elapsedtime);
-        audioPlayer.seek(elapsedtime);
+      if (elapsedTime >= 1 && Math.abs(player.current.currentTime - elapsedTime) > 1) {
+        console.log("Fixing desync, setting currentTime to", elapsedTime);
+        player.current.seek(elapsedTime);
       }
-      if (!isPaused && audioPlayer.paused) {
-        audioPlayer.play();
+      if (!isPaused && player.current.paused) {
+        player.current.play();
       }
     }
 
-    const newTimestamp = Math.max(audioPlayer.currentTime ?? 0, 0);
+    const newTimestamp = Math.max(player.current.currentTime ?? 0, 0);
     if (!isNaN(newTimestamp)) {
       setTimestamp(newTimestamp);
     }
@@ -264,7 +260,7 @@ export default function App() {
       }
     }
     if (!nextTrack) return;
-    const timeLeft = duration - (audioPlayer.currentTime ?? 0);
+    const timeLeft = duration - (player.current.currentTime ?? 0);
     if (timeLeft <= 10 && timeLeft > 0) {
       // Prefetch next track audio
       const nextTrackId = nextTrack.id;
@@ -374,80 +370,48 @@ export default function App() {
   }, [currentTrack, timestamp, duration, discordSDK, isReady]);
 
   useEffect(() => {
-    if (!isReady) return;
-    if (playingSince === null) return;
-    if (!isFinite(duration) || duration <= 0) return;
-    if (!audioReady) return;
-
-    // If we just seeked to beginning due to estimated time being past duration,
-    // don't calculate timestamp from the old playingSince value
-    if (hasSeekToBeginning.current) {
-      return;
-    }
-
-    const currentTime = timeService.getServerNow();
-    const rawElapsedTime = (currentTime - playingSince) / 1000;
-    const elapsedTime = isLooping && duration > 0 ? rawElapsedTime % duration : rawElapsedTime;
-
-    if (!isFinite(elapsedTime)) return;
-
-    setTimestamp(Math.max(0, Math.min(elapsedTime, duration)));
-  }, [playingSince, duration, isReady, audioReady, isLooping]);
-
-  useEffect(() => {
+    if (!player.current) return;
     if (!isReady) return;
     if (!audioReady) return;
 
     console.log("Playing since:", playingSince);
     if (playingSince === null) {
       setTimestamp(0);
-      hasSeekToBeginning.current = false; // Clear flag when playingSince becomes null
-    } else {
-      const msSince = timeService.getServerNow() - playingSince;
-      console.log("Milliseconds since playing started:", msSince);
+      return;
+    }
+    
+    const msSince = timeService.getServerNow() - playingSince;
+    console.log("Milliseconds since playing started:", msSince);
 
-      // Check if estimated resume time is past the duration
-      const estimatedResumeTime = msSince / 1000;
-      if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
-        console.log("Estimated resume time is past duration, skipping to beginning");
-        hasSeekToBeginning.current = true; // Set flag to prevent timestamp calculation from old playingSince
-        seeking.current = true;
-        audioPlayer.seek(0);
-        setTimestamp(0); // Explicitly reset timestamp
-        // Seek with current server time to restart playback from beginning
-        invokeRoomAction("Seek", 0, isPaused);
-        return; // Exit early to prevent other seek logic from running
-      } else if (msSince >= duration * 1000 && duration > 0 && !isLooping) {
-        console.log("Invoking seek to normalize playback position");
-        hasSeekToBeginning.current = true; // Set flag to prevent timestamp calculation from old playingSince
-        seeking.current = true;
-        audioPlayer.seek(0);
-        setTimestamp(0); // Explicitly reset timestamp
-        invokeRoomAction("Seek", 0, isPaused);
-        return; // Exit early to prevent other seek logic from running
-      } else {
-        // Clear the flag if we don't need to seek to beginning
-        hasSeekToBeginning.current = false;
-      }
+    // Check if estimated resume time is past the duration
+    const estimatedResumeTime = msSince / 1000;
+    if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
+      console.log("Estimated resume time is past duration, skipping to beginning");
+      seeking.current = true;
+      player.current.seek(0);
+      setTimestamp(0);
+      invokeRoomAction("Seek", 0, isPaused);
+      return;
+    }
 
-      if (msSince < 0) {
-        setTimeout(() => {
-          // Only play if all conditions are met
-          if (!isPaused && audioReady && isReady && audioPlayer.paused) {
-            console.log("Centralized: Ensuring playback after delay");
-            audioPlayer.play();
-          }
-        }, Math.abs(msSince));
-        audioPlayer.seek(0);
-        setTimestamp(0);
-      }
-      if (isPaused) {
-        console.log("Pausing audio playback");
-        audioPlayer.pause();
-      } else if (audioPlayer.paused) {
-        console.log("Resuming audio playback");
-        audioPlayer.play();
-      }
+    if (msSince < 0) {
+      setTimeout(() => {
+        // Only play if all conditions are met
+        if (!player.current) return;
+        if (!isPaused && audioReady && isReady && player.current.paused) {
+          console.log("Centralized: Ensuring playback after delay");
+          player.current.play();
+        }
+      }, Math.abs(msSince));
+      player.current.seek(0);
+      setTimestamp(0);
+    }
+    if (isPaused) {
+      console.log("Pausing audio playback");
+      player.current.pause();
+    } else if (player.current.paused) {
+      console.log("Resuming audio playback");
+      player.current.play();
     }
   }, [playingSince, isPaused, duration, isReady, audioReady, invokeRoomAction, isLooping]);
 
@@ -457,15 +421,12 @@ export default function App() {
   }, [invokeError]);
 
   useEffect(() => {
-    // Update currentTrack if either the track ID or the queue item ID changes
     if (typeof currentTrackId === "string" && typeof currentTrackIndex === "number") {
-      // First try to find by both index and track_id (normal case)
       let item = queueList.find((item) => {
         const indexToCompare = isShuffled ? item.shuffled_index : item.index;
         return indexToCompare === currentTrackIndex && item.track_id === currentTrackId;
       });
 
-      // If not found, fallback to finding by track_id only (handles move operations)
       if (!item) {
         item = queueList.find((item) => item.track_id === currentTrackId);
         if (item) {
@@ -477,7 +438,7 @@ export default function App() {
       if (!item || !track) {
         return;
       }
-      // Update if track or itemId changed
+
       if (!currentTrack || currentTrack.id !== currentTrackId || currentTrack.itemId !== item.id) {
         setCurrentTrack({ ...track, itemId: item.id });
         document.title = `Now playing: ${track.title} • ${track.uploader}`;
@@ -507,11 +468,10 @@ export default function App() {
 
     extractColors();
 
-    // Cleanup function to remove thumbnail when track changes
     return () => {
       removeThumbnail(currentTrack.id);
     };
-  }, [currentTrack?.id, discordSDK.isEmbedded, getThumbnail, removeThumbnail]);
+  }, [currentTrack?.id, discordSDK.isEmbedded]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -575,8 +535,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!isReady) return;
-    // Use only track ID for uniqueness - item ID changes during queue moves but shouldn't trigger reloading
+    if (!isReady || !player.current) return;
     const currentUniqueId = currentTrack ? currentTrack.id : null;
     const lastUniqueId = lastHlsTrackId.current;
 
@@ -584,36 +543,28 @@ export default function App() {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
       preFetch.current = false;
-      setAudioReady(false); // Reset readiness on new track
+      setAudioReady(false);
       const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
-      audioPlayer.loadSource(src);
+      player.current.loadSource(src);
       setDuration(0);
       setTimestamp(0);
       console.log("Loading new track:", currentTrack.title);
     } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
-      // If the track is already loaded, restore the correct position based on server time
       if (typeof playingSince === "number" && duration > 0) {
         const currentTime = timeService.getServerNow();
         const elapsedTime = (currentTime - playingSince) / 1000;
         const seekPosition = Math.max(0, Math.min(elapsedTime, duration));
 
-        if (Math.abs(audioPlayer.currentTime - seekPosition) > 1) {
-          audioPlayer.seek(seekPosition);
+        if (Math.abs(player.current.currentTime - seekPosition) > 1) {
+          player.current.seek(seekPosition);
           setTimestamp(seekPosition);
           console.log("Restoring playback position to", seekPosition, "seconds");
         }
       } else {
-        audioPlayer.seek(0);
+        player.current.seek(0);
         setTimestamp(0);
       }
-      // Set audioReady to true since the track is already loaded
       setAudioReady(true);
-      // Don't pause here - let the playback state management handle play/pause
-    } else if (!currentTrack && lastUniqueId) {
-      // Current track became null (might happen during queue operations)
-      console.log("Current track became null, keeping last track loaded");
-      // Don't change the loaded track, just pause playback
-      audioPlayer.pause();
     }
   }, [currentTrack, discordSDK.isEmbedded, isReady, playingSince, duration]);
 
@@ -632,6 +583,7 @@ export default function App() {
     }
     secretEverUnlocked.current = true;
   }, [secretUnlocked, isReady]);
+
   useEffect(() => {
     if (!isReady) return;
     if (!secretUnlocked) return;
@@ -640,38 +592,27 @@ export default function App() {
     if (!isPaused && playingSince === null) {
       diskDriveSfx.current.currentTime = 0;
       diskDriveSfx.current.play();
-    }
-
-    // Pause SFX exactly when playback starts (playingSince transitions from null to a number)
-    if (!isPaused && playingSince !== null) {
+    } else {
       diskDriveSfx.current.pause();
     }
   }, [isPaused, playingSince, isReady, secretUnlocked]);
 
   useEffect(() => {
-    // Ensure playback starts if isReady becomes true after audioReady
     if (!isReady) return;
     if (!audioReady) return;
     if (playingSince === null) return;
     if (isPaused) return;
-    // Only play if not already playing
-    if (audioPlayer.paused) {
-      audioPlayer.play();
+    if (!player.current) return;
+
+    if (player.current.paused) {
+      player.current.play();
     }
   }, [audioReady, isReady, playingSince, isPaused]);
 
-  // Ensure audioPlayer is only created when audioElement is available
-  const audioPlayer = useHls({
-    audioElement: audioElementRef,
-    onDuration: setDuration,
-    onFatalError: handleFatalError,
-  });
-
   return (
     <>
-      {/* Hidden audio element for HLS playback */}
-      <audio ref={audioElementRef} className="sr-only" controls={false} autoPlay={false} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
-
+      <AudioPlayer ref={player} onDuration={setDuration} onFatalError={handleFatalError} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
+      
       <GradientBackground backgroundColors={backgroundColors} />
 
       {/* Startup Modal */}
@@ -753,7 +694,6 @@ export default function App() {
             />
 
             <QueueDesktop
-              visible={dropdownClosed}
               tracks={tracks}
               queueList={queueList}
               currentTrack={currentTrack}

@@ -62,23 +62,18 @@ function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.
       }}
       className={`text-white bg-transparent w-full h-16 relative ${isDragging || !track ? "invisible" : ""} ${controlsDisabled ? "pointer-events-none" : ""}`}
     >
-              <ContextMenu
-          items={contextMenuItems}
-          controlsDisabled={controlsDisabled}
-        >
-      <div className="h-full flex items-center justify-start ml-4 pr-16">
-
-        <div className="flex items-center flex-1 min-w-0" onClick={() => onSkip(index)}>
-          <div>
-            <img src={thumbnailBlob} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
-          </div>
-          <div className="flex flex-col overflow-hidden flex-1 min-w-0 ml-4 select-none justify-center h-full">
-            <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
-            <label className="text-s truncate select-none opacity-75">{track?.uploader}</label>
+      <ContextMenu items={contextMenuItems} controlsDisabled={controlsDisabled}>
+        <div className="h-full flex items-center justify-start ml-4 pr-16">
+          <div className="flex items-center flex-1 min-w-0" onClick={() => onSkip(index)}>
+            <div>
+              <img src={thumbnailBlob} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
+            </div>
+            <div className="flex flex-col overflow-hidden flex-1 min-w-0 ml-4 select-none justify-center h-full">
+              <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
+              <label className="text-s truncate select-none opacity-75">{track?.uploader}</label>
+            </div>
           </div>
         </div>
-        
-      </div>
       </ContextMenu>
       <div
         {...attributes}

@@ -146,7 +146,7 @@ export default function MusicPlayerInterface({
           </div>
         </div>
       </div>
-      <VolumeSlider onVolumeChange={onVolumeChange} setSecret={setSecret} className="bg-volume-slider" />
+      <VolumeSlider onVolumeChange={onVolumeChange} setSecret={setSecret} className="bg-volume-slider mt-4 p-4" />
       <AboutModal ref={aboutModalRef} />
     </div>
   );

@@ -6,7 +6,6 @@ import { QueueItem } from "../../types/queue";
 import { FixedSizeList } from "react-window";
 
 interface QueueDesktopProps {
-  visible: boolean;
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrack: (Track & { itemId: number }) | null;
@@ -18,7 +17,7 @@ interface QueueDesktopProps {
   onPlayNext: (index: number) => void;
 }
 
-export default function QueueDesktop({ visible, tracks, queueList, currentTrack, currentTrackIndex, controlsDisabled, onMove, onSkip, onDelete, onPlayNext }: QueueDesktopProps) {
+export default function QueueDesktop({ tracks, queueList, currentTrack, currentTrackIndex, controlsDisabled, onMove, onSkip, onDelete, onPlayNext }: QueueDesktopProps) {
   const listRef = useRef<FixedSizeList>(null);
   const outerRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +38,7 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
 
   // Auto-scroll to current track when currentTrackIndex changes
   useEffect(() => {
-    if (currentTrackIndex !== null && visible) {
+    if (currentTrackIndex !== null) {
       const currentTime = Date.now();
       const msSinceLastAction = currentTime - lastAction.current;
       if (msSinceLastAction > 1000) {
@@ -57,7 +56,7 @@ export default function QueueDesktop({ visible, tracks, queueList, currentTrack,
   };
 
   return (
-    <div style={{ height: "100%" }} className={["relative w-full flex m-0 ml-6 transition-opacity duration-300 ease-in-out", visible ? "opacity-100" : "opacity-0 pointer-events-none"].join(" ")}>
+    <div className="relative w-full h-full flex m-0 ml-6 transition-opacity duration-300 ease-in-out">
       {/* Top arrow */}
       {topArrowVisible && (
         <div className="absolute top-2 right-2 z-10">

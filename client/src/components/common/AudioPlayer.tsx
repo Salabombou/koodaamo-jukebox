@@ -1,7 +1,7 @@
-import { useRef, useEffect, useCallback, RefObject } from "react";
+import { useRef, useEffect, RefObject, useImperativeHandle } from "react";
 import Hls, { Events, type ErrorData, type ManifestParsedData } from "hls.js";
 
-interface IUseHls {
+export interface AudioPlayerRef {
   loadSource: (src: string) => void;
   setVolume: (volume: number) => void;
   play: () => void;
@@ -11,18 +11,62 @@ interface IUseHls {
   get currentTime(): number;
 }
 
-interface UseHlsProps {
-  audioElement: RefObject<HTMLAudioElement | null>;
+interface AudioPlayerProps {
+  ref: RefObject<AudioPlayerRef | null>;
   onDuration: (duration: number) => void;
   onFatalError: (data: ErrorData | Event | string) => void;
+  onEnded: () => void;
+  onCanPlayThrough: () => void;
+  onTimeUpdate: () => void;
 }
 
-export function useHls({ audioElement, onDuration, onFatalError }: UseHlsProps): IUseHls {
+export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, onCanPlayThrough, onTimeUpdate }: AudioPlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
 
+  useImperativeHandle(ref, () => ({
+    loadSource: (src: string) => {
+      if (!hls.current || !audioRef.current) return;
+
+      // Only load if the source is different from current
+      if (hls.current.url === src) return;
+
+      hls.current.loadSource(src);
+      hls.current.startLoad();
+
+      audioRef.current.load();
+      hls.current.attachMedia(audioRef.current);
+    },
+    setVolume: (volume: number) => {
+      if (audioRef.current) {
+        audioRef.current.volume = volume;
+      }
+    },
+    play: () => {
+      if (audioRef.current) {
+        audioRef.current.play();
+      }
+    },
+    pause: () => {
+      audioRef.current?.pause();
+    },
+    seek: (time: number) => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = time;
+      }
+    },
+    get paused() {
+      return audioRef.current?.paused ?? true;
+    },
+    get currentTime() {
+      return audioRef.current?.currentTime ?? 0;
+    },
+  }));
+
   useEffect(() => {
-    if (!audioElement.current) return;
+    if (!ref.current) return;
     if (Hls.isSupported()) {
+      console.log("HLS is supported, initializing...");
       hls.current = new Hls({
         xhrSetup: (xhr) => {
           const token = localStorage.getItem("auth_token") ?? "";
@@ -72,65 +116,15 @@ export function useHls({ audioElement, onDuration, onFatalError }: UseHlsProps):
   }, [onDuration, onFatalError]);
 
   useEffect(() => {
-    const player = audioElement.current;
-    if (!player || !hls.current) return;
     const handleSeeking = () => {
       // Force hls.js to start loading after seeking
       hls.current?.startLoad();
     };
-    player.addEventListener("seeking", handleSeeking);
+    audioRef.current?.addEventListener("seeking", handleSeeking);
     return () => {
-      player.removeEventListener("seeking", handleSeeking);
+      audioRef.current?.removeEventListener("seeking", handleSeeking);
     };
-  }, [audioElement]);
-
-  const loadSource = useCallback((src: string) => {
-    if (!hls.current || !audioElement.current) return;
-
-    // Only load if the source is different from current
-    if (hls.current.url === src) return;
-
-    hls.current.loadSource(src);
-    hls.current.startLoad();
-
-    audioElement.current.load();
-    hls.current.attachMedia(audioElement.current);
   }, []);
 
-  const play = useCallback(() => {
-    if (audioElement.current) {
-      audioElement.current.play();
-    }
-  }, []);
-
-  const pause = useCallback(() => {
-    audioElement.current?.pause();
-  }, []);
-
-  const seek = useCallback((time: number) => {
-    if (audioElement.current) {
-      audioElement.current.currentTime = time;
-    }
-  }, []);
-
-  const setVolume = useCallback((volume: number) => {
-    if (audioElement.current) {
-      audioElement.current.volume = volume;
-    }
-  }, []);
-
-  return {
-    loadSource,
-    play,
-    pause,
-    seek,
-    setVolume,
-
-    get paused() {
-      return audioElement.current?.paused ?? true;
-    },
-    get currentTime() {
-      return audioElement.current?.currentTime ?? 0;
-    },
-  };
+  return <audio ref={audioRef} className="sr-only" controls={false} autoPlay={false} onEnded={onEnded} onCanPlayThrough={onCanPlayThrough} onTimeUpdate={onTimeUpdate} />;
 }
