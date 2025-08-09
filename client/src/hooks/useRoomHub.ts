@@ -1,9 +1,11 @@
-import { useEffect, useRef, useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import * as signalR from "@microsoft/signalr";
+
 import * as timeService from "../services/timeService";
 import { QueueItem } from "../types/queue";
 import { RoomInfo } from "../types/room";
-import { useDiscordSDK } from "./useDiscordSdk";
+
+import { useDiscordSDK } from "./useDiscordSDK";
 
 export default function useRoomHub() {
   const discordSDK = useDiscordSDK();
@@ -94,7 +96,7 @@ export default function useRoomHub() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    let intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
       if (connection.current?.state === signalR.HubConnectionState.Connected) {
         connection.current.invoke("Ping");
       }
@@ -104,27 +106,30 @@ export default function useRoomHub() {
     };
   }, []);
 
-  const invokeRoomAction = useCallback((action: string, ...args: unknown[]) => {
-    if (invokePending) return;
-    startTransition(async () => {
-      if (invokePending) {
-        setInvokeError("Another action is already in progress");
-        return;
-      }
-      if (!connection.current?.state || connection.current.state !== signalR.HubConnectionState.Connected) {
-        setInvokeError("Not connected to the room hub");
-        return;
-      }
-      const error = await connection.current
-        .invoke(action, Math.floor(timeService.getServerNow()), ...args)
-        .then(() => null)
-        .catch((err) => err.message || "Unknown error happened in the room action");
-      if (error) {
-        setInvokeError(error);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
-  }, []);
+  const invokeRoomAction = useCallback(
+    (action: string, ...args: unknown[]) => {
+      if (invokePending) return;
+      startTransition(async () => {
+        if (invokePending) {
+          setInvokeError("Another action is already in progress");
+          return;
+        }
+        if (!connection.current?.state || connection.current.state !== signalR.HubConnectionState.Connected) {
+          setInvokeError("Not connected to the room hub");
+          return;
+        }
+        const error = await connection.current
+          .invoke(action, Math.floor(timeService.getServerNow()), ...args)
+          .then(() => null)
+          .catch((err) => err.message || "Unknown error happened in the room action");
+        if (error) {
+          setInvokeError(error);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+    },
+    [invokePending],
+  );
 
   return {
     playingSince,

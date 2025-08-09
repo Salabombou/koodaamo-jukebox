@@ -1,5 +1,5 @@
+import { memo, useEffect, useRef, useState } from "react";
 import { FaVolumeMute, FaVolumeUp } from "react-icons/fa";
-import { useEffect, useState, useRef, memo } from "react";
 
 interface VolumeSliderProps {
   onVolumeChange: (volume: number) => void;

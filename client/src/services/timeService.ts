@@ -52,6 +52,13 @@ function removeOutliers(samples: TimeSample[]): TimeSample[] {
   return samples.filter((s) => s.rtt <= rttThreshold);
 }
 
+/**
+ * Synchronize local time with the server clock using multiple round‑trip samples.
+ * Stores a calculated offset (server - client) so subsequent calls to getServerNow()
+ * return a server‑aligned timestamp without continuous network calls.
+ * Uses median of lowest‑RTT samples after outlier removal for stability.
+ * @param isEmbedded Whether the client runs inside the embedded Discord context (affects base URL).
+ */
 export async function syncServerTime(isEmbedded: boolean) {
   const numSamples = 5; // Reduced from 8 for faster sync
   const samples: TimeSample[] = [];
@@ -99,6 +106,10 @@ export async function syncServerTime(isEmbedded: boolean) {
   console.log(`Server time offset set to: ${finalOffset.toFixed(2)}ms (avg RTT: ${avgRtt.toFixed(2)}ms)`);
 }
 
+/**
+ * Return an adjusted timestamp approximating current server time (ms Unix epoch).
+ * Falls back to Date.now() if synchronization hasn't occurred yet.
+ */
 export function getServerNow(): number {
   if (serverTimeOffset === null) {
     // fallback to client time

@@ -1,8 +1,12 @@
-import { type ReactNode, createContext, useContext, useState } from "react";
-import { useDiscordSDK } from "./useDiscordSdk";
+import { createContext, type ReactNode, useContext, useState } from "react";
+
 import { CodeInput } from "../components/common/CodeInput";
 
+import { useDiscordSDK } from "./useDiscordSDK";
+
 const RoomCodeContext = createContext<string | null>(null);
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoomCode() {
   return useContext(RoomCodeContext);
 }

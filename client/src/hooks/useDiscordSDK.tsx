@@ -1,8 +1,10 @@
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { DiscordSDK, DiscordSDKMock, RPCCloseCodes } from "@discord/embedded-app-sdk";
 import { Client } from "@xhayper/discord-rpc";
 
 const DiscordSDKContext = createContext<((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null>(null);
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDiscordSDK() {
   return useContext(DiscordSDKContext)!;
 }
@@ -98,7 +100,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
     return () => {
       if (sdk) sdk.close(RPCCloseCodes.CLOSE_NORMAL, "unmount");
     };
-  }, []);
+  }, [sdk]);
   if (sdk === null) return <p>Loading...</p>;
   return <DiscordSDKContext.Provider value={sdk}>{children}</DiscordSDKContext.Provider>;
 }

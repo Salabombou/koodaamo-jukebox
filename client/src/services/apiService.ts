@@ -1,4 +1,5 @@
 import axios from "axios";
+
 //import type { QueueItem } from "../types/queue";
 //import type { RoomInfo } from "../types/room";
 import { Track } from "../types/track";
@@ -6,7 +7,7 @@ import { Track } from "../types/track";
 const apiClient = axios.create();
 
 // Request deduplication cache with proper typing
-const pendingRequests = new Map<string, Promise<any>>();
+const pendingRequests = new Map<string, Promise<{ data: Map<string, Track> }>>();
 
 apiClient.interceptors.request.use((config) => {
   if (localStorage.getItem("is_embedded") === "true") {
@@ -39,20 +40,12 @@ apiClient.interceptors.response.use(undefined, async (error) => {
   return apiClient(config);
 });
 
-/*export function getQueueInfo() {
-  return apiClient.get<RoomInfo>(`/api/queue`);
-}
-
-export function getQueueItems(startTime?: number, endTime?: number) {
-  return apiClient.get<QueueItem[]>(`/api/queue/items`, {
-    params: { start: startTime, end: endTime },
-  });
-}
-
-export function getQueueItemsHash() {
-  return apiClient.get<string>(`/api/queue/items/hash`);
-}*/
-
+/**
+ * Fetch track metadata for a set of track IDs (webpage_url_hashes) with request de‑duplication.
+ * Parallel identical calls while the request is in flight share the same Promise.
+ * @param trackIds Array of track identifier hashes to resolve.
+ * @returns Axios promise resolving to a Map keyed by track id.
+ */
 export function getTracks(trackIds: string[]): Promise<{ data: Map<string, Track> }> {
   // Create a cache key for request deduplication
   const cacheKey = `getTracks:${trackIds.sort().join(",")}`;

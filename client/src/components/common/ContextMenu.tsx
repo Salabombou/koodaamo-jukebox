@@ -1,6 +1,12 @@
-import React, { useRef, useState, useEffect, useLayoutEffect } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 
+/**
+ * Single action entry shown inside the context menu.
+ * @property children React node rendered as the menu item label/content.
+ * @property action Callback invoked when the item is clicked.
+ * @property className Optional extra Tailwind / utility classes for the <li>.
+ */
 export interface ContextMenuItem {
   children: React.ReactNode;
   action: () => unknown;
@@ -13,6 +19,16 @@ interface ContextMenuProps {
   items: ContextMenuItem[];
 }
 
+/**
+ * Renders a custom right–click context menu for its child subtree.
+ * The native browser context menu is suppressed (handled globally in App).
+ * When the user right–clicks within the wrapper the provided items are rendered
+ * in a floating menu positioned near the cursor while staying within the viewport.
+ * A global custom event ("closeAllContextMenus") is used so that only one menu can be open at a time.
+ * @param children Elements that should trigger the custom context menu on right–click.
+ * @param controlsDisabled When true the menu will not be rendered (acts as a permissions / busy gate).
+ * @param items List of menu item descriptors to render.
+ */
 export default function ContextMenu({ children, controlsDisabled, items }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -58,6 +74,7 @@ export default function ContextMenu({ children, controlsDisabled, items }: Conte
   }
 
   // Adjust menu position to keep it within viewport
+  // Spawns top left of cursor position
   useLayoutEffect(() => {
     if (visible && menuRef.current) {
       const menu = menuRef.current;
@@ -108,7 +125,7 @@ export default function ContextMenu({ children, controlsDisabled, items }: Conte
             />
             <div
               ref={menuRef}
-              data-custom-context-menu // Add this attribute for global context menu logic
+              data-custom-context-menu
               style={{
                 position: "fixed",
                 top: pos.y,

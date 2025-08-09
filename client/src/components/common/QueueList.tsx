@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef, useOptimistic, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useOptimistic, useRef, useState } from "react";
+import AutoSizer from "react-virtualized-auto-sizer";
 import type { ListChildComponentProps } from "react-window";
 import { FixedSizeList } from "react-window";
-import { DndContext, DragOverlay, type Modifier, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { closestCenter, DndContext, DragOverlay, type Modifier, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
-import QueueItemDesktop from "../desktop/QueueItemDesktop";
-import QueueItemMobile from "../mobile/QueueItemMobile";
-import { useState as useReactState } from "react";
-import { useDiscordSDK } from "../../hooks/useDiscordSdk";
-import { useThumbnail } from "../../hooks/useThumbnail";
+
+import { QUEUE_ITEM_HEIGHT_DESKTOP, QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
+import * as thumbnailService from "../../services/thumbnailService";
 import { QueueItem } from "../../types/queue";
 import { Track } from "../../types/track";
-import AutoSizer from "react-virtualized-auto-sizer";
+import QueueItemDesktop from "../desktop/QueueItemDesktop";
+import QueueItemMobile from "../mobile/QueueItemMobile";
 
 export interface QueueItemProps extends ListChildComponentProps {
   data: QueueItem[];
@@ -57,15 +58,14 @@ interface QueueProps {
   onDragEnd?: (fromIndex: number, toIndex: number) => void;
 }
 
-export const itemHeight = {
-  desktop: 66,
-  mobile: 64,
-};
-
+/**
+ * Virtualized, draggable queue list supporting optimistic reordering.
+ * Integrates react-window for rendering performance and dnd-kit for drag operations.
+ * Thumbnails for visible (+small overscan) items are prefetched and cached.
+ */
 export default function Queue({ type, listRef, outerRef, tracks, queueList, currentTrack, controlsDisabled, onItemsRendered, onMove, onSkip, onDelete, onPlayNext, onScroll, onDragEnd }: QueueProps) {
   const discordSDK = useDiscordSDK();
-  const { getThumbnail, removeThumbnail } = useThumbnail();
-  const [thumbnailBlobs, setThumbnailBlobs] = useReactState<{ [key: string]: string }>({});
+  const [thumbnailBlobs, setThumbnailBlobs] = useState<{ [key: string]: string }>({});
   const [optimisticQueueList, moveItem] = useOptimistic<QueueItem[], [number, number]>(queueList, (state, [fromIndex, toIndex]) => {
     const newState = [...state];
     const [movedItem] = newState.splice(fromIndex, 1);
@@ -125,7 +125,7 @@ export default function Queue({ type, listRef, outerRef, tracks, queueList, curr
           if (!thumbnailBlobs[url]) {
             promises.push(
               (async () => {
-                const objectUrl = await getThumbnail(url);
+                const objectUrl = await thumbnailService.getThumbnail(url);
                 if (!cancelled && objectUrl) {
                   setThumbnailBlobs((prev) => ({ ...prev, [url]: objectUrl }));
                 }
@@ -149,7 +149,7 @@ export default function Queue({ type, listRef, outerRef, tracks, queueList, curr
     return () => {
       cancelled = true;
     };
-  }, [visibleRange, optimisticQueueList, tracks, discordSDK.isEmbedded, getThumbnail, thumbnailBlobs]);
+  }, [visibleRange, optimisticQueueList, tracks, discordSDK.isEmbedded, thumbnailBlobs]);
 
   const rowRenderer = useMemo(() => {
     return (props: ListChildComponentProps<QueueItem[]>) => {
@@ -175,7 +175,7 @@ export default function Queue({ type, listRef, outerRef, tracks, queueList, curr
         />
       );
     };
-  }, [type, tracks, currentTrack, onSkip, stableProps, thumbnailBlobs, discordSDK.isEmbedded]);
+  }, [type, tracks, currentTrack, stableProps, thumbnailBlobs, discordSDK.isEmbedded]);
 
   // Remove thumbnails for items no longer in the queue to avoid memory leaks
   const prevQueueIdsRef = useRef<Set<string>>(new Set());
@@ -197,13 +197,13 @@ export default function Queue({ type, listRef, outerRef, tracks, queueList, curr
         if (prevTrackId) {
           const urlLow = `/api/track/${prevTrackId}/thumbnail-low`;
           const urlProxyLow = `/.proxy/api/track/${prevTrackId}/thumbnail-low`;
-          removeThumbnail(urlLow);
-          removeThumbnail(urlProxyLow);
+          thumbnailService.removeThumbnail(urlLow);
+          thumbnailService.removeThumbnail(urlProxyLow);
         }
       }
     }
     prevQueueIdsRef.current = currentIds;
-  }, [queueList, tracks, removeThumbnail]);
+  }, [queueList, tracks]);
 
   return (
     <AutoSizer>
@@ -236,7 +236,7 @@ export default function Queue({ type, listRef, outerRef, tracks, queueList, curr
               itemData={optimisticQueueList}
               itemCount={optimisticQueueList.length}
               overscanCount={5}
-              itemSize={type === "desktop" ? itemHeight.desktop : itemHeight.mobile}
+              itemSize={type === "desktop" ? QUEUE_ITEM_HEIGHT_DESKTOP : QUEUE_ITEM_HEIGHT_MOBILE}
               itemKey={itemKey}
               style={{
                 overflowX: "hidden",

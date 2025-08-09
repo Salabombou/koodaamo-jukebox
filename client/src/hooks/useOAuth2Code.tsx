@@ -1,7 +1,10 @@
-import { type ReactNode, createContext, useContext, useState, useRef, useEffect } from "react";
-import { useDiscordSDK } from "./useDiscordSdk";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+
+import { useDiscordSDK } from "./useDiscordSDK";
 
 const OAuth2CodeContext = createContext<string | null>(null);
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOAuth2Code() {
   return useContext(OAuth2CodeContext);
 }

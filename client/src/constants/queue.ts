@@ -1,0 +1,2 @@
+export const QUEUE_ITEM_HEIGHT_DESKTOP = 66;
+export const QUEUE_ITEM_HEIGHT_MOBILE = 64;

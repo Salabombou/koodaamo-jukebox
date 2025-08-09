@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import Timestamp from "./Timestamp";
+
 import { Track } from "../../types/track";
+
+import Timestamp from "./Timestamp";
 
 interface PlayerSeekBarProps {
   track: (Track & { itemId: number }) | null;

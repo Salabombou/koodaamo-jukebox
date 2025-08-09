@@ -1,14 +1,16 @@
-import { useState, useRef, useEffect } from "react";
-import { FaChevronUp, FaChevronDown, FaPlay, FaPause, FaBars, FaLocationArrow } from "react-icons/fa";
-import { FaRepeat } from "react-icons/fa6";
-import QueueList, { itemHeight } from "../common/QueueList";
-import { FixedSizeList } from "react-window";
-import { Track } from "../../types/track";
-import { QueueItem } from "../../types/queue";
-import MarqueeText from "../common/MarqueeText";
-import { useDiscordSDK } from "../../hooks/useDiscordSdk";
-import { useThumbnail } from "../../hooks/useThumbnail";
+import { useEffect, useRef, useState } from "react";
 import { useCallback } from "react";
+import { FaBars, FaChevronDown, FaChevronUp, FaLocationArrow, FaPause, FaPlay } from "react-icons/fa";
+import { FaRepeat } from "react-icons/fa6";
+import { FixedSizeList } from "react-window";
+
+import { QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
+import * as thumbnailService from "../../services/thumbnailService";
+import { QueueItem } from "../../types/queue";
+import { Track } from "../../types/track";
+import MarqueeText from "../common/MarqueeText";
+import QueueList from "../common/QueueList";
 
 interface QueueMobileProps {
   tracks: Map<string, Track>;
@@ -59,7 +61,7 @@ export default function QueueMobile({
   const [showScrollToCurrentButton, setShowScrollToCurrentButton] = useState(false);
 
   const discordSDK = useDiscordSDK();
-  const { getThumbnail, removeThumbnail } = useThumbnail();
+  // Replaced useThumbnail hook with direct service usage
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
 
   // Cleanup on unmount - use a separate ref to track mount status
@@ -71,7 +73,7 @@ export default function QueueMobile({
         onDropdownAction("close");
       }
     };
-  }, []); // Empty dependency array - only runs on mount/unmount
+  }, [isOpen, onDropdownAction]);
 
   useEffect(() => {}, [startIndex, stopIndex]);
 
@@ -84,32 +86,33 @@ export default function QueueMobile({
         return;
       }
       const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`;
-      const objectUrl = await getThumbnail(thumbnailUrl);
+      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl);
       if (!cancelled) setImageBlobUrl(objectUrl);
     }
     fetchThumbnail();
     return () => {
       cancelled = true;
-      removeThumbnail(currentTrack?.id ?? "");
+      if (currentTrack?.id) {
+        const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`;
+        thumbnailService.removeThumbnail(thumbnailUrl);
+      }
     };
-  }, [currentTrack?.id, discordSDK.isEmbedded, getThumbnail, removeThumbnail]);
+  }, [currentTrack?.id, discordSDK.isEmbedded]);
 
   const queueLength = queueList.length;
   const currentTrackNumber = currentTrackIndex !== null ? currentTrackIndex + 1 : 0;
 
   // Function to scroll to current track
-  const scrollToCurrentTrack = () => {
-    if (listRef.current && currentTrackIndex !== null) {
-      isScrollingToCurrentTrack.current = true;
-      const currentTrackPosition = currentTrackIndex * itemHeight.mobile;
-      listRef.current.scrollTo(currentTrackPosition);
-      setShowScrollToCurrentButton(false);
-      // Reset the flag after a short delay to allow the scroll to complete
-      setTimeout(() => {
-        isScrollingToCurrentTrack.current = false;
-      }, 100);
-    }
-  };
+  const scrollToCurrentTrack = useCallback(() => {
+    if (!listRef.current || currentTrackIndex === null) return;
+    isScrollingToCurrentTrack.current = true;
+    const currentTrackPosition = currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
+    listRef.current.scrollTo(currentTrackPosition);
+    setShowScrollToCurrentButton(false);
+    setTimeout(() => {
+      isScrollingToCurrentTrack.current = false;
+    }, 100);
+  }, [currentTrackIndex]);
 
   const lastAction = useRef<number>(0);
 
@@ -118,20 +121,18 @@ export default function QueueMobile({
 
   const handleScroll = useCallback(
     (scrollOffset: number, userScrolled: boolean) => {
-      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * itemHeight.mobile : 0;
+      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE : 0;
 
-      // Don't show the button if we're programmatically scrolling to current track
       if (isScrollingToCurrentTrack.current) {
         lastScrollPosition.current = scrollOffset;
         return;
       }
-
-      const showScrollToCurrentButton = queueLength > 0 && (isOpen && userScrolled) || scrollOffset !== currentTrackPosition;
-      setShowScrollToCurrentButton(showScrollToCurrentButton);
+      const showButton = (queueLength > 0 && isOpen && userScrolled) || scrollOffset !== currentTrackPosition;
+      setShowScrollToCurrentButton(showButton);
       lastAction.current = Date.now();
       lastScrollPosition.current = scrollOffset;
     },
-    [currentTrackIndex, isOpen],
+    [currentTrackIndex, isOpen, queueLength],
   );
 
   const handleMove = useCallback(
@@ -158,11 +159,11 @@ export default function QueueMobile({
       if (msSinceLastAction > 1000) {
         scrollToCurrentTrack();
       } else {
-        const showScrollToCurrentButton = lastScrollPosition.current !== currentTrackIndex * itemHeight.mobile;
-        setShowScrollToCurrentButton(showScrollToCurrentButton);
+        const showButton = lastScrollPosition.current !== currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
+        setShowScrollToCurrentButton(showButton);
       }
     }
-  }, [currentTrackIndex]);
+  }, [currentTrackIndex, scrollToCurrentTrack]);
 
   return (
     <div ref={dropdownRef} className={["fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20"].join(" ")}>
@@ -265,7 +266,7 @@ export default function QueueMobile({
           setIsOpen((prev) => {
             const newIsOpen = !prev;
             if (newIsOpen) {
-              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * itemHeight.mobile;
+              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
               setShowScrollToCurrentButton(showScrollToCurrentButton);
               onDropdownAction("open");
             } else {

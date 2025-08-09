@@ -1,21 +1,31 @@
-import { memo, useRef, useEffect } from "react";
+import { memo, useEffect, useRef } from "react";
+import { FaGripLines } from "react-icons/fa";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import ContextMenu from "../common/ContextMenu";
-import { FaGripLines } from "react-icons/fa";
+
+import ContextMenu, { type ContextMenuItem } from "../common/ContextMenu";
 import { QueueItemProps } from "../common/QueueList";
 
-interface QueueItemMobileProps extends QueueItemProps {}
-
-function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false }: QueueItemMobileProps) {
+function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false }: QueueItemProps) {
   const item = data.at(index);
-  if (!item) return null;
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-  });
 
   const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item?.id ?? `empty-${index}`,
+  });
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    const timeout = touchTimeoutRef.current;
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, []);
+
+  if (!item) return null;
 
   const handleDelete = () => onDelete(index);
   const handlePlayNext = () => onPlayNext(index);
@@ -26,7 +36,7 @@ function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.
   };
 
   // Create context menu items
-  const contextMenuItems = [
+  const contextMenuItems: ContextMenuItem[] = [
     {
       children: "Play Next",
       action: handlePlayNext,
@@ -41,15 +51,6 @@ function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.
       className: "text-red-500 hover:text-red-700",
     },
   ];
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (touchTimeoutRef.current) {
-        clearTimeout(touchTimeoutRef.current);
-      }
-    };
-  }, []);
 
   return (
     <div

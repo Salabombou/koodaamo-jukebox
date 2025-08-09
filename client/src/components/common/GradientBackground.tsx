@@ -1,10 +1,19 @@
-import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
+/**
+ * Props for the animated gradient background component.
+ * @property backgroundColors Pair of hex / css color strings used for the vertical gradient (top,bottom).
+ */
 interface GradientBackgroundProps {
   backgroundColors: [string, string];
 }
 
+/**
+ * Smoothly cross–fades between two linear–gradient backgrounds whenever the provided
+ * color pair changes. The previous gradient is temporarily rendered underneath and faded out
+ * to create a subtle transition without flashing.
+ */
 export default function GradientBackground({ backgroundColors }: GradientBackgroundProps) {
   const [previousBackgroundColors, setPreviousBackgroundColors] = useState<[string, string] | null>(null);
   const prevColorsRef = useRef<[string, string]>(backgroundColors);

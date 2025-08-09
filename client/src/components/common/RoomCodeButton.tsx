@@ -1,6 +1,7 @@
 import { useState } from "react";
+
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import { useRoomCode } from "../../hooks/useRoomCode";
-import { useDiscordSDK } from "../../hooks/useDiscordSdk";
 
 interface RoomCodeButtonProps {
   className?: string;

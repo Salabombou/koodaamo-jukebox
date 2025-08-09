@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import QueueList, { itemHeight } from "../common/QueueList";
-import { Track } from "../../types/track";
-import { QueueItem } from "../../types/queue";
 import { FixedSizeList } from "react-window";
+
+import { QUEUE_ITEM_HEIGHT_DESKTOP } from "../../constants";
+import { QueueItem } from "../../types/queue";
+import { Track } from "../../types/track";
+import QueueList from "../common/QueueList";
 
 interface QueueDesktopProps {
   tracks: Map<string, Track>;
@@ -30,9 +32,9 @@ export default function QueueDesktop({ tracks, queueList, currentTrack, currentT
   const scrollToIndexCentered = (index: number) => {
     if (listRef.current) {
       const height = outerRef.current ? outerRef.current.clientHeight : Number(listRef.current.props.height);
-      const visibleCount = Math.floor(height / itemHeight.desktop);
+      const visibleCount = Math.floor(height / QUEUE_ITEM_HEIGHT_DESKTOP);
       const offset = Math.max(0, index - Math.floor(visibleCount / 2));
-      listRef.current.scrollTo(offset * itemHeight.desktop);
+      listRef.current.scrollTo(offset * QUEUE_ITEM_HEIGHT_DESKTOP);
     }
   };
 

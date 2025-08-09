@@ -1,19 +1,19 @@
 import { memo } from "react";
+import { FaGripLines } from "react-icons/fa";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
 import ContextMenu from "../common/ContextMenu";
-import { FaGripLines } from "react-icons/fa";
 import { QueueItemProps } from "../common/QueueList";
 
-interface QueueItemDesktopProps extends QueueItemProps {}
-
-function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueItemDesktopProps) {
+function QueueRowComponent({ index, style, data, track, currentTrack, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueItemProps) {
   const item = data.at(index);
-  if (!item) return null;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
-    id: item.id,
+    id: item?.id ?? `empty-${index}`,
   });
+
+  if (!item) return null;
 
   const highlighted = currentTrack?.itemId === item.id;
 

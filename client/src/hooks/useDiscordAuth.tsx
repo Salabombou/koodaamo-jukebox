@@ -1,11 +1,15 @@
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from "react";
-import type { TAuthenticateResponse } from "../types/discord";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+
 import type { AuthResponse } from "../types/auth";
-import { useDiscordSDK } from "./useDiscordSdk";
-import { useRoomCode } from "./useRoomCode";
+import type { TAuthenticateResponse } from "../types/discord";
+
+import { useDiscordSDK } from "./useDiscordSDK";
 import { useOAuth2Code } from "./useOAuth2Code";
+import { useRoomCode } from "./useRoomCode";
 
 const DiscordAuthContext = createContext<TAuthenticateResponse | null>(null);
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDiscordAuth() {
   return useContext(DiscordAuthContext);
 }
@@ -17,7 +21,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<TAuthenticateResponse | null>(null);
   const settingUp = useRef(false);
   // Function to refresh authentication
-  const refreshAuth = async () => {
+  const refreshAuth = useCallback(async () => {
     let accessToken = localStorage.getItem("access_token");
     let authToken = localStorage.getItem("auth_token");
     let refreshToken = localStorage.getItem("refresh_token");
@@ -66,13 +70,13 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       access_token: accessToken,
     });
     setAuth(newAuth);
-  };
+  }, [discordSDK, oAuth2Code, roomCode]);
 
   useEffect(() => {
     if (settingUp.current || typeof oAuth2Code !== "string") return;
     settingUp.current = true;
     refreshAuth();
-  }, [discordSDK, oAuth2Code]);
+  }, [discordSDK, oAuth2Code, refreshAuth]);
 
   // Set up interval to refresh auth every 60 minutes
   useEffect(() => {
@@ -84,7 +88,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
       60 * 60 * 1000,
     ); // 60 minutes
     return () => clearInterval(interval);
-  }, [auth, discordSDK, oAuth2Code, roomCode]);
+  }, [auth, discordSDK, oAuth2Code, roomCode, refreshAuth]);
   if (auth === null) return <p>Loading...</p>;
   return <DiscordAuthContext.Provider value={auth}>{children}</DiscordAuthContext.Provider>;
 }

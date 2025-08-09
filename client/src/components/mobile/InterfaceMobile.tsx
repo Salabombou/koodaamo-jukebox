@@ -1,17 +1,23 @@
-import { FaBackwardStep, FaForwardStep, FaPlay, FaPause, FaRepeat, FaShuffle } from "react-icons/fa6";
-import PlayerSeekBar from "../common/PlayerSeekBar";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FaBackwardStep, FaForwardStep, FaPause, FaPlay, FaRepeat, FaShuffle } from "react-icons/fa6";
+
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
+import { useRoomCode } from "../../hooks/useRoomCode";
+import * as thumbnailService from "../../services/thumbnailService";
+import { QueueItem } from "../../types/queue";
 import { Track } from "../../types/track";
-import { useDiscordSDK } from "../../hooks/useDiscordSdk";
-import { useThumbnail } from "../../hooks/useThumbnail";
+import AboutModal, { AboutModalRef } from "../common/AboutModal";
 import ContextMenu, { ContextMenuItem } from "../common/ContextMenu";
 import MarqueeText from "../common/MarqueeText";
+import PlayerSeekBar from "../common/PlayerSeekBar";
 import VolumeSlider from "../common/VolumeSlider";
-import { useRoomCode } from "../../hooks/useRoomCode";
-import AboutModal, { AboutModalRef } from "../common/AboutModal";
 
+import QueueMobile from "./QueueMobile";
+
+/**
+ * Props for the mobile interface component that encapsulates player controls and the queue overlay.
+ */
 interface InterfaceMobileProps {
-  visible: boolean;
   track: (Track & { itemId: number }) | null;
   duration: number;
   timestamp: number;
@@ -28,10 +34,20 @@ interface InterfaceMobileProps {
   onVolumeChange: (volume: number) => void;
   onSeek: (seekTime: number) => void;
   setSecret: (unlocked: boolean) => void;
+  // Queue props
+  tracks: Map<string, Track>;
+  queueList: QueueItem[];
+  currentTrackIndex: number | null;
+  onMove: (fromIndex: number, toIndex: number) => void;
+  onSkip: (index: number) => void;
+  onDelete: (index: number) => void;
+  onPlayNext: (index: number) => void;
 }
 
+/**
+ * Mobile layout wrapper combining artwork, track metadata (with marquee overflow), controls and the queue overlay.
+ */
 export default function InterfaceMobile({
-  visible,
   track,
   duration,
   timestamp,
@@ -47,13 +63,23 @@ export default function InterfaceMobile({
   onVolumeChange,
   onSeek,
   setSecret,
+  tracks,
+  queueList,
+  currentTrackIndex,
+  onMove,
+  onSkip,
+  onDelete,
+  onPlayNext,
 }: InterfaceMobileProps) {
   const discordSDK = useDiscordSDK();
   const roomCode = useRoomCode();
   const aboutModalRef = useRef<AboutModalRef>(null);
 
   const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
-  const { getThumbnail, clearThumbnails, removeThumbnail } = useThumbnail();
+  const [dropdownClosed, setDropdownClosed] = useState(true);
+  const handleDropdownAction = useCallback((action: "open" | "close") => {
+    setDropdownClosed(action === "close");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,17 +89,19 @@ export default function InterfaceMobile({
         return;
       }
       const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high`;
-      const objectUrl = await getThumbnail(thumbnailUrl);
+      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl);
       if (!cancelled) setImageBlobUrl(objectUrl);
     }
     fetchThumbnail();
     return () => {
       cancelled = true;
-      removeThumbnail(track?.id ?? "");
+      if (track?.id) {
+        const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high`;
+        thumbnailService.removeThumbnail(thumbnailUrl);
+      }
     };
-  }, [track?.id, discordSDK.isEmbedded, getThumbnail, clearThumbnails]);
+  }, [track?.id, discordSDK.isEmbedded]);
 
-  // Create context menu items
   const contextMenuItems: ContextMenuItem[] = [
     {
       children: "Copy URL",
@@ -107,46 +135,69 @@ export default function InterfaceMobile({
   ];
 
   return (
-    <div className={`w-7/8 mb-20 flex flex-col text-white transition-opacity duration-300 ease-in-out justify-start ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-      <ContextMenu controlsDisabled={disabled} items={contextMenuItems}>
-        <div>
-          <img src={imageBlobUrl || "/black.jpg"} alt="Track Thumbnail" className="aspect-square object-cover w-full h-full rounded-lg" />
+    <>
+      {/* Player section: hidden when dropdown is open */}
+      <div className={`w-5/6 mb-20 flex flex-col text-white transition-opacity duration-300 ease-in-out justify-start ${dropdownClosed ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+        <ContextMenu controlsDisabled={disabled} items={contextMenuItems}>
+          <div>
+            <img src={imageBlobUrl || "/black.jpg"} alt="Track Thumbnail" className="aspect-square object-cover w-full h-full rounded-lg" />
+          </div>
+          <div className="flex flex-col items-center mt-2">
+            <MarqueeText>
+              <h2 className="text-lg font-semibold">{track?.title?.trim() || "???"}</h2>
+            </MarqueeText>
+            <MarqueeText>
+              <h4 className="text-sm opacity-75">{track?.uploader?.trim() ?? "???"}</h4>
+            </MarqueeText>
+          </div>
+        </ContextMenu>
+        <div className="mt-2">
+          <PlayerSeekBar track={track} duration={duration} timestamp={timestamp} onSeek={onSeek} />
         </div>
-        <div className="flex flex-col items-center mt-2">
-          <MarqueeText>
-            <h2 className="text-lg font-semibold">{track?.title?.trim() || "???"}</h2>
-          </MarqueeText>
-          <MarqueeText>
-            <h4 className="text-sm opacity-75">{track?.uploader?.trim() ?? "???"}</h4>
-          </MarqueeText>
+        <div className="mt-4">
+          <div className="flex justify-between items-center">
+            <button className={`btn btn-xl btn-ghost btn-circle ${shuffled ? "bg-white text-black" : ""}`} onClick={onShuffle} disabled={disabled} aria-label="Shuffle">
+              <FaShuffle />
+            </button>
+            <button className="btn btn-xl btn-ghost btn-circle" onClick={onBackward} disabled={disabled} aria-label="Backward">
+              <FaBackwardStep />
+            </button>
+            <button className="btn btn-xl btn-ghost btn-circle text-black bg-white" onClick={onPlayToggle} disabled={disabled} aria-label="Play/Pause">
+              {paused ? <FaPlay /> : <FaPause />}
+            </button>
+            <button className="btn btn-xl btn-ghost btn-circle" onClick={onForward} disabled={disabled} aria-label="Forward">
+              <FaForwardStep />
+            </button>
+            <button className={`btn btn-xl btn-ghost btn-circle ${looping ? "bg-white text-black" : ""}`} onClick={onLoopToggle} disabled={disabled} aria-label="Loop">
+              <FaRepeat />
+            </button>
+          </div>
         </div>
-      </ContextMenu>
-      <div className="mt-2">
-        <PlayerSeekBar track={track} duration={duration} timestamp={timestamp} onSeek={onSeek} />
-      </div>
-      <div className="mt-4">
-        <div className="flex justify-between items-center">
-          <button className={`btn btn-xl btn-ghost btn-circle ${shuffled ? "bg-white text-black" : ""}`} onClick={onShuffle} disabled={disabled} aria-label="Shuffle">
-            <FaShuffle />
-          </button>
-          <button className="btn btn-xl btn-ghost btn-circle" onClick={onBackward} disabled={disabled} aria-label="Backward">
-            <FaBackwardStep />
-          </button>
-          <button className="btn btn-xl btn-ghost btn-circle text-black bg-white" onClick={onPlayToggle} disabled={disabled} aria-label="Play/Pause">
-            {paused ? <FaPlay /> : <FaPause />}
-          </button>
-          <button className="btn btn-xl btn-ghost btn-circle" onClick={onForward} disabled={disabled} aria-label="Forward">
-            <FaForwardStep />
-          </button>
-          <button className={`btn btn-xl btn-ghost btn-circle ${looping ? "bg-white text-black" : ""}`} onClick={onLoopToggle} disabled={disabled} aria-label="Loop">
-            <FaRepeat />
-          </button>
+        <div className="mt-4">
+          <VolumeSlider onVolumeChange={onVolumeChange} setSecret={setSecret} />
         </div>
+        <AboutModal ref={aboutModalRef} />
       </div>
-      <div className="mt-4">
-        <VolumeSlider onVolumeChange={onVolumeChange} setSecret={setSecret} />
-      </div>
-      <AboutModal ref={aboutModalRef} />
-    </div>
+
+      {/* Mobile Queue Overlay toggle and list - stays visible */}
+      <QueueMobile
+        tracks={tracks}
+        queueList={queueList}
+        currentTrack={track}
+        currentTrackIndex={currentTrackIndex}
+        paused={paused}
+        loop={looping}
+        controlsDisabled={disabled}
+        timestamp={timestamp}
+        duration={duration}
+        onDropdownAction={handleDropdownAction}
+        onPlayToggle={onPlayToggle}
+        onLoopToggle={onLoopToggle}
+        onMove={onMove}
+        onSkip={onSkip}
+        onDelete={onDelete}
+        onPlayNext={onPlayNext}
+      />
+    </>
   );
 }

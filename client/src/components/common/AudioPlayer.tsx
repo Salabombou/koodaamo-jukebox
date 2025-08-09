@@ -1,12 +1,16 @@
-import { useRef, useEffect, RefObject, useImperativeHandle } from "react";
-import Hls, { Events, type ErrorData, type ManifestParsedData } from "hls.js";
+import { RefObject, useEffect, useImperativeHandle, useRef } from "react";
+import Hls, { type ErrorData, Events, type ManifestParsedData } from "hls.js";
 
+/**
+ * Public imperative API exposed by the <AudioPlayer/> component via ref.
+ */
 export interface AudioPlayerRef {
   loadSource: (src: string) => void;
   setVolume: (volume: number) => void;
   play: () => void;
   pause: () => void;
   seek: (time: number) => void;
+  reset: () => void;
   get paused(): boolean;
   get currentTime(): number;
 }
@@ -20,22 +24,48 @@ interface AudioPlayerProps {
   onTimeUpdate: () => void;
 }
 
+/**
+ * Thin wrapper around a hidden <audio> element powered by hls.js for HLS stream playback.
+ * Exposes imperative controls through a forwarded ref and surfaces key lifecycle callbacks.
+ */
 export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, onCanPlayThrough, onTimeUpdate }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
+  // Keep track of last loaded source to avoid redundant reloads
+  const lastSrcRef = useRef<string | null>(null);
 
   useImperativeHandle(ref, () => ({
     loadSource: (src: string) => {
       if (!hls.current || !audioRef.current) return;
+      if (lastSrcRef.current === src) return; // Already loaded
 
-      // Only load if the source is different from current
-      if (hls.current.url === src) return;
+      // Fully reset audio element & detach previous media to prevent residual buffered audio
+      try {
+        audioRef.current.pause();
+        // Stop any network / buffer activity
+        try {
+          hls.current.stopLoad();
+        } catch {
+          // ignore
+        }
+        try {
+          hls.current.detachMedia();
+        } catch {
+          // ignore
+        }
+        // Clear existing src & buffered data in the element
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load(); // forces element to reset
 
-      hls.current.loadSource(src);
-      hls.current.startLoad();
-
-      audioRef.current.load();
-      hls.current.attachMedia(audioRef.current);
+        // Re-attach then load new source
+        hls.current.attachMedia(audioRef.current);
+        hls.current.loadSource(src);
+        hls.current.startLoad();
+        audioRef.current.currentTime = 0;
+        lastSrcRef.current = src;
+      } catch (e) {
+        console.error("Failed to load new HLS source", e);
+      }
     },
     setVolume: (volume: number) => {
       if (audioRef.current) {
@@ -53,6 +83,28 @@ export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, on
     seek: (time: number) => {
       if (audioRef.current) {
         audioRef.current.currentTime = time;
+      }
+    },
+    reset: () => {
+      if (!audioRef.current) return;
+      try {
+        audioRef.current.pause();
+        if (hls.current) {
+          try {
+            hls.current.stopLoad();
+          } catch {
+            // ignore
+          }
+          try {
+            hls.current.detachMedia();
+          } catch {
+            // ignore
+          }
+        }
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
+      } catch (e) {
+        console.warn("Audio reset failed", e);
       }
     },
     get paused() {
@@ -83,7 +135,7 @@ export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, on
         hls.current = null;
       }
     };
-  }, []);
+  }, [ref]);
 
   useEffect(() => {
     if (!hls.current) return;
@@ -120,9 +172,10 @@ export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, on
       // Force hls.js to start loading after seeking
       hls.current?.startLoad();
     };
-    audioRef.current?.addEventListener("seeking", handleSeeking);
+    const audioEl = audioRef.current;
+    audioEl?.addEventListener("seeking", handleSeeking);
     return () => {
-      audioRef.current?.removeEventListener("seeking", handleSeeking);
+      audioEl?.removeEventListener("seeking", handleSeeking);
     };
   }, []);
 

@@ -78,7 +78,7 @@ export async function getProminentColorFromUrl(url: string): Promise<[string, st
       console.warn("Not enough vibrant swatches found, returning default colors.");
       return ["#ffffff", "#000000"];
     }
-    let [colorA, colorB] = result;
+    const [colorA, colorB] = result;
     // Return the lighter color first, darker last
     if (luminance(colorA.rgb) > luminance(colorB.rgb)) {
       return [colorA.hex, colorB.hex];
