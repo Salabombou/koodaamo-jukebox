@@ -4,10 +4,12 @@ import { FaBackwardStep, FaForwardStep, FaPause, FaPlay, FaRepeat, FaShuffle } f
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import { useRoomCode } from "../../hooks/useRoomCode";
 import * as thumbnailService from "../../services/thumbnailService";
-import { QueueItem } from "../../types/queue";
-import { Track } from "../../types/track";
-import AboutModal, { AboutModalRef } from "../common/AboutModal";
-import ContextMenu, { ContextMenuItem } from "../common/ContextMenu";
+import type { QueueItem } from "../../types/queue";
+import type { Track } from "../../types/track";
+import type { AboutModalRef } from "../common/AboutModal";
+import AboutModal from "../common/AboutModal";
+import type { ContextMenuItem } from "../common/ContextMenu";
+import ContextMenu from "../common/ContextMenu";
 import MarqueeText from "../common/MarqueeText";
 import PlayerSeekBar from "../common/PlayerSeekBar";
 import VolumeSlider from "../common/VolumeSlider";
@@ -37,10 +39,10 @@ interface InterfaceMobileProps {
   // Queue props
   tracks: Map<string, Track>;
   queueList: QueueItem[];
-  currentTrackIndex: number | null;
+  currentItemIndex: number | null;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
+  onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
 }
 
@@ -65,7 +67,7 @@ export default function InterfaceMobile({
   setSecret,
   tracks,
   queueList,
-  currentTrackIndex,
+  currentItemIndex,
   onMove,
   onSkip,
   onDelete,
@@ -184,7 +186,7 @@ export default function InterfaceMobile({
         tracks={tracks}
         queueList={queueList}
         currentTrack={track}
-        currentTrackIndex={currentTrackIndex}
+        currentItemIndex={currentItemIndex}
         paused={paused}
         loop={looping}
         controlsDisabled={disabled}

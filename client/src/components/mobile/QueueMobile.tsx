@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useCallback } from "react";
 import { FaBars, FaChevronDown, FaChevronUp, FaLocationArrow, FaPause, FaPlay } from "react-icons/fa";
 import { FaRepeat } from "react-icons/fa6";
-import { FixedSizeList } from "react-window";
+import type { FixedSizeList } from "react-window";
 
 import { QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import * as thumbnailService from "../../services/thumbnailService";
-import { QueueItem } from "../../types/queue";
-import { Track } from "../../types/track";
+import type { QueueItem } from "../../types/queue";
+import type { Track } from "../../types/track";
 import MarqueeText from "../common/MarqueeText";
 import QueueList from "../common/QueueList";
 
@@ -16,7 +16,7 @@ interface QueueMobileProps {
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrack: (Track & { itemId: number }) | null;
-  currentTrackIndex: number | null;
+  currentItemIndex: number | null;
   paused: boolean;
   timestamp: number;
   duration: number;
@@ -27,7 +27,7 @@ interface QueueMobileProps {
   onLoopToggle?: () => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
+  onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
 }
 
@@ -35,7 +35,7 @@ export default function QueueMobile({
   tracks,
   queueList,
   currentTrack,
-  currentTrackIndex,
+  currentItemIndex,
   paused,
   duration,
   timestamp,
@@ -100,19 +100,19 @@ export default function QueueMobile({
   }, [currentTrack?.id, discordSDK.isEmbedded]);
 
   const queueLength = queueList.length;
-  const currentTrackNumber = currentTrackIndex !== null ? currentTrackIndex + 1 : 0;
+  const currentTrackNumber = currentItemIndex !== null ? currentItemIndex + 1 : 0;
 
   // Function to scroll to current track
   const scrollToCurrentTrack = useCallback(() => {
-    if (!listRef.current || currentTrackIndex === null) return;
+    if (!listRef.current || currentItemIndex === null) return;
     isScrollingToCurrentTrack.current = true;
-    const currentTrackPosition = currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
+    const currentTrackPosition = currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE;
     listRef.current.scrollTo(currentTrackPosition);
     setShowScrollToCurrentButton(false);
     setTimeout(() => {
       isScrollingToCurrentTrack.current = false;
     }, 100);
-  }, [currentTrackIndex]);
+  }, [currentItemIndex]);
 
   const lastAction = useRef<number>(0);
 
@@ -121,7 +121,7 @@ export default function QueueMobile({
 
   const handleScroll = useCallback(
     (scrollOffset: number, userScrolled: boolean) => {
-      const currentTrackPosition = currentTrackIndex !== null ? currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE : 0;
+      const currentTrackPosition = currentItemIndex !== null ? currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE : 0;
 
       if (isScrollingToCurrentTrack.current) {
         lastScrollPosition.current = scrollOffset;
@@ -132,7 +132,7 @@ export default function QueueMobile({
       lastAction.current = Date.now();
       lastScrollPosition.current = scrollOffset;
     },
-    [currentTrackIndex, isOpen, queueLength],
+    [currentItemIndex, isOpen, queueLength],
   );
 
   const handleMove = useCallback(
@@ -151,19 +151,19 @@ export default function QueueMobile({
     [onSkip],
   );
 
-  // Auto-scroll to current track when currentTrackIndex changes
+  // Auto-scroll to current track when currentItemIndex changes
   useEffect(() => {
-    if (currentTrackIndex !== null) {
+    if (currentItemIndex !== null) {
       const currentTime = Date.now();
       const msSinceLastAction = currentTime - lastAction.current;
       if (msSinceLastAction > 1000) {
         scrollToCurrentTrack();
       } else {
-        const showButton = lastScrollPosition.current !== currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
+        const showButton = lastScrollPosition.current !== currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE;
         setShowScrollToCurrentButton(showButton);
       }
     }
-  }, [currentTrackIndex, scrollToCurrentTrack]);
+  }, [currentItemIndex, scrollToCurrentTrack]);
 
   return (
     <div ref={dropdownRef} className={["fixed bottom-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out", isOpen ? "h-full" : "h-20"].join(" ")}>
@@ -219,7 +219,7 @@ export default function QueueMobile({
             tracks={tracks}
             queueList={queueList}
             currentTrack={currentTrack}
-            currentTrackIndex={currentTrackIndex}
+            currentItemIndex={currentItemIndex}
             controlsDisabled={controlsDisabled}
             onItemsRendered={(visibleStartIndex, visibleStopIndex) => {
               setStartIndex(visibleStartIndex);
@@ -234,7 +234,7 @@ export default function QueueMobile({
         </div>
 
         {/* Scroll to current track button - positioned above mobile toggle button */}
-        {showScrollToCurrentButton && currentTrackIndex !== null && (
+        {showScrollToCurrentButton && currentItemIndex !== null && (
           <button
             onClick={scrollToCurrentTrack}
             onTouchStart={(e) => {
@@ -266,7 +266,7 @@ export default function QueueMobile({
           setIsOpen((prev) => {
             const newIsOpen = !prev;
             if (newIsOpen) {
-              const showScrollToCurrentButton = currentTrackIndex !== null && lastScrollPosition.current !== currentTrackIndex * QUEUE_ITEM_HEIGHT_MOBILE;
+              const showScrollToCurrentButton = currentItemIndex !== null && lastScrollPosition.current !== currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE;
               setShowScrollToCurrentButton(showScrollToCurrentButton);
               onDropdownAction("open");
             } else {

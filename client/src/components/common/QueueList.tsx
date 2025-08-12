@@ -9,8 +9,8 @@ import { getEventCoordinates } from "@dnd-kit/utilities";
 import { QUEUE_ITEM_HEIGHT_DESKTOP, QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import * as thumbnailService from "../../services/thumbnailService";
-import { QueueItem } from "../../types/queue";
-import { Track } from "../../types/track";
+import type { QueueItem } from "../../types/queue";
+import type { Track } from "../../types/track";
 import QueueItemDesktop from "../desktop/QueueItemDesktop";
 import QueueItemMobile from "../mobile/QueueItemMobile";
 
@@ -20,7 +20,7 @@ export interface QueueItemProps extends ListChildComponentProps {
   currentTrack?: (Track & { itemId: number }) | null;
   thumbnailBlob?: string;
   onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
+  onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
   controlsDisabled?: boolean;
   overlay?: boolean; // for drag overlay
@@ -47,12 +47,12 @@ interface QueueProps {
   tracks: Map<string, Track>;
   queueList: QueueItem[];
   currentTrack: (Track & { itemId: number }) | null;
-  currentTrackIndex: number | null;
+  currentItemIndex: number | null;
   controlsDisabled?: boolean;
   onItemsRendered: (visibleStartIndex: number, visibleStopIndex: number) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
+  onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
   onScroll?: (crollPosition: number, userScroll: boolean) => void;
   onDragEnd?: (fromIndex: number, toIndex: number) => void;

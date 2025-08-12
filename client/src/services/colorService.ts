@@ -1,5 +1,6 @@
 import { Vibrant } from "node-vibrant/browser";
 
+import { COLOR_FALLBACK_DARK, COLOR_FALLBACK_LIGHT } from "../constants";
 import type { Palette, Swatch } from "../types/color";
 
 function luminance(rgb: [number, number, number]): number {
@@ -76,7 +77,7 @@ export async function getProminentColorFromUrl(url: string): Promise<[string, st
     const result = selectMostDifferentColors(palette);
     if (!result) {
       console.warn("Not enough vibrant swatches found, returning default colors.");
-      return ["#ffffff", "#000000"];
+      return [COLOR_FALLBACK_LIGHT, COLOR_FALLBACK_DARK];
     }
     const [colorA, colorB] = result;
     // Return the lighter color first, darker last
@@ -87,6 +88,6 @@ export async function getProminentColorFromUrl(url: string): Promise<[string, st
     }
   } catch (e) {
     console.error("Error getting vibrant color from URL:", url, e);
-    return ["#ffffff", "#000000"];
+    return [COLOR_FALLBACK_LIGHT, COLOR_FALLBACK_DARK];
   }
 }

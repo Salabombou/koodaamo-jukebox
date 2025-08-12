@@ -4,9 +4,10 @@ import { FaBackwardStep, FaForwardStep, FaPause, FaPlay, FaRepeat, FaShuffle } f
 
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import * as thumbnailService from "../../services/thumbnailService";
-import { QueueItem } from "../../types/queue";
-import { Track } from "../../types/track";
-import AboutModal, { AboutModalRef } from "../common/AboutModal";
+import type { QueueItem } from "../../types/queue";
+import type { Track } from "../../types/track";
+import type { AboutModalRef } from "../common/AboutModal";
+import AboutModal from "../common/AboutModal";
 import ContextMenu from "../common/ContextMenu";
 import MarqueeText from "../common/MarqueeText";
 import PlayerSeekBar from "../common/PlayerSeekBar";
@@ -35,10 +36,10 @@ interface InterfaceDesktopProps {
   // Queue props moved inside InterfaceDesktop
   tracks: Map<string, Track>;
   queueList: QueueItem[];
-  currentTrackIndex: number | null;
+  currentItemIndex: number | null;
   onMove: (fromIndex: number, toIndex: number) => void;
   onSkip: (index: number) => void;
-  onDelete: (index: number) => void;
+  onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
 }
 
@@ -60,7 +61,7 @@ export default function MusicPlayerInterface({
   setSecret,
   tracks,
   queueList,
-  currentTrackIndex,
+  currentItemIndex,
   onMove,
   onSkip,
   onDelete,
@@ -179,7 +180,7 @@ export default function MusicPlayerInterface({
         tracks={tracks}
         queueList={queueList}
         currentTrack={track}
-        currentTrackIndex={currentTrackIndex}
+        currentItemIndex={currentItemIndex}
         controlsDisabled={disabled}
         onMove={onMove}
         onSkip={onSkip}

@@ -1,4 +1,5 @@
-import { RefObject, useEffect, useImperativeHandle, useState } from "react";
+import type { RefObject } from "react";
+import { useEffect, useImperativeHandle, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

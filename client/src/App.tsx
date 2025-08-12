@@ -1,7 +1,9 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
-import Hls, { ErrorData } from "hls.js";
+import type { ErrorData } from "hls.js";
+import Hls from "hls.js";
 
-import AudioPlayer, { AudioPlayerRef } from "./components/common/AudioPlayer";
+import type { AudioPlayerRef } from "./components/common/AudioPlayer";
+import AudioPlayer from "./components/common/AudioPlayer";
 import GradientBackground from "./components/common/GradientBackground";
 import InterfaceDesktop from "./components/desktop/InterfaceDesktop";
 import InterfaceMobile from "./components/mobile/InterfaceMobile";
@@ -11,12 +13,12 @@ import * as apiService from "./services/apiService";
 import * as colorService from "./services/colorService";
 import * as thumbnailService from "./services/thumbnailService";
 import * as timeService from "./services/timeService";
-import { Track } from "./types/track";
+import type { Track } from "./types/track";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
   // Replaced useThumbnail hook with direct service usage
-  const { playingSince, currentTrackIndex, currentTrackId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
+  const { playingSince, currentItemIndex, currentItemId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
   const player = useRef<AudioPlayerRef>(null);
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const seeking = useRef(true);
@@ -215,30 +217,17 @@ export default function App() {
   }, [invokeError]);
 
   useEffect(() => {
-    if (typeof currentTrackId === "string" && typeof currentTrackIndex === "number") {
-      let item = queueList.find((item) => {
-        const indexToCompare = isShuffled ? item.shuffled_index : item.index;
-        return indexToCompare === currentTrackIndex && item.track_id === currentTrackId;
-      });
+    if (typeof currentItemId === "number") {
+      const item = queueItems.get(currentItemId);
+      if (!item) return;
 
-      if (!item) {
-        item = queueList.find((item) => item.track_id === currentTrackId);
-        if (item) {
-          console.log("Current track found by ID only after queue move, index mismatch detected");
-        }
-      }
+      const track = tracks.get(item.track_id);
+      if (!track) return;
 
-      const track = tracks.get(currentTrackId);
-      if (!item || !track) {
-        return;
-      }
-
-      if (!currentTrack || currentTrack.id !== currentTrackId || currentTrack.itemId !== item.id) {
-        setCurrentTrack({ ...track, itemId: item.id });
-        document.title = `Now playing: ${track.title} • ${track.uploader}`;
-      }
+      setCurrentTrack({ ...track, itemId: item.id });
+      document.title = `Now playing: ${track.title} • ${track.uploader}`;
     }
-  }, [currentTrackId, currentTrackIndex, currentTrack, tracks, queueList, isShuffled]);
+  }, [currentItemId, queueItems, tracks]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -375,24 +364,24 @@ export default function App() {
   );
   const handleDelete = useCallback(
     (index: number) => {
-      if (index !== currentTrackIndex) invokeRoomAction("Delete", index);
+      if (index !== currentItemIndex) invokeRoomAction("Delete", index);
     },
-    [currentTrackIndex, invokeRoomAction],
+    [currentItemIndex, invokeRoomAction],
   );
   const handlePlayNext = useCallback(
     (index: number) => {
       if (invokePending) return;
-      if (typeof currentTrackIndex === "number") {
-        if (index < currentTrackIndex) {
-          console.log("Moving item", index, "to play next (position", currentTrackIndex, ")");
-          invokeRoomAction("Move", index, currentTrackIndex);
-        } else if (index > currentTrackIndex) {
-          console.log("Moving item", index, "to play next (position", currentTrackIndex + 1, ")");
-          invokeRoomAction("Move", index, currentTrackIndex + 1);
+      if (typeof currentItemIndex === "number") {
+        if (index < currentItemIndex) {
+          console.log("Moving item", index, "to play next (position", currentItemIndex, ")");
+          invokeRoomAction("Move", index, currentItemIndex);
+        } else if (index > currentItemIndex) {
+          console.log("Moving item", index, "to play next (position", currentItemIndex + 1, ")");
+          invokeRoomAction("Move", index, currentItemIndex + 1);
         }
       }
     },
-    [currentTrackIndex, invokeRoomAction, invokePending],
+    [currentItemIndex, invokeRoomAction, invokePending],
   );
 
   const handleSeek = useCallback(
@@ -424,15 +413,15 @@ export default function App() {
       handleSeek(0, false);
     } else {
       console.log("Skipping backward");
-      invokeRoomAction("Skip", Math.max(currentTrackIndex ?? 1) - 1);
+      invokeRoomAction("Skip", Math.max(currentItemIndex ?? 1) - 1);
     }
-  }, [invokePending, currentTrackIndex, invokeRoomAction, handleSeek]);
+  }, [invokePending, currentItemIndex, invokeRoomAction, handleSeek]);
 
   const handleForward = useCallback(() => {
     if (invokePending) return;
     console.log("Skipping forward");
-    invokeRoomAction("Skip", (currentTrackIndex ?? 0) + 1);
-  }, [invokePending, currentTrackIndex, invokeRoomAction]);
+    invokeRoomAction("Skip", (currentItemIndex ?? 0) + 1);
+  }, [invokePending, currentItemIndex, invokeRoomAction]);
 
   const handleShuffle = useCallback(() => {
     if (invokePending || typeof isShuffled !== "boolean") return;
@@ -470,19 +459,19 @@ export default function App() {
       player.current.play();
       invokeRoomAction("Seek", 0, false);
     } else {
-  // Fully reset underlying element to avoid a brief replay of old buffered audio
-  player.current.reset();
-      if (typeof currentTrackIndex === "number") {
-        if (currentTrackIndex + 1 >= queueItems.size && queueItems.size > 0) {
+      // Fully reset underlying element to avoid a brief replay of old buffered audio
+      player.current.reset();
+      if (typeof currentItemIndex === "number") {
+        if (currentItemIndex + 1 >= queueItems.size && queueItems.size > 0) {
           console.log("Reached end of queue, looping back to start");
           invokeRoomAction("Skip", 0);
         } else {
           console.log("Track ended, skipping to next track");
-          invokeRoomAction("Skip", currentTrackIndex + 1);
+          invokeRoomAction("Skip", currentItemIndex + 1);
         }
       }
     }
-  }, [isLooping, currentTrackIndex, queueItems, invokeRoomAction, isReady]);
+  }, [isLooping, currentItemIndex, queueItems, invokeRoomAction, isReady]);
 
   const handleTimeUpdate = useCallback(() => {
     if (!player.current) return;
@@ -512,13 +501,13 @@ export default function App() {
       setTimestamp(newTimestamp);
     }
 
-    if (typeof currentTrackIndex !== "number" || queueItems.size === 0 || duration === 0 || currentTrackIndex < 0 || currentTrackIndex >= queueItems.size) {
+    if (typeof currentItemIndex !== "number" || queueItems.size === 0 || duration === 0 || currentItemIndex < 0 || currentItemIndex >= queueItems.size) {
       return;
     } // No next track
 
     let nextTrack: Track | null = null;
     for (const item of queueItems.values()) {
-      if ((isShuffled ? item.shuffled_index : item.index) === currentTrackIndex + 1) {
+      if ((isShuffled ? item.shuffled_index : item.index) === currentItemIndex + 1) {
         nextTrack = tracks.get(item.track_id) ?? null;
         break;
       }
@@ -537,7 +526,7 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` },
       });
     }
-  }, [playingSince, duration, currentTrackIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, invokePending]);
+  }, [playingSince, duration, currentItemIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, invokePending]);
 
   const handleFatalError = useCallback(
     (data: ErrorData | Event | string) => {
@@ -565,11 +554,11 @@ export default function App() {
         console.error("Audio Player error:", data);
       }
 
-      if (typeof currentTrackIndex === "number") {
-        invokeRoomAction("Skip", currentTrackIndex + 1);
+      if (typeof currentItemIndex === "number") {
+        invokeRoomAction("Skip", currentItemIndex + 1);
       }
     },
-    [currentTrackIndex, invokeRoomAction],
+    [currentItemIndex, invokeRoomAction],
   );
 
   // Media session API support
@@ -634,7 +623,7 @@ export default function App() {
               setSecret={setSecretUnlocked}
               tracks={tracks}
               queueList={queueList}
-              currentTrackIndex={currentTrackIndex}
+              currentItemIndex={currentItemIndex}
               onMove={handleMove}
               onSkip={handleSkip}
               onDelete={handleDelete}
@@ -661,7 +650,7 @@ export default function App() {
               setSecret={setSecretUnlocked}
               tracks={tracks}
               queueList={queueList}
-              currentTrackIndex={currentTrackIndex}
+              currentItemIndex={currentItemIndex}
               onMove={handleMove}
               onSkip={handleSkip}
               onDelete={handleDelete}

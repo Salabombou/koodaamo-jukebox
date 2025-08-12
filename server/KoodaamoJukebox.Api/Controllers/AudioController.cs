@@ -56,11 +56,11 @@ namespace KoodaamoJukebox.Api.Controllers
             }
 
             // Only get the 3 relevant queue items
-            int? currentTrackIndex = room.CurrentTrackIndex;
-            if (currentTrackIndex.HasValue)
+            int? currentItemIndex = room.CurrentItemIndex;
+            if (currentItemIndex.HasValue)
             {
                 var queueItems = await _dbContext.QueueItems.AsNoTracking()
-                    .Where(q => q.RoomCode == room.RoomCode && Math.Abs((room.IsShuffled ? (int)q.ShuffleIndex! : q.Index) - currentTrackIndex.Value) <= 2)
+                    .Where(q => q.RoomCode == room.RoomCode && Math.Abs((room.IsShuffled ? (int)q.ShuffleIndex! : q.Index) - currentItemIndex.Value) <= 2)
                     .ToListAsync();
                 if (queueItems.Count == 0)
                 {
@@ -71,7 +71,7 @@ namespace KoodaamoJukebox.Api.Controllers
                 var allowed = queueItems.Any(q => q.TrackId == webpageUrlHash);
                 if (!allowed)
                 {
-                    _logger.LogWarning("Requesting track with hash '{WebpageUrlHash}' is not within ±1 of the current track index {CurrentTrackIndex} in room {RoomCode}.", webpageUrlHash, currentTrackIndex.Value, room.RoomCode);
+                    _logger.LogWarning("Requesting track with hash '{WebpageUrlHash}' is not within ±1 of the current track index {CurrentItemIndex} in room {RoomCode}.", webpageUrlHash, currentItemIndex.Value, room.RoomCode);
                     return Forbid();
                 }
             }

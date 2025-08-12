@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import ContextMenu, { type ContextMenuItem } from "../common/ContextMenu";
-import { QueueItemProps } from "../common/QueueList";
+import type { QueueItemProps } from "../common/QueueList";
 
 function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false }: QueueItemProps) {
   const item = data.at(index);
@@ -27,7 +27,7 @@ function QueueRowComponent({ index, style, data, track, thumbnailBlob = "/black.
 
   if (!item) return null;
 
-  const handleDelete = () => onDelete(index);
+  const handleDelete = () => onDelete(item.id);
   const handlePlayNext = () => onPlayNext(index);
   const handleCopyUrl = () => {
     if (track?.webpage_url) {

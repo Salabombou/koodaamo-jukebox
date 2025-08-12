@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KoodaamoJukebox.Database.Migrations
 {
     [DbContext(typeof(KoodaamoJukeboxDbContext))]
-    [Migration("20250717184143_UserBanning")]
-    partial class UserBanning
+    [Migration("20250812141836_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -135,11 +135,17 @@ namespace KoodaamoJukebox.Database.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CurrentTrackId")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("CurrentTrackIndex")
+                    b.Property<int?>("CurrentItemId")
                         .HasColumnType("integer");
+
+                    b.Property<int?>("CurrentItemIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CurrentItemShuffleIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CurrentItemTrackId")
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsEmbedded")
                         .HasColumnType("boolean");
@@ -165,9 +171,9 @@ namespace KoodaamoJukebox.Database.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CurrentTrackId");
+                    b.HasIndex("CurrentItemIndex");
 
-                    b.HasIndex("CurrentTrackIndex");
+                    b.HasIndex("CurrentItemTrackId");
 
                     b.HasIndex("RoomCode")
                         .IsUnique();
@@ -177,11 +183,8 @@ namespace KoodaamoJukebox.Database.Migrations
 
             modelBuilder.Entity("KoodaamoJukebox.Database.Models.Track", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("WebpageUrlHash")
+                        .HasColumnType("text");
 
                     b.Property<string>("ThumbnailHigh")
                         .HasColumnType("text");
@@ -203,16 +206,9 @@ namespace KoodaamoJukebox.Database.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("WebpageUrlHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
+                    b.HasKey("WebpageUrlHash");
 
                     b.HasIndex("WebpageUrl")
-                        .IsUnique();
-
-                    b.HasIndex("WebpageUrlHash")
                         .IsUnique();
 
                     b.ToTable("Tracks");

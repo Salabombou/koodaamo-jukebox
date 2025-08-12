@@ -24,9 +24,13 @@ namespace KoodaamoJukebox.Database.Models
 
         public bool IsShuffled { get; set; } = false;
 
-        public int? CurrentTrackIndex { get; set; }
+        public int? CurrentItemIndex { get; set; }
 
-        public string? CurrentTrackId { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
+
+        public int? CurrentItemId { get; set; }
+
+        public string? CurrentItemTrackId { get; set; }
 
         public long? PlayingSince { get; set; }
 
@@ -41,25 +45,30 @@ namespace KoodaamoJukebox.Database.Models
             IsPaused = queue.IsPaused;
             IsLooping = queue.IsLooping;
             IsShuffled = queue.IsShuffled;
-            CurrentTrack = new CurrentTrackDto
-            {
-                Index = queue.CurrentTrackIndex ?? -1,
-                Id = queue.CurrentTrackId ?? string.Empty
-            };
             PlayingSince = queue.PlayingSince;
+
+            CurrentItem = new CurrentItemDto
+            {
+                Index = queue.CurrentItemIndex,
+                ShuffleIndex = queue.CurrentItemShuffleIndex,
+                Id = queue.CurrentItemId,
+                TrackId = queue.CurrentItemTrackId
+            };
         }
 
         public string RoomCode { get; set; }
         public bool IsPaused { get; set; }
         public bool IsLooping { get; set; }
         public bool IsShuffled { get; set; }
-        public CurrentTrackDto CurrentTrack { get; set; }
+        public CurrentItemDto CurrentItem { get; set; }
         public long? PlayingSince { get; set; }
     }
 
-    public class CurrentTrackDto
+    public class CurrentItemDto
     {
-        public int Index { get; set; }
-        public string Id { get; set; } = string.Empty;
+        public int? Index { get; set; }
+        public int? ShuffleIndex { get; set; }
+        public int? Id { get; set; }
+        public string? TrackId { get; set; }
     }
 }

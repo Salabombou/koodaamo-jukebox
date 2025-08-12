@@ -73,8 +73,10 @@ namespace KoodaamoJukebox.Database.Migrations
                     IsPaused = table.Column<bool>(type: "boolean", nullable: false),
                     IsLooping = table.Column<bool>(type: "boolean", nullable: false),
                     IsShuffled = table.Column<bool>(type: "boolean", nullable: false),
-                    CurrentTrackIndex = table.Column<int>(type: "integer", nullable: true),
-                    CurrentTrackId = table.Column<string>(type: "text", nullable: true),
+                    CurrentItemIndex = table.Column<int>(type: "integer", nullable: true),
+                    CurrentItemShuffleIndex = table.Column<int>(type: "integer", nullable: true),
+                    CurrentItemId = table.Column<int>(type: "integer", nullable: true),
+                    CurrentItemTrackId = table.Column<string>(type: "text", nullable: true),
                     PlayingSince = table.Column<long>(type: "bigint", nullable: true),
                     PausedAt = table.Column<long>(type: "bigint", nullable: true)
                 },
@@ -87,10 +89,8 @@ namespace KoodaamoJukebox.Database.Migrations
                 name: "Tracks",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Type = table.Column<int>(type: "integer", nullable: false),
                     WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
+                    Type = table.Column<int>(type: "integer", nullable: false),
                     WebpageUrl = table.Column<string>(type: "text", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false),
                     Uploader = table.Column<string>(type: "text", nullable: true),
@@ -99,7 +99,7 @@ namespace KoodaamoJukebox.Database.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Tracks", x => x.Id);
+                    table.PrimaryKey("PK_Tracks", x => x.WebpageUrlHash);
                 });
 
             migrationBuilder.CreateTable(
@@ -112,7 +112,11 @@ namespace KoodaamoJukebox.Database.Migrations
                     IsEmbedded = table.Column<bool>(type: "boolean", nullable: false),
                     Username = table.Column<string>(type: "text", nullable: false),
                     AssociatedRoomCode = table.Column<string>(type: "text", nullable: true),
-                    ConnectionId = table.Column<string>(type: "text", nullable: true)
+                    ConnectionId = table.Column<string>(type: "text", nullable: true),
+                    BannedUntil = table.Column<long>(type: "bigint", nullable: true),
+                    BannedReason = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<long>(type: "bigint", nullable: false),
+                    UpdatedAt = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -147,14 +151,14 @@ namespace KoodaamoJukebox.Database.Migrations
                 column: "TrackId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Queues_CurrentTrackId",
+                name: "IX_Queues_CurrentItemIndex",
                 table: "Queues",
-                column: "CurrentTrackId");
+                column: "CurrentItemIndex");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Queues_CurrentTrackIndex",
+                name: "IX_Queues_CurrentItemTrackId",
                 table: "Queues",
-                column: "CurrentTrackIndex");
+                column: "CurrentItemTrackId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Queues_RoomCode",
@@ -166,12 +170,6 @@ namespace KoodaamoJukebox.Database.Migrations
                 name: "IX_Tracks_WebpageUrl",
                 table: "Tracks",
                 column: "WebpageUrl",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Tracks_WebpageUrlHash",
-                table: "Tracks",
-                column: "WebpageUrlHash",
                 unique: true);
 
             migrationBuilder.CreateIndex(

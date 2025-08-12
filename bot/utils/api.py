@@ -297,9 +297,9 @@ async def remove_track(token: str, track_id: int) -> RoomResponse:
     return resp.json()
 
 
-async def delete_track(token: str, index: int) -> RoomResponse:
-    """Delete a track from the queue by index"""
-    data = {"sentAt": _get_current_timestamp(), "value": index}
+async def delete_track(token: str, item_id: int) -> RoomResponse:
+    """Delete a track from the queue by ID"""
+    data = {"sentAt": _get_current_timestamp(), "value": item_id}
     resp = await _client.post(
         "/api/room/delete",
         headers={"Authorization": f"Bearer {token}"},

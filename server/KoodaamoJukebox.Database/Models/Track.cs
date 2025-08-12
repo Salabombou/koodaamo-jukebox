@@ -11,18 +11,14 @@ namespace KoodaamoJukebox.Database.Models
     }
 
     [Table("Tracks")]
-    [Index(nameof(WebpageUrlHash), IsUnique = true)]
     [Index(nameof(WebpageUrl), IsUnique = true)]
     public class Track
     {
         [Key]
-        public int Id { get; set; }
+        public required string WebpageUrlHash { get; set; }
 
         [Required]
         public required TrackType Type { get; set; }
-
-        [Required]
-        public required string WebpageUrlHash { get; set; }
 
         [Required]
         public required string WebpageUrl { get; set; }

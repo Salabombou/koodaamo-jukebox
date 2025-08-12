@@ -1,5 +1,9 @@
-import { RefObject, useEffect, useImperativeHandle, useRef } from "react";
-import Hls, { type ErrorData, Events, type ManifestParsedData } from "hls.js";
+import type { RefObject } from "react";
+import { useEffect, useImperativeHandle, useRef } from "react";
+import type { Events } from "hls.js";
+import Hls, { type ErrorData, type ManifestParsedData } from "hls.js";
+
+import { LS_KEY_AUTH_TOKEN } from "../../constants";
 
 /**
  * Public imperative API exposed by the <AudioPlayer/> component via ref.
@@ -121,7 +125,7 @@ export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, on
       console.log("HLS is supported, initializing...");
       hls.current = new Hls({
         xhrSetup: (xhr) => {
-          const token = localStorage.getItem("auth_token") ?? "";
+          const token = localStorage.getItem(LS_KEY_AUTH_TOKEN) ?? "";
           if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         },
       });

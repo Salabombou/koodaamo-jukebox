@@ -1,8 +1,9 @@
 import axios from "axios";
 
+import { API_BASE_RETRY_DELAY_MS, API_MAX_RETRY_DELAY_MS, LS_KEY_AUTH_TOKEN, LS_KEY_IS_EMBEDDED } from "../constants";
 //import type { QueueItem } from "../types/queue";
 //import type { RoomInfo } from "../types/room";
-import { Track } from "../types/track";
+import type { Track } from "../types/track";
 
 const apiClient = axios.create();
 
@@ -10,14 +11,14 @@ const apiClient = axios.create();
 const pendingRequests = new Map<string, Promise<{ data: Map<string, Track> }>>();
 
 apiClient.interceptors.request.use((config) => {
-  if (localStorage.getItem("is_embedded") === "true") {
+  if (localStorage.getItem(LS_KEY_IS_EMBEDDED) === "true") {
     config.baseURL = "/.proxy";
   }
   return config;
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
+  const token = localStorage.getItem(LS_KEY_AUTH_TOKEN);
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -34,7 +35,7 @@ apiClient.interceptors.response.use(undefined, async (error) => {
   config.__retryCount = (config.__retryCount || 0) + 1;
 
   // Exponential backoff for retries
-  const delay = Math.min(1000 * Math.pow(2, config.__retryCount - 1), 5000);
+  const delay = Math.min(API_BASE_RETRY_DELAY_MS * Math.pow(2, config.__retryCount - 1), API_MAX_RETRY_DELAY_MS);
   await new Promise((resolve) => setTimeout(resolve, delay));
 
   return apiClient(config);

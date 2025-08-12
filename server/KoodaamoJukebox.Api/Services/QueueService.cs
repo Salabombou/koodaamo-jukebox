@@ -2,7 +2,6 @@ using KoodaamoJukebox.Api.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using KoodaamoJukebox.Database.Models;
-using System.Collections.Concurrent;
 using KoodaamoJukebox.Api.Utilities;
 using KoodaamoJukebox.Database;
 
@@ -60,10 +59,20 @@ namespace KoodaamoJukebox.Api.Services
                 queue.PausedAt = null;
                 queue.IsPaused = false;
             }
+
+            if (string.IsNullOrEmpty(queue.CurrentItemTrackId) || !queue.CurrentItemIndex.HasValue || !queue.CurrentItemId.HasValue)
+            {
+                queue.PlayingSince = null;
+            }
+
             await _dbContext.SaveChangesAsync();
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("PauseToggled", new PauseToggledEvent
+            {
+                RoomCode = roomCode,
+                IsPaused = queue.IsPaused,
+                PlayingSince = queue.PlayingSince,
+            });
         }
 
         public async Task Seek(string roomCode, int seekTime)
@@ -93,27 +102,31 @@ namespace KoodaamoJukebox.Api.Services
             roomInfo.PlayingSince += elapsedTime - seekTime * 1000;
             await _dbContext.SaveChangesAsync();
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), Array.Empty<QueueItemDto>());
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("TrackSeeked", new TrackSeekedEvent
+            {
+                RoomCode = roomCode,
+                PlayingSince = roomInfo.PlayingSince,
+            });
         }
 
         public async Task Loop(string roomCode, bool loop)
         {
-
             var queue = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
             if (queue.IsLooping == loop)
             {
-                // If the state is already the same, do nothing
                 return;
             }
 
             queue.IsLooping = loop;
             await _dbContext.SaveChangesAsync();
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("LoopToggled", new LoopToggledEvent
+            {
+                RoomCode = roomCode,
+                IsLooping = loop
+            });
         }
 
         public async Task Skip(string roomCode, int index)
@@ -127,46 +140,68 @@ namespace KoodaamoJukebox.Api.Services
             var queue = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
-            if (queue.CurrentTrackIndex == index)
+
+            // Check if we're already at the requested index (considering shuffle state)
+            var currentIndex = queue.IsShuffled ? queue.CurrentItemShuffleIndex : queue.CurrentItemIndex;
+            if (currentIndex == index)
             {
                 // If the current track index is already the same, do nothing
                 return;
             }
 
-            var indexIsValid = await _dbContext.QueueItems.AnyAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
-            if (!indexIsValid)
+            var currentItem = await _dbContext.QueueItems.FirstOrDefaultAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
+            if (currentItem == null)
             {
                 throw new ArgumentException(nameof(index), "Index is not valid for the current queue.");
             }
 
-            queue.CurrentTrackIndex = index;
-            // Set CurrentTrackId
-            var currentItem = await _dbContext.QueueItems.FirstOrDefaultAsync(qi => qi.RoomCode == roomCode && (queue.IsShuffled ? qi.ShuffleIndex : qi.Index) == index && !qi.IsDeleted);
-            queue.CurrentTrackId = currentItem?.TrackId;
+            if (queue.IsShuffled)
+            {
+                queue.CurrentItemShuffleIndex = index;
+                queue.CurrentItemIndex = index; // Visual position matches shuffle position
+            }
+            else
+            {
+                queue.CurrentItemIndex = index;
+                queue.CurrentItemShuffleIndex = null;
+            }
+
+            queue.CurrentItemId = currentItem.Id;
+            queue.CurrentItemTrackId = currentItem.TrackId;
+
             queue.PausedAt = null;
             queue.PlayingSince = null;
-            //queue.PlayingSince = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 500; // set to now + offset
 
             await _dbContext.SaveChangesAsync();
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), Array.Empty<QueueItemDto>());
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("TrackSkipped", new TrackSkippedEvent
+            {
+                RoomCode = roomCode,
+                CurrentItemId = queue.CurrentItemId,
+                CurrentItemIndex = queue.CurrentItemIndex,
+                CurrentItemShuffleIndex = queue.CurrentItemShuffleIndex,
+                CurrentItemTrackId = queue.CurrentItemTrackId,
+            });
         }
 
         public async Task Move(string roomCode, int from, int to)
         {
-
             if (from < 0 || to < 0)
             {
                 throw new ArgumentException("Indices must be non-negative integers.");
             }
 
-            var queue = await _dbContext.RoomInfos
+            if (from == to)
+            {
+                return;
+            }
+
+            var roomInfo = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
             var queueList = await _dbContext.QueueItems
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
-                .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
+                .OrderBy(qi => roomInfo.IsShuffled ? qi.ShuffleIndex : qi.Index)
                 .ToListAsync();
 
             if (queueList.Count == 0)
@@ -179,70 +214,76 @@ namespace KoodaamoJukebox.Api.Services
                 throw new ArgumentException("Indices are out of range of the current queue.");
             }
 
-            if (from == to)
-            {
-                // If the indices are the same, do nothing
-                return;
-            }
-
-            // Update CurrentTrackIndex correctly when moving items
-            if (queue.CurrentTrackIndex == from)
-            {
-                queue.CurrentTrackIndex = to;
-                // We'll set CurrentTrackId after reordering
-            }
-            else if (from < queue.CurrentTrackIndex && to >= queue.CurrentTrackIndex)
-            {
-                queue.CurrentTrackIndex--;
-                // We'll set CurrentTrackId after reordering
-            }
-            else if (from > queue.CurrentTrackIndex && to <= queue.CurrentTrackIndex)
-            {
-                queue.CurrentTrackIndex++;
-                // We'll set CurrentTrackId after reordering
-            }
-
             var movedItem = queueList[from];
-            if (queue.IsShuffled)
+
+            if (roomInfo.IsShuffled)
             {
                 movedItem.ShuffleIndex = to;
+                if (roomInfo.CurrentItemShuffleIndex == from)
+                {
+                    roomInfo.CurrentItemShuffleIndex = to;
+                    roomInfo.CurrentItemIndex = to; // Update visual position as well
+                }
+                else if (from < roomInfo.CurrentItemShuffleIndex && to >= roomInfo.CurrentItemShuffleIndex)
+                {
+                    roomInfo.CurrentItemShuffleIndex--;
+                    roomInfo.CurrentItemIndex--;
+                }
+                else if (from > roomInfo.CurrentItemShuffleIndex && to <= roomInfo.CurrentItemShuffleIndex)
+                {
+                    roomInfo.CurrentItemShuffleIndex++;
+                    roomInfo.CurrentItemIndex++;
+                }
             }
             else
             {
                 movedItem.Index = to;
+                movedItem.ShuffleIndex = null;
+                if (roomInfo.CurrentItemIndex == from)
+                {
+                    roomInfo.CurrentItemIndex = to;
+                }
+                else if (from < roomInfo.CurrentItemIndex && to >= roomInfo.CurrentItemIndex)
+                {
+                    roomInfo.CurrentItemIndex--;
+                }
+                else if (from > roomInfo.CurrentItemIndex && to <= roomInfo.CurrentItemIndex)
+                {
+                    roomInfo.CurrentItemIndex++;
+                }
+                roomInfo.CurrentItemShuffleIndex = null;
             }
 
             queueList.RemoveAt(from);
             queueList.Insert(to, movedItem);
 
-            // Re-assign indices to reflect the new order
             for (int i = 0; i < queueList.Count; i++)
             {
-                if (queue.IsShuffled)
+                if (roomInfo.IsShuffled)
                 {
                     queueList[i].ShuffleIndex = i;
                 }
                 else
                 {
                     queueList[i].Index = i;
+                    queueList[i].ShuffleIndex = null;
                 }
             }
 
-            // Set CurrentTrackId to the item at CurrentTrackIndex after reordering
-            if (queue.CurrentTrackIndex != null && queue.CurrentTrackIndex >= 0 && queue.CurrentTrackIndex < queueList.Count)
-            {
-                queue.CurrentTrackId = queueList[queue.CurrentTrackIndex.Value].TrackId;
-            }
-
-            _dbContext.RoomInfos.Update(queue);
+            _dbContext.RoomInfos.Update(roomInfo);
             _dbContext.QueueItems.UpdateRange(queueList);
             await _dbContext.SaveChangesAsync();
 
-            var updatedItems = queueList.Select(i => new QueueItemDto(i)).ToList();
-
-            // Send move command to the group
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("QueueMoved", new QueueMovedEvent
+            {
+                RoomCode = roomCode,
+                From = from,
+                To = to,
+                CurrentItemIndex = roomInfo.CurrentItemIndex,
+                CurrentItemShuffleIndex = roomInfo.CurrentItemShuffleIndex,
+                CurrentItemId = roomInfo.CurrentItemId,
+                CurrentItemTrackId = roomInfo.CurrentItemTrackId
+            });
         }
 
         public async Task Add(string roomCode, string urlOrQuery)
@@ -314,7 +355,6 @@ namespace KoodaamoJukebox.Api.Services
                     {
                         _dbContext.Tracks.Update(existingTrack);
                     }
-                    // If no changes, skip updating
                 }
                 else
                 {
@@ -333,29 +373,20 @@ namespace KoodaamoJukebox.Api.Services
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .ToListAsync();
 
-            int insertIndex = roomInfo.CurrentTrackIndex ?? -1;
-            int insertUnshuffledIndex = insertIndex;
-            int insertShuffledIndex = insertIndex;
-
-            // Find the current track's unshuffled index (for shuffled mode)
-            if (roomInfo.IsShuffled)
-            {
-                var currentTrack = queueItems.FirstOrDefault(qi => qi.ShuffleIndex == insertIndex);
-                if (currentTrack != null)
-                {
-                    insertUnshuffledIndex = currentTrack.Index;
-                }
-            }
+            int insertUnshuffledIndex = roomInfo.CurrentItemIndex ?? -1;
+            int insertShuffledIndex = roomInfo.CurrentItemShuffleIndex ?? -1;
 
             // Shift indices of items after the insertion point
             if (roomInfo.IsShuffled)
             {
                 foreach (var item in queueItems)
                 {
+                    // Shift shuffle indices after current position
                     if (item.ShuffleIndex.HasValue && item.ShuffleIndex > insertShuffledIndex)
                     {
                         item.ShuffleIndex += uniqueTracks.Count;
                     }
+                    // Shift unshuffled indices after current track's unshuffled position
                     if (item.Index > insertUnshuffledIndex)
                     {
                         item.Index += uniqueTracks.Count;
@@ -366,14 +397,15 @@ namespace KoodaamoJukebox.Api.Services
             {
                 foreach (var item in queueItems)
                 {
-                    if (item.Index > insertIndex)
+                    // Shift unshuffled indices after current position
+                    if (item.Index > insertUnshuffledIndex)
                     {
                         item.Index += uniqueTracks.Count;
                     }
                 }
             }
 
-            // Insert new items at the correct position
+            // Insert new items at the correct position (next after current)
             var newQueueItems = new List<QueueItem>();
             for (int i = 0; i < uniqueTracks.Count; i++)
             {
@@ -383,182 +415,153 @@ namespace KoodaamoJukebox.Api.Services
                     RoomCode = roomCode,
                     TrackId = track.WebpageUrlHash,
                     IsDeleted = false,
-                    Index = (roomInfo.IsShuffled ? insertUnshuffledIndex : insertIndex) + 1 + i,
+                    Index = insertUnshuffledIndex + 1 + i,
                     ShuffleIndex = roomInfo.IsShuffled ? insertShuffledIndex + 1 + i : null
                 };
                 newQueueItems.Add(queueItem);
             }
             await _dbContext.QueueItems.AddRangeAsync(newQueueItems);
-            // Update all shifted items
             _dbContext.QueueItems.UpdateRange(queueItems);
 
-            if (roomInfo.CurrentTrackIndex == null && newQueueItems.Count > 0)
-            {
-                // If the queue was empty, set the current track to the first added item
-                roomInfo.CurrentTrackIndex = newQueueItems[0].ShuffleIndex ?? newQueueItems[0].Index;
-                roomInfo.CurrentTrackId = newQueueItems[0].TrackId;
-            }
-
-            await _dbContext.SaveChangesAsync();
-
-            // Prepare updated items for client
-            updatedItems.AddRange(newQueueItems.Select(i => new QueueItemDto(i)));
-            updatedItems.AddRange(queueItems.Select(i => new QueueItemDto(i)));
-
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), updatedItems);
-
-        }
-
-        public async Task Remove(string roomCode, int id)
-        {
-
-            if (id < 0)
-            {
-                throw new ArgumentException(nameof(id), "ID must be a non-negative integer.");
-            }
-
-            var queue = await _dbContext.RoomInfos
-                .Where(q => q.RoomCode == roomCode)
-                .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
-            var item = await _dbContext.QueueItems.FindAsync(id);
-
-            if (item == null)
-            {
-                throw new ArgumentException("Item not found.", nameof(id));
-            }
-            else if (item.RoomCode != roomCode)
-            {
-                throw new ArgumentException("Item does not belong to the specified room code", nameof(roomCode));
-            }
-            else if (queue.IsShuffled
-                ? item.ShuffleIndex == queue.CurrentTrackIndex
-                : item.Index == queue.CurrentTrackIndex
-            )
-            {
-                throw new InvalidOperationException("Cannot remove the current track from the queue.");
-            }
-            item.IsDeleted = true;
-            _dbContext.QueueItems.Update(item);
-            await _dbContext.SaveChangesAsync();
-
-            // important: to make sure the client wont have to fetch shifted items
-            var endTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-            // Only update indices of items to the right of the deleted item
-            var itemsToUpdate = await _dbContext.QueueItems
-                .Where(qi => qi.RoomCode == roomCode &&
-                    (queue.IsShuffled ? qi.ShuffleIndex > item.ShuffleIndex : qi.Index > item.Index) &&
-                    !qi.IsDeleted)
-                .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
-                .ToListAsync();
-
-            for (int i = 0; i < itemsToUpdate.Count; i++)
-            {
-                if (queue.IsShuffled)
+                // If queue was empty, set current item properties to the first newly added item
+                bool wasEmpty = queueItems.Count == 0;
+                if (wasEmpty && newQueueItems.Count > 0)
                 {
-                    itemsToUpdate[i].ShuffleIndex = item.ShuffleIndex + i; // shift left by 1
+                    roomInfo.CurrentItemIndex = 0;
+                    roomInfo.CurrentItemId = newQueueItems[0].Id;
+                    roomInfo.CurrentItemTrackId = newQueueItems[0].TrackId;
+                    if (roomInfo.IsShuffled)
+                    {
+                        roomInfo.CurrentItemShuffleIndex = newQueueItems[0].ShuffleIndex;
+                    }
+                    else
+                    {
+                        roomInfo.CurrentItemShuffleIndex = null;
+                    }
                 }
-                else
-                {
-                    itemsToUpdate[i].Index = item.Index + i; // shift left by 1
-                }
-            }
-            _dbContext.QueueItems.UpdateRange(itemsToUpdate);
+
             await _dbContext.SaveChangesAsync();
 
-            var updatedItems = itemsToUpdate.Select(i => new QueueItemDto(i)).ToList();
-            updatedItems.Insert(0, new QueueItemDto(item)); // Include the removed item in the update
+            var addedItems = newQueueItems.Select(i => new QueueItemDto(i)).ToList();
 
-            // Send remove command to the group
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("QueueAdded", new QueueAddedEvent
+            {
+                RoomCode = roomCode,
+                AddedItems = addedItems,
+                CurrentItemIndex = roomInfo.CurrentItemIndex,
+                CurrentItemShuffleIndex = roomInfo.CurrentItemShuffleIndex,
+                CurrentItemId = roomInfo.CurrentItemId,
+                CurrentItemTrackId = roomInfo.CurrentItemTrackId
+            });
         }
 
         public async Task Shuffle(string roomCode, bool shuffled)
         {
-
             var roomInfo = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
-            if (roomInfo.IsShuffled == shuffled)
-            {
-                // If the state is already the same, do nothing
-                return;
-            }
-
             var queueItems = await _dbContext.QueueItems
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                .OrderBy(qi => qi.Index)
                 .ToListAsync();
 
-            if (queueItems.Count == 0)
-            {
-                throw new InvalidOperationException("The queue is empty.");
-            }
+            if (roomInfo.IsShuffled == shuffled) return;
+            if (queueItems.Count == 0) return;
 
             roomInfo.IsShuffled = shuffled;
+            int? seed = null;
+
             if (shuffled)
             {
-                // Find the current track by Index (unshuffled)
-                var currentTrack = queueItems.FirstOrDefault(qi => qi.Index == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
-                if (currentTrack == null)
+                seed = ShuffleAlgorithm.GenerateSeed();
+                var currentItem = queueItems.FirstOrDefault(qi => qi.Id == roomInfo.CurrentItemId && !qi.IsDeleted);
+                List<QueueItem> changedItems = new();
+                if (currentItem == null)
                 {
-                    // If not found, just shuffle all
-                    var rng = new Random();
-                    var shuffledItems = queueItems.OrderBy(x => rng.Next()).ToList();
+                    var shuffledItems = ShuffleAlgorithm.Shuffle(queueItems, seed.Value);
                     for (int i = 0; i < shuffledItems.Count; i++)
                     {
-                        shuffledItems[i].ShuffleIndex = i;
+                        if (shuffledItems[i].ShuffleIndex != i)
+                        {
+                            shuffledItems[i].ShuffleIndex = i;
+                            changedItems.Add(shuffledItems[i]);
+                        }
                     }
-                    roomInfo.CurrentTrackIndex = 0;
-                    roomInfo.CurrentTrackId = null;
-                    _dbContext.QueueItems.UpdateRange(shuffledItems);
+                    roomInfo.CurrentItemIndex = 0;
+                    roomInfo.CurrentItemShuffleIndex = 0;
+                    roomInfo.CurrentItemId = shuffledItems.FirstOrDefault()?.Id;
+                    roomInfo.CurrentItemTrackId = shuffledItems.FirstOrDefault()?.TrackId;
                 }
                 else
                 {
-                    // Remove current track from list, shuffle the rest
-                    var otherTracks = queueItems.Where(qi => qi.Id != currentTrack.Id).OrderBy(x => Guid.NewGuid()).ToList();
-                    // Set current track ShuffleIndex = 0
-                    currentTrack.ShuffleIndex = 0;
-                    // Assign ShuffleIndex to others starting from 1
-                    for (int i = 0; i < otherTracks.Count; i++)
+                    var otherTracks = queueItems.Where(qi => qi.Id != currentItem.Id).ToList();
+                    var shuffledOthers = ShuffleAlgorithm.Shuffle(otherTracks, seed.Value);
+                    if (currentItem.ShuffleIndex != 0)
                     {
-                        otherTracks[i].ShuffleIndex = i + 1;
+                        currentItem.ShuffleIndex = 0;
+                        changedItems.Add(currentItem);
                     }
-                    // Set CurrentTrackIndex to 0
-                    roomInfo.CurrentTrackIndex = 0;
-                    roomInfo.CurrentTrackId = currentTrack.TrackId;
-                    _dbContext.QueueItems.Update(currentTrack);
-                    _dbContext.QueueItems.UpdateRange(otherTracks);
+                    for (int i = 0; i < shuffledOthers.Count; i++)
+                    {
+                        if (shuffledOthers[i].ShuffleIndex != i + 1)
+                        {
+                            shuffledOthers[i].ShuffleIndex = i + 1;
+                            changedItems.Add(shuffledOthers[i]);
+                        }
+                    }
+                    roomInfo.CurrentItemShuffleIndex = 0;
+                    roomInfo.CurrentItemIndex = 0;
+                    roomInfo.CurrentItemTrackId = currentItem.TrackId;
+                }
+                if (changedItems.Count > 0)
+                {
+                    _dbContext.QueueItems.UpdateRange(changedItems);
                 }
             }
             else
             {
-                // Find the current track by ShuffleIndex
-                var currentTrack = queueItems.FirstOrDefault(qi => qi.ShuffleIndex == roomInfo.CurrentTrackIndex && !qi.IsDeleted);
+                var currentItem = queueItems.FirstOrDefault(qi => qi.Id == roomInfo.CurrentItemId && !qi.IsDeleted);
+                if (currentItem == null)
+                {
+                    throw new InvalidOperationException("Current track not found in the queue.");
+                }
+                List<QueueItem> changedItems = new();
                 for (int i = 0; i < queueItems.Count; i++)
                 {
-                    queueItems[i].ShuffleIndex = null;
+                    if (queueItems[i].ShuffleIndex != null)
+                    {
+                        queueItems[i].ShuffleIndex = null;
+                        changedItems.Add(queueItems[i]);
+                    }
                 }
-                if (currentTrack != null)
+                roomInfo.CurrentItemIndex = currentItem.Index;
+                roomInfo.CurrentItemShuffleIndex = null;
+                roomInfo.CurrentItemTrackId = currentItem.TrackId;
+                if (changedItems.Count > 0)
                 {
-                    roomInfo.CurrentTrackIndex = currentTrack.Index;
-                    roomInfo.CurrentTrackId = currentTrack.TrackId;
+                    _dbContext.QueueItems.UpdateRange(changedItems);
                 }
-                _dbContext.QueueItems.UpdateRange(queueItems);
             }
             _dbContext.RoomInfos.Update(roomInfo);
 
             await _dbContext.SaveChangesAsync();
 
-            var updatedItems = queueItems.Select(i => new QueueItemDto(i)).ToList();
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), updatedItems);
-
+            // Only send minimal info to clients
+            await _hubContext.Clients.Group(roomCode).SendAsync("ShuffleToggled", new ShuffleToggledEvent
+            {
+                RoomCode = roomCode,
+                IsShuffled = shuffled,
+                Seed = seed,
+                CurrentItemIndex = roomInfo.CurrentItemIndex,
+                CurrentItemShuffleIndex = roomInfo.CurrentItemShuffleIndex,
+                CurrentItemId = roomInfo.CurrentItemId,
+                CurrentItemTrackId = roomInfo.CurrentItemTrackId
+            });
         }
 
         public async Task Clear(string roomCode)
         {
-
-            var queue = await _dbContext.RoomInfos
+            var roomInfo = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
 
@@ -568,16 +571,7 @@ namespace KoodaamoJukebox.Api.Services
                 .ToListAsync())
                 .ToDictionary(qi => qi.Id);
 
-            // Find the current item (by shuffled or unshuffled index)
-            QueueItem? currentItem = null;
-            if (queue.IsShuffled)
-            {
-                currentItem = items.Values.FirstOrDefault(qi => qi.ShuffleIndex == queue.CurrentTrackIndex);
-            }
-            else
-            {
-                currentItem = items.Values.FirstOrDefault(qi => qi.Index == queue.CurrentTrackIndex);
-            }
+            var currentItem = items.Values.FirstOrDefault(qi => qi.Id == roomInfo.CurrentItemId);
             if (currentItem == null)
             {
                 throw new ArgumentException("Current track not found.", nameof(roomCode));
@@ -594,81 +588,79 @@ namespace KoodaamoJukebox.Api.Services
             }
 
             // Reset indices for the current item
+            roomInfo.CurrentItemIndex = 0;
             currentItem.Index = 0;
-            if (queue.IsShuffled)
+            if (roomInfo.IsShuffled)
             {
+                roomInfo.CurrentItemShuffleIndex = 0;
                 currentItem.ShuffleIndex = 0;
             }
 
-            queue.CurrentTrackIndex = 0;
-            queue.CurrentTrackId = currentItem.TrackId;
-
             _dbContext.QueueItems.Update(currentItem);
-            _dbContext.RoomInfos.Update(queue);
+            _dbContext.RoomInfos.Update(roomInfo);
 
             await _dbContext.SaveChangesAsync();
 
-            var updatedItems = new List<QueueItemDto> { new QueueItemDto(currentItem) };
-            foreach (var item in items.Values)
+            await _hubContext.Clients.Group(roomCode).SendAsync("QueueCleared", new QueueClearedEvent
             {
-                updatedItems.Add(new QueueItemDto(item));
-            }
-
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
-
+                RoomCode = roomCode,
+                CurrentItemId = currentItem.Id
+            });
         }
 
-        public async Task Delete(string roomCode, int index)
+        public async Task Delete(string roomCode, int itemId)
         {
-
-            if (index < 0)
-            {
-                throw new ArgumentException(nameof(index), "Index must be a non-negative integer.");
-            }
-
             var queue = await _dbContext.RoomInfos
                 .Where(q => q.RoomCode == roomCode)
                 .FirstOrDefaultAsync() ?? throw new ArgumentException("Instance not found.", nameof(roomCode));
+
+            var item = await _dbContext.QueueItems
+                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.Id == itemId)
+                .FirstOrDefaultAsync() ?? throw new ArgumentException("Item not found.", nameof(itemId));
+
+            if (item.Id == queue.CurrentItemId)
+            {
+                throw new InvalidOperationException("Cannot delete the current track from the queue.");
+            }
+
             var queueItems = await _dbContext.QueueItems
                 .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
                 .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
                 .ToListAsync();
 
-            if (index >= queueItems.Count)
-            {
-                throw new ArgumentException(nameof(index), "Index is out of range of the current queue.");
-            }
+            // Find the index of the item to delete in the ordered list
+            var index = queueItems.FindIndex(qi => qi.Id == itemId);
+            // Find the index of the item to delete in the ordered list
+            var deletedItemIndex = queueItems.FindIndex(qi => qi.Id == itemId);
 
-            var item = queueItems[index];
-            if (queue.IsShuffled ? item.ShuffleIndex == queue.CurrentTrackIndex : item.Index == queue.CurrentTrackIndex)
-            {
-                throw new InvalidOperationException("Cannot delete the current track from the queue.");
-            }
             item.IsDeleted = true;
             _dbContext.QueueItems.Update(item);
             await _dbContext.SaveChangesAsync();
 
             // Store the current track's unique identifier before shifting
-            var currentTrackId = queue.CurrentTrackId;
+            var currentTrackId = queue.CurrentItemTrackId;
 
             // Update indices of items to the right of the deleted item
-            var itemsToUpdate = queueItems.Skip(index + 1).ToList();
+            if (queue.IsShuffled)
+            {
+                var shuffledItems = queueItems.OrderBy(qi => qi.ShuffleIndex).ToList();
+                var shuffledItemsToUpdate = shuffledItems.Skip(deletedItemIndex + 1).ToList();
+                for (int i = 0; i < shuffledItemsToUpdate.Count; i++)
+                {
+                    shuffledItemsToUpdate[i].ShuffleIndex--;
+                }
+                _dbContext.QueueItems.UpdateRange(shuffledItemsToUpdate);
+            }
+
+            var itemsToUpdate = queueItems.OrderBy(qi => qi.Index).Skip(deletedItemIndex + 1).ToList();
             for (int i = 0; i < itemsToUpdate.Count; i++)
             {
-                if (queue.IsShuffled && itemsToUpdate[i].ShuffleIndex.HasValue)
-                {
-                    itemsToUpdate[i].ShuffleIndex--;
-                }
-                else
-                {
-                    itemsToUpdate[i].Index--;
-                }
+                itemsToUpdate[i].Index--;
             }
             _dbContext.QueueItems.UpdateRange(itemsToUpdate);
-            await _dbContext.SaveChangesAsync();
 
-            // After shifting, recalculate CurrentTrackIndex if needed
-            if (queue.CurrentTrackIndex != null && index < queue.CurrentTrackIndex)
+            // After shifting, recalculate CurrentItemIndex if needed
+            if (queue.CurrentItemIndex != null && deletedItemIndex < queue.CurrentItemIndex)
             {
                 // Find the current track by its unique identifier
                 var newCurrent = await _dbContext.QueueItems
@@ -676,28 +668,128 @@ namespace KoodaamoJukebox.Api.Services
                     .FirstOrDefaultAsync();
                 if (newCurrent != null)
                 {
-                    queue.CurrentTrackIndex = queue.IsShuffled ? newCurrent.ShuffleIndex : newCurrent.Index;
-                    queue.CurrentTrackId = newCurrent.TrackId;
+                    // Find the visual position of the current track in the ordered list
+                    var updatedQueueItems = await _dbContext.QueueItems
+                        .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                        .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
+                        .ToListAsync();
+
+                    var currentVisualIndex = updatedQueueItems.FindIndex(qi => qi.Id == newCurrent.Id);
+                    if (currentVisualIndex >= 0)
+                    {
+                        queue.CurrentItemIndex = currentVisualIndex;
+                        if (queue.IsShuffled)
+                        {
+                            queue.CurrentItemShuffleIndex = newCurrent.ShuffleIndex;
+                        }
+                    }
+                    queue.CurrentItemTrackId = newCurrent.TrackId;
                 }
                 else
                 {
-                    // fallback: set to first non-deleted item
-                    var first = await _dbContext.QueueItems
-                        .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
-                        .OrderBy(qi => queue.IsShuffled ? qi.ShuffleIndex : qi.Index)
-                        .FirstOrDefaultAsync();
-                    queue.CurrentTrackId = first?.TrackId;
-                    queue.CurrentTrackIndex = queue.IsShuffled ? first?.ShuffleIndex : first?.Index;
+                    throw new InvalidOperationException("Current track not found after deletion.");
                 }
                 _dbContext.RoomInfos.Update(queue);
-                await _dbContext.SaveChangesAsync();
             }
 
+            if (!queue.CurrentItemIndex.HasValue || string.IsNullOrEmpty(queue.CurrentItemTrackId))
+            {
+                throw new InvalidOperationException("Current track index or ID is not set after deletion.");
+            }
+
+            await _dbContext.SaveChangesAsync();
+
             var updatedItems = itemsToUpdate.Select(i => new QueueItemDto(i)).ToList();
-            updatedItems.Insert(0, new QueueItemDto(item)); // Include the deleted item in the update
+            var deletedItem = new QueueItemDto(item);
 
-            await _hubContext.Clients.Group(roomCode).SendAsync("RoomUpdate", new RoomInfoDto(queue), updatedItems);
-
+            await _hubContext.Clients.Group(roomCode).SendAsync("QueueDeleted", new QueueDeletedEvent
+            {
+                RoomCode = roomCode,
+                DeletedItemId = item.Id,
+                CurrentItemIndex = (int)queue.CurrentItemIndex,
+                CurrentItemShuffleIndex = queue.CurrentItemShuffleIndex,
+            });
         }
+    }
+
+    // Base event class
+    public abstract class RoomEvent
+    {
+        public string RoomCode { get; set; } = string.Empty;
+        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    }
+
+    // Pause/Unpause event
+    public class PauseToggledEvent : RoomEvent
+    {
+        public bool IsPaused { get; set; }
+        public long? PlayingSince { get; set; }
+    }
+
+    // Loop toggle event
+    public class LoopToggledEvent : RoomEvent
+    {
+        public bool IsLooping { get; set; }
+    }
+
+    // Shuffle toggle event
+    public class ShuffleToggledEvent : RoomEvent
+    {
+        public bool IsShuffled { get; set; }
+        public int? Seed { get; set; }
+        public int? CurrentItemIndex { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
+        public int? CurrentItemId { get; set; }
+        public string? CurrentItemTrackId { get; set; }
+    }
+
+    // Seek event
+    public class TrackSeekedEvent : RoomEvent
+    {
+        public long? PlayingSince { get; set; }
+    }
+
+    // Skip event
+    public class TrackSkippedEvent : RoomEvent
+    {
+        public int? CurrentItemIndex { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
+        public int? CurrentItemId { get; set; }
+        public string? CurrentItemTrackId { get; set; }
+    }
+
+    // Move event
+    public class QueueMovedEvent : RoomEvent
+    {
+        public int From { get; set; }
+        public int To { get; set; }
+        public int? CurrentItemIndex { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
+        public int? CurrentItemId { get; set; }
+        public string? CurrentItemTrackId { get; set; }
+    }
+
+    // Add event
+    public class QueueAddedEvent : RoomEvent
+    {
+        public List<QueueItemDto> AddedItems { get; set; } = new();
+        public int? CurrentItemIndex { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
+        public int? CurrentItemId { get; set; }
+        public string? CurrentItemTrackId { get; set; }
+    }
+
+    // Clear event
+    public class QueueClearedEvent : RoomEvent
+    {
+        public int CurrentItemId { get; set; }
+    }
+
+    // Delete event
+    public class QueueDeletedEvent : RoomEvent
+    {
+        public int DeletedItemId { get; set; }
+        public int CurrentItemIndex { get; set; }
+        public int? CurrentItemShuffleIndex { get; set; }
     }
 }

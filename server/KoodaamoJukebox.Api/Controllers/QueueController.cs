@@ -113,7 +113,7 @@ namespace KoodaamoJukebox.Api.Controllers
                 return Unauthorized("RoomCode not found in user claims.");
             }
 
-            await _queueService.Remove(roomCode, id);
+            await _queueService.Delete(roomCode, id);
             return NoContent();
         }
 

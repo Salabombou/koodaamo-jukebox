@@ -257,18 +257,18 @@ class Jukebox(commands.Cog):
 
             await safe_reply(ctx, f"🗑️ Removed track with ID {track_id}!")
 
-    @commands.command(description="Delete a track from the queue by index")
-    async def delete(self, ctx: commands.Context, index: int):
-        """Delete track by index"""
-        if index < 0:
-            await safe_reply(ctx, "❌ Index must be non-negative!")
+    @commands.command(description="Delete a track from the queue by item ID")
+    async def delete(self, ctx: commands.Context, item_id: int):
+        """Delete track by item ID"""
+        if item_id < 0:
+            await safe_reply(ctx, "❌ Item ID must be non-negative!")
             return
 
         async with ctx.typing():
             token = await utils.api.get_token_from_context(ctx)
-            await utils.api.delete_track(token, index)
+            await utils.api.delete_track(token, item_id)
 
-            await safe_reply(ctx, f"🗑️ Deleted track at index {index}!")
+            await safe_reply(ctx, f"🗑️ Deleted track with item ID {item_id}!")
 
     @commands.command(description="Show the current queue")
     async def queue(self, ctx: commands.Context, page: int = 1):

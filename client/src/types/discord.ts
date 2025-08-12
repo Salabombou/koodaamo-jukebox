@@ -1,4 +1,4 @@
-import { DiscordSDK } from "@discord/embedded-app-sdk";
+import type { DiscordSDK } from "@discord/embedded-app-sdk";
 import type { AsyncReturnType } from "type-fest";
 
 export type TDiscordSDK = InstanceType<typeof DiscordSDK>;

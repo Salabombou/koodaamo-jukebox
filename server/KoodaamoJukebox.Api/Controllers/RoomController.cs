@@ -178,35 +178,12 @@ namespace KoodaamoJukebox.Api.Controllers
         }
 
         /// <summary>
-        /// Remove a track from the queue by ID
-        /// </summary>
-        [HttpPost("remove")]
-        public async Task<ActionResult<RoomResponse>> Remove([FromBody] TimestampedIntRequest request)
-        {
-            var roomCode = GetRoomCodeFromClaims();
-
-            if (request.Value < 0)
-            {
-                return BadRequest("ID must be non-negative.");
-            }
-
-            await _queueService.Remove(roomCode, request.Value);
-
-            return await GetRoom();
-        }
-
-        /// <summary>
-        /// Delete a track from the queue by index
+        /// Delete a track from the queue by ID
         /// </summary>
         [HttpPost("delete")]
         public async Task<ActionResult<RoomResponse>> Delete([FromBody] TimestampedIntRequest request)
         {
             var roomCode = GetRoomCodeFromClaims();
-
-            if (request.Value < 0)
-            {
-                return BadRequest("Index must be non-negative.");
-            }
 
             await _queueService.Delete(roomCode, request.Value);
 

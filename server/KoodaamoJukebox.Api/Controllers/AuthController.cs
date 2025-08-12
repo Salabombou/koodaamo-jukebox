@@ -150,25 +150,25 @@ namespace KoodaamoJukebox.Api.Controllers
                 }
 
                 // create queue for the roomCode if it doesn't exist
-                var queue = await _dbContext.RoomInfos.FirstOrDefaultAsync(q => q.RoomCode == dto.RoomCode);
-                if (queue == null)
+                var roomInfo = await _dbContext.RoomInfos.FirstOrDefaultAsync(q => q.RoomCode == dto.RoomCode);
+                if (roomInfo == null)
                 {
-                    queue = new RoomInfo
+                    roomInfo = new RoomInfo
                     {
                         RoomCode = dto.RoomCode,
                         IsEmbedded = dto.IsEmbedded,
                     };
-                    _dbContext.RoomInfos.Add(queue);
+                    _dbContext.RoomInfos.Add(roomInfo);
                 }
 
-                if (queue.IsEmbedded != dto.IsEmbedded)
+                if (roomInfo.IsEmbedded != dto.IsEmbedded)
                 {
                     return BadRequest("Room code does not match the embedded status");
                 }
 
                 dbUser.IsEmbedded = dto.IsEmbedded;
                 dbUser.Username = username;
-                dbUser.AssociatedRoomCode = queue.RoomCode;
+                dbUser.AssociatedRoomCode = roomInfo.RoomCode;
 
                 if (dbUser.ConnectionId != null)
                 {

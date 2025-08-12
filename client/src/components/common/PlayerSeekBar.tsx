@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Track } from "../../types/track";
+import type { Track } from "../../types/track";
 
 import Timestamp from "./Timestamp";
 

@@ -23,7 +23,6 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      // Import sorting & grouping
       "simple-import-sort/imports": [
         "error",
         {
@@ -42,6 +41,14 @@ export default tseslint.config(
         },
       ],
       "simple-import-sort/exports": "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          disallowTypeAnnotations: false,
+          fixStyle: "separate-type-imports",
+        },
+      ],
     },
   },
 );

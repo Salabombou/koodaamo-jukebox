@@ -1,4 +1,5 @@
-import { ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Marquee from "react-fast-marquee";
 
 /**
@@ -22,7 +23,7 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
   const [containerOffsetWidth, setContainerOffsetWidth] = useState(0);
   const [marqueeKey, setMarqueeKey] = useState(0); // key to force re-mount
   const [measured, setMeasured] = useState(false); // hide until first measurement to prevent flicker
-  
+
   const marqueeWidth = scrollWidth + containerOffsetWidth;
 
   // Debounced check function to avoid excessive calculations
@@ -72,13 +73,7 @@ export default function MarqueeText({ children }: MarqueeTextProps) {
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden", visibility: measured ? "visible" : "hidden" }}>
-      <Marquee
-        play={shouldMarquee}
-        style={shouldMarquee ? { width: `${marqueeWidth}px` } : undefined}
-        pauseOnHover
-        key={marqueeKey}
-        delay={1}
-      >
+      <Marquee play={shouldMarquee} style={shouldMarquee ? { width: `${marqueeWidth}px` } : undefined} pauseOnHover key={marqueeKey} delay={1}>
         <div className="truncate" ref={textRef}>
           {children}
         </div>

@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { LS_KEY_AUTH_TOKEN, TIME_SYNC_SAMPLE_DELAY_MS, TIME_SYNC_SAMPLES } from "../constants";
+
 let serverTimeOffset: number | null = null;
 
 interface TimeSample {
@@ -12,7 +14,7 @@ async function performTimeSample(isEmbedded: boolean): Promise<TimeSample> {
   const clientSend = performance.now();
   const response = await axios.get(`${isEmbedded ? "/.proxy" : ""}/api/time`, {
     headers: {
-      Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      Authorization: `Bearer ${localStorage.getItem(LS_KEY_AUTH_TOKEN)}`,
     },
   });
   const clientReceive = performance.now();
@@ -60,7 +62,7 @@ function removeOutliers(samples: TimeSample[]): TimeSample[] {
  * @param isEmbedded Whether the client runs inside the embedded Discord context (affects base URL).
  */
 export async function syncServerTime(isEmbedded: boolean) {
-  const numSamples = 5; // Reduced from 8 for faster sync
+  const numSamples = TIME_SYNC_SAMPLES; // number of samples (configurable)
   const samples: TimeSample[] = [];
 
   console.log("Starting time synchronization with", numSamples, "samples...");
@@ -74,7 +76,7 @@ export async function syncServerTime(isEmbedded: boolean) {
 
       // Shorter delay between samples
       if (i < numSamples - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 25)); // Reduced from 50ms
+        await new Promise((resolve) => setTimeout(resolve, TIME_SYNC_SAMPLE_DELAY_MS));
       }
     } catch (error) {
       console.warn(`Time sample ${i + 1} failed:`, error);

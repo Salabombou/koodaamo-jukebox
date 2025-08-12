@@ -37,8 +37,8 @@ namespace KoodaamoJukebox.Database
             {
                 entity.ToTable("Queues");
                 entity.HasIndex(q => q.RoomCode).IsUnique();
-                entity.HasIndex(q => q.CurrentTrackIndex);
-                entity.HasIndex(q => q.CurrentTrackId);
+                entity.HasIndex(q => q.CurrentItemIndex);
+                entity.HasIndex(q => q.CurrentItemTrackId);
                 entity.Property(q => q.RoomCode).IsRequired();
                 entity.Property(q => q.IsPaused).IsRequired();
                 entity.Property(q => q.IsLooping).IsRequired();

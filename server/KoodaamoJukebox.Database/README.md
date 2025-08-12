@@ -3,5 +3,5 @@
 ## Adding changes to Migrations
 
 ```bash
-dotnet ef migrations add "MigrationNameHere" --startup-project ../Api
+dotnet ef migrations add "MigrationNameHere" --startup-project ../KoodaamoJukebox.Api
 ```

@@ -75,20 +75,13 @@ namespace KoodaamoJukebox.Api.Hubs
             var user = await _dbContext.Users
                 .Where(u => u.UserId == userId)
                 .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("User not found in the database.");
-            var roomInfo = await _dbContext.RoomInfos
-                .Where(q => q.RoomCode == roomCode)
-                .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("RoomInfo not found for the specified room code");
-            var queueItems = await _dbContext.QueueItems
-                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
-                .Select(qi => new QueueItemDto(qi))
-                .ToListAsync() ?? throw new UnauthorizedAccessException("QueueItems not found for the specified room code");
             await base.OnConnectedAsync();
 
             user.ConnectionId = Context.ConnectionId;
             await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
             await _dbContext.SaveChangesAsync();
 
-            await Clients.Caller.SendAsync("RoomUpdate", new RoomInfoDto(roomInfo), queueItems);
+            await Clients.Caller.SendAsync("Connected");
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -123,6 +116,28 @@ namespace KoodaamoJukebox.Api.Hubs
         {
             await Clients.Caller.SendAsync("Pong");
         }
+
+        public async Task RoomInfo()
+        {
+            var roomCode = Context.User?.FindFirstValue("room_code");
+
+            if (string.IsNullOrEmpty(roomCode))
+            {
+                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
+            }
+
+            var roomInfo = await _dbContext.RoomInfos
+                .Where(q => q.RoomCode == roomCode)
+                .FirstOrDefaultAsync() ?? throw new UnauthorizedAccessException("RoomInfo not found for the specified room code");
+
+            var queueItems = await _dbContext.QueueItems
+                .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted)
+                .Select(qi => new QueueItemDto(qi))
+                .ToListAsync() ?? throw new UnauthorizedAccessException("QueueItems not found for the specified room code");
+
+            await Clients.Caller.SendAsync("RoomInfo", new RoomInfoDto(roomInfo), queueItems);
+        }
+
 
         public async Task PauseToggle(long sentAt, bool paused)
         {
@@ -236,7 +251,7 @@ namespace KoodaamoJukebox.Api.Hubs
             await _queueService.Add(roomCode, videoId);
         }
 
-        public async Task Remove(long sentAt, int index)
+        public async Task Delete(long sentAt, int itemId)
         {
             long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (Math.Abs(currentTime - sentAt) > 5000)
@@ -248,22 +263,7 @@ namespace KoodaamoJukebox.Api.Hubs
             {
                 throw new UnauthorizedAccessException("RoomCode not found in user claims.");
             }
-            await _queueService.Remove(roomCode, index);
-        }
-
-        public async Task Delete(long sentAt, int index)
-        {
-            long currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (Math.Abs(currentTime - sentAt) > 5000)
-            {
-                throw new ArgumentException("Timestamp difference is too large.", nameof(sentAt));
-            }
-            var roomCode = Context.User?.FindFirstValue("room_code");
-            if (string.IsNullOrEmpty(roomCode))
-            {
-                throw new UnauthorizedAccessException("RoomCode not found in user claims.");
-            }
-            await _queueService.Delete(roomCode, index);
+            await _queueService.Delete(roomCode, itemId);
         }
 
         /*public async Task Clear(long sentAt)
