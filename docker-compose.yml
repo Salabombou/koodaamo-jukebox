@@ -1,0 +1,66 @@
+services:
+  server:
+    build:
+      context: ./server
+      target: final
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:${PORT:-8080}
+      - ConnectionStrings__KoodaamoJukeboxDb=${CONNECTION_STRING}
+      - Jwt__Secret=${JWT_SECRET}
+      - Discord__ClientSecret=${DISCORD_CLIENT_SECRET}
+      - Discord__ClientId=${DISCORD_CLIENT_ID}
+      - Discord__RedirectUri=${DISCORD_REDIRECT_URI}
+      - YouTube__ApiKey=${YOUTUBE_API_KEY}
+      - YtDlp__Path=${YT_DLP_PATH}
+    volumes:
+      - client-build:/app/wwwroot:ro
+    depends_on:
+      client:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    restart: always
+    network_mode: host
+    ports:
+      - "8080:8080"
+
+  migrate:
+    build:
+      context: ./server
+      target: update-database
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__KoodaamoJukeboxDb=${CONNECTION_STRING}
+    network_mode: host
+
+  client:
+    build:
+      context: ./client
+    volumes:
+      - type: tmpfs
+        target: /app/build
+      - client-build:/app/build:rw
+    environment:
+      - NODE_ENV=production
+      - VITE_DISCORD_APPLICATION_ID=${VITE_DISCORD_APPLICATION_ID}
+      - VITE_DISCORD_OAUTH2_URL=${VITE_DISCORD_OAUTH2_URL}
+
+  bot:
+    build:
+      context: ./bot
+    environment:
+      - ENV=production
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - API_BASE_URL=http://127.0.0.1:${PORT:-8080}
+      - API_BASE_URL_PROD=${API_BASE_URL_PROD}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - server
+    restart: always
+    network_mode: host
+
+volumes:
+  client-build:
+
