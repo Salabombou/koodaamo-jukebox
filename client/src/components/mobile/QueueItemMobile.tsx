@@ -4,13 +4,14 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import type { QueueItem } from "../../types/queue";
-import ContextMenu, { type ContextMenuItem, type ContextMenuRef } from "../common/ContextMenu";
 import type { QueueItemProps } from "../common/QueueList";
+
+import ContextMenuMobile, { type ContextMenuMobileItem, type ContextMenuMobileRef } from "./ContextMenuMobile";
 
 function QueueItemMobileComponent({ index, style, data, track, currentItemId, thumbnailBlob = "/black.jpg", onDelete, onSkip, onPlayNext, controlsDisabled = false }: QueueItemProps) {
   const item = data[index] as QueueItem | undefined;
 
-  const contextMenuRef = useRef<ContextMenuRef>(null);
+  const contextMenuRef = useRef<ContextMenuMobileRef>(null);
 
   // For progress bar indicator
   const [touchActive, setTouchActive] = useState(false);
@@ -30,7 +31,7 @@ function QueueItemMobileComponent({ index, style, data, track, currentItemId, th
   };
 
   // Create context menu items
-  const contextMenuItems: ContextMenuItem[] = [
+  const contextMenuItems: ContextMenuMobileItem[] = [
     {
       children: "Play Next",
       action: handlePlayNext,
@@ -84,11 +85,14 @@ function QueueItemMobileComponent({ index, style, data, track, currentItemId, th
           className="absolute left-0 top-0 h-full bg-white/5 rounded-xs"
           style={{
             width: `${touchActive ? 100 : 0}%`,
-            transition: touchActive ? "width 0.6s linear" : "none",
+            transition: touchActive ? "width 0.3s linear" : "none",
+          }}
+          onTransitionEnd={() => {
+            if (touchActive) setTouchActive(false);
           }}
         />
       </div>
-      <ContextMenu ref={contextMenuRef} items={contextMenuItems} controlsDisabled={controlsDisabled}>
+      <ContextMenuMobile ref={contextMenuRef} items={contextMenuItems} controlsDisabled={controlsDisabled}>
         <div className="h-full flex items-center justify-start ml-4 pr-16">
           <div className="flex items-center flex-1 min-w-0" onDoubleClick={() => onSkip(index)}>
             <div>
@@ -100,7 +104,7 @@ function QueueItemMobileComponent({ index, style, data, track, currentItemId, th
             </div>
           </div>
         </div>
-      </ContextMenu>
+      </ContextMenuMobile>
       <div
         {...attributes}
         {...listeners}

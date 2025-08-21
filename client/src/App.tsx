@@ -42,8 +42,8 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    timeService.syncServerTime(discordSDK.isEmbedded);
-  }, [discordSDK.isEmbedded]);
+    timeService.syncServerTime();
+  }, []);
 
   useEffect(() => {
     player.current!.setVolume(Number(localStorage.getItem("volume") ?? 0.01));

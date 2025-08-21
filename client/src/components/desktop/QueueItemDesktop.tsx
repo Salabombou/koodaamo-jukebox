@@ -4,8 +4,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import type { QueueItem } from "../../types/queue";
-import ContextMenu from "../common/ContextMenu";
 import type { QueueItemProps } from "../common/QueueList";
+
+import ContextMenuDesktop from "./ContextMenuDesktop";
 
 function QueueItemDesktopComponent({
   index,
@@ -81,7 +82,7 @@ function QueueItemDesktopComponent({
           `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
         ].join(" ")}
       >
-        <ContextMenu items={contextMenuItems} controlsDisabled={controlsDisabled}>
+        <ContextMenuDesktop items={contextMenuItems} controlsDisabled={controlsDisabled}>
           <div className="flex flex-row-reverse xl:flex-row items-center w-full h-full select-none">
             <div className="flex items-center">
               <button
@@ -107,7 +108,7 @@ function QueueItemDesktopComponent({
               </div>
             </div>
           </div>
-        </ContextMenu>
+        </ContextMenuDesktop>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import axios from "axios";
 
-import { LS_KEY_AUTH_TOKEN, TIME_SYNC_SAMPLE_DELAY_MS, TIME_SYNC_SAMPLES } from "../constants";
+import { LS_KEY_AUTH_TOKEN, LS_KEY_IS_EMBEDDED, TIME_SYNC_INTERVAL, TIME_SYNC_SAMPLE_DELAY_MS, TIME_SYNC_SAMPLES } from "../constants";
 
 let serverTimeOffset: number | null = null;
+let lastSyncTime: number | null = null;
 
 interface TimeSample {
   offset: number;
@@ -10,7 +11,9 @@ interface TimeSample {
   delay: number;
 }
 
-async function performTimeSample(isEmbedded: boolean): Promise<TimeSample> {
+async function performTimeSample(): Promise<TimeSample> {
+  const isEmbedded = !!localStorage.getItem(LS_KEY_IS_EMBEDDED);
+
   const clientSend = performance.now();
   const response = await axios.get(`${isEmbedded ? "/.proxy" : ""}/api/time`, {
     headers: {
@@ -61,7 +64,7 @@ function removeOutliers(samples: TimeSample[]): TimeSample[] {
  * Uses median of lowest‑RTT samples after outlier removal for stability.
  * @param isEmbedded Whether the client runs inside the embedded Discord context (affects base URL).
  */
-export async function syncServerTime(isEmbedded: boolean) {
+export async function syncServerTime() {
   const numSamples = TIME_SYNC_SAMPLES; // number of samples (configurable)
   const samples: TimeSample[] = [];
 
@@ -70,7 +73,7 @@ export async function syncServerTime(isEmbedded: boolean) {
   // Collect multiple samples with shorter delay
   for (let i = 0; i < numSamples; i++) {
     try {
-      const sample = await performTimeSample(isEmbedded);
+      const sample = await performTimeSample();
       samples.push(sample);
       console.log(`Sample ${i + 1}: offset=${sample.offset.toFixed(2)}ms, rtt=${sample.rtt.toFixed(2)}ms`);
 
@@ -85,6 +88,7 @@ export async function syncServerTime(isEmbedded: boolean) {
 
   if (samples.length === 0) {
     console.error("No successful time samples collected");
+    lastSyncTime = null;
     return;
   }
 
@@ -114,8 +118,13 @@ export async function syncServerTime(isEmbedded: boolean) {
  */
 export function getServerNow(): number {
   if (serverTimeOffset === null) {
-    // fallback to client time
     return Date.now();
+  }
+  if (Date.now() - (lastSyncTime || 0) > TIME_SYNC_INTERVAL) {
+    lastSyncTime = Date.now();
+    syncServerTime().catch(() => {
+      lastSyncTime = null;
+    });
   }
   return Date.now() + serverTimeOffset;
 }

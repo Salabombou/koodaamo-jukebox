@@ -8,13 +8,13 @@ import type { QueueItem } from "../../types/queue";
 import type { Track } from "../../types/track";
 import type { AboutModalRef } from "../common/AboutModal";
 import AboutModal from "../common/AboutModal";
-import type { ContextMenuItem } from "../common/ContextMenu";
-import ContextMenu from "../common/ContextMenu";
 import MarqueeText from "../common/MarqueeText";
 import PlayerSeekBar from "../common/PlayerSeekBar";
 import SeekOverlay from "../common/SeekOverlay";
 import VolumeSlider from "../common/VolumeSlider";
 
+import type { ContextMenuMobileItem} from "./ContextMenuMobile";
+import ContextMenuMobile from "./ContextMenuMobile";
 import QueueMobile from "./QueueMobile";
 
 /**
@@ -108,7 +108,7 @@ export default function InterfaceMobile({
     };
   }, [track?.id, discordSDK.isEmbedded]);
 
-  const contextMenuItems: ContextMenuItem[] = [
+  const contextMenuItems: ContextMenuMobileItem[] = [
     {
       children: "Copy URL",
       action: () => {
@@ -144,7 +144,7 @@ export default function InterfaceMobile({
     <>
       {/* Player section: hidden when dropdown is open */}
       <div className={`w-5/6 mb-20 flex flex-col select-none text-white transition-opacity duration-300 ease-in-out justify-start ${dropdownClosed ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-        <ContextMenu controlsDisabled={disabled} items={contextMenuItems}>
+        <ContextMenuMobile controlsDisabled={disabled} items={contextMenuItems}>
           <div className="relative aspect-square w-full">
             <img src={imageBlobUrl || "/black.jpg"} alt="Track Thumbnail" className="aspect-square object-cover w-full h-full rounded-lg pointer-events-none" />
             <SeekOverlay className="rounded-lg" width="45%" onSeek={onPositionSeek} />
@@ -157,7 +157,7 @@ export default function InterfaceMobile({
               <h4 className="text-sm opacity-75">{track?.uploader?.trim() ?? "???"}</h4>
             </MarqueeText>
           </div>
-        </ContextMenu>
+        </ContextMenuMobile>
         <div className="mt-2">
           <PlayerSeekBar itemId={currentItemId} duration={duration} timestamp={timestamp} onSeek={onSeekBarSeek} />
         </div>

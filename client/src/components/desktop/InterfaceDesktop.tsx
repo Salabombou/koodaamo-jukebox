@@ -8,13 +8,13 @@ import type { QueueItem } from "../../types/queue";
 import type { Track } from "../../types/track";
 import type { AboutModalRef } from "../common/AboutModal";
 import AboutModal from "../common/AboutModal";
-import ContextMenu from "../common/ContextMenu";
 import MarqueeText from "../common/MarqueeText";
 import PlayerSeekBar from "../common/PlayerSeekBar";
 import RoomCodeButton from "../common/RoomCodeButton";
 import SeekOverlay from "../common/SeekOverlay";
 import VolumeSlider from "../common/VolumeSlider";
 
+import ContextMenuDesktop from "./ContextMenuDesktop";
 import QueueDesktop from "./QueueDesktop";
 
 interface InterfaceDesktopProps {
@@ -111,7 +111,7 @@ export default function MusicPlayerInterface({
         </div>
 
         <div className="card bg-transparent xs:bg-music-player-interface h-38 xs:h-auto rounded-none">
-          <ContextMenu
+          <ContextMenuDesktop
             controlsDisabled={disabled}
             items={[
               {
@@ -132,7 +132,7 @@ export default function MusicPlayerInterface({
                 </div>
               </div>
             </figure>
-          </ContextMenu>
+          </ContextMenuDesktop>
           <div className="card-body h-50">
             <div>
               <MarqueeText>
