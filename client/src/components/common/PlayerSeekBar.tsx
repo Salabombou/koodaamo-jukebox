@@ -49,8 +49,8 @@ export default function PlayerSeekBar({ duration, timestamp, onSeek, itemId }: P
         onKeyDown={(e) => e.preventDefault()}
       />
       <div className="flex justify-between select-none">
-        <label children={<Timestamp timestamp={timestamp} />} />
-        <label children={<Timestamp timestamp={duration ?? 0} />} />
+        <span children={<Timestamp timestamp={timestamp} />} />
+        <span children={<Timestamp timestamp={duration ?? 0} />} />
       </div>
     </div>
   );

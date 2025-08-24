@@ -111,20 +111,15 @@ export default function ContextMenuMobile({ children, controlsDisabled, items, r
     >
       {children}
       {!controlsDisabled && (
-        <dialog
-          className="modal backdrop-blur-xs"
-          ref={dialogRef}
-          onClose={handleDialogClose}
-          onClickCapture={handleModalClickCapture}
-        >
+        <dialog className="modal backdrop-blur-xs" ref={dialogRef} onClose={handleDialogClose} onClickCapture={handleModalClickCapture}>
           <div className="modal-box p-0 bg-context-menu backdrop-blur shadow rounded-box w-11/12 max-w-xs">
             <ul className="menu w-full">
               {items.map((item, idx) => (
                 <li key={idx} className={item.className}>
                   <button
-                    className="w-full text-left"
+                    className="w-full text-left text-lg"
                     style={{ WebkitTapHighlightColor: "transparent", color: "inherit" }}
-                    onMouseDown={e => e.preventDefault()} // Prevent focus highlight on tap
+                    onMouseDown={(e) => e.preventDefault()} // Prevent focus highlight on tap
                     onClick={() => {
                       item.action();
                       if (dialogRef.current) dialogRef.current.close();

@@ -16,7 +16,7 @@ namespace KoodaamoJukebox.Api.Controllers
     {
         private readonly KoodaamoJukeboxDbContext _dbContext;
         private readonly ILogger<AudioController> _logger;
-        private readonly HttpClient _httpClient = new HttpClient();
+    // private readonly HttpClient _httpClient = new HttpClient();
         private readonly SemaphoreSlim _hlsPlaylistLock = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _hlsSegmentLock = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _audioFileLock = new SemaphoreSlim(1, 1);
@@ -27,9 +27,6 @@ namespace KoodaamoJukebox.Api.Controllers
             _dbContext = dbContext;
             _logger = logger;
             _ytDlp = new YtDlp(configuration);
-
-            _httpClient.Timeout = TimeSpan.FromSeconds(30);
-
         }
 
         [HttpGet("{webpageUrlHash}/")]
@@ -85,33 +82,42 @@ namespace KoodaamoJukebox.Api.Controllers
                 return NotFound($"Track with hash '{webpageUrlHash}' not found.");
             }
 
-            var hlsPlaylist = await _dbContext.HlsPlaylists
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.WebpageUrlHash == track.WebpageUrlHash);
-            if (hlsPlaylist != null && hlsPlaylist.ExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
-            {
-                _dbContext.HlsPlaylists.Remove(hlsPlaylist);
-                await _dbContext.SaveChangesAsync();
-                hlsPlaylist = null; // Force re-fetch
-            }
 
+            var hlsPlaylist = await _dbContext.HlsPlaylists
+                .FirstOrDefaultAsync(p => p.WebpageUrlHash == track.WebpageUrlHash);
             if (hlsPlaylist != null)
             {
-                return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
+                // If expired, remove and allow recreation
+                if (hlsPlaylist.ExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                {
+                    _dbContext.HlsPlaylists.Remove(hlsPlaylist);
+                    await _dbContext.SaveChangesAsync();
+                    hlsPlaylist = null;
+                }
+                else
+                {
+                    // Playlist exists and is valid, redirect
+                    return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
+                }
             }
+
 
             var audioStream = await _ytDlp.GetAudioStream(track.WebpageUrl);
             if (audioStream.Type == YtDlpAudioStreamType.M3U8Native)
             {
-                var newHlsPlaylist = new HlsPlaylist
+                // Double-check for existing playlist before insert (race condition safety)
+                var existingPlaylist = await _dbContext.HlsPlaylists.FirstOrDefaultAsync(p => p.WebpageUrlHash == webpageUrlHash);
+                if (existingPlaylist == null)
                 {
-                    WebpageUrlHash = webpageUrlHash,
-                    DownloadUrl = audioStream.Url,
-                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()
-                };
-
-                _dbContext.HlsPlaylists.Add(newHlsPlaylist);
-                await _dbContext.SaveChangesAsync();
+                    var newHlsPlaylist = new HlsPlaylist
+                    {
+                        WebpageUrlHash = webpageUrlHash,
+                        DownloadUrl = audioStream.Url,
+                        ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()
+                    };
+                    _dbContext.HlsPlaylists.Add(newHlsPlaylist);
+                    await _dbContext.SaveChangesAsync();
+                }
                 return RedirectToAction(nameof(GetPlaylist), new { webpageUrlHash = track.WebpageUrlHash });
             }
             else if (audioStream.Type == YtDlpAudioStreamType.HTTPS)
@@ -124,13 +130,7 @@ namespace KoodaamoJukebox.Api.Controllers
                     DownloadUrlHash = audioDownloadUrlHash
                 };
                 newHlsSegment.Path = Path.GetTempFileName();
-                using (var response = await _httpClient.GetAsync(audioStream.Url, HttpCompletionOption.ResponseHeadersRead))
-                {
-                    response.EnsureSuccessStatusCode();
-                    using var responseStream = await response.Content.ReadAsStreamAsync();
-                    using var fileStream = new FileStream(newHlsSegment.Path, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await responseStream.CopyToAsync(fileStream);
-                }
+                await Utilities.CurlHelper.DownloadFileAsync(audioStream.Url, newHlsSegment.Path);
 
                 // Use Ffmpeg utility to segment the audio file into 10s HLS segments and generate m3u8
                 string playlistPath;
@@ -145,15 +145,19 @@ namespace KoodaamoJukebox.Api.Controllers
                     return StatusCode(500, "Failed to segment audio file with ffmpeg.");
                 }
 
-                // Create HlsPlaylist entry
-                var newHlsPlaylist = new HlsPlaylist
+                // Double-check for existing playlist before insert (race condition safety)
+                var existingPlaylist = await _dbContext.HlsPlaylists.FirstOrDefaultAsync(p => p.WebpageUrlHash == webpageUrlHash);
+                if (existingPlaylist == null)
                 {
-                    WebpageUrlHash = webpageUrlHash,
-                    DownloadUrl = audioStream.Url,
-                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds(),
-                    Path = playlistPath
-                };
-                _dbContext.HlsPlaylists.Add(newHlsPlaylist);
+                    var newHlsPlaylist = new HlsPlaylist
+                    {
+                        WebpageUrlHash = webpageUrlHash,
+                        DownloadUrl = audioStream.Url,
+                        ExpiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds(),
+                        Path = playlistPath
+                    };
+                    _dbContext.HlsPlaylists.Add(newHlsPlaylist);
+                }
 
                 // Add HlsSegment entries for each segment
                 foreach (var segmentFile in segmentFiles)
@@ -216,10 +220,14 @@ namespace KoodaamoJukebox.Api.Controllers
 
             try
             {
-                var hlsPlaylistContent = await _httpClient.GetStringAsync(hlsPlaylist.DownloadUrl);
+                var hlsPlaylistContent = await Utilities.CurlHelper.GetStringAsync(hlsPlaylist.DownloadUrl);
                 var hlsPlaylistLines = hlsPlaylistContent.Split('\n');
                 var segmentUrlHashes = new SortedSet<string>();
 
+                if (string.IsNullOrEmpty(hlsPlaylist.DownloadUrl))
+                {
+                    throw new InvalidOperationException("HLS playlist DownloadUrl is null or empty.");
+                }
                 var baseUrl = new Uri(hlsPlaylist.DownloadUrl).GetLeftPart(UriPartial.Authority);
                 string? segmentBaseUrl = null;
                 for (int i = 0; i < hlsPlaylistLines.Length; i++)
@@ -362,13 +370,7 @@ namespace KoodaamoJukebox.Api.Controllers
             try
             {
                 hlsSegment.Path = Path.GetTempFileName();
-                using (var response = await _httpClient.GetAsync(hlsSegment.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
-                {
-                    response.EnsureSuccessStatusCode();
-                    using var responseStream = await response.Content.ReadAsStreamAsync();
-                    using var fileStream = new FileStream(hlsSegment.Path, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await responseStream.CopyToAsync(fileStream);
-                }
+                await Utilities.CurlHelper.DownloadFileAsync(hlsSegment.DownloadUrl, hlsSegment.Path);
 
                 await _dbContext.SaveChangesAsync();
             }

@@ -18,7 +18,7 @@ namespace KoodaamoJukebox.Database.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrl = table.Column<string>(type: "text", nullable: true),
                     ExpiresAt = table.Column<long>(type: "bigint", nullable: false),
                     Path = table.Column<string>(type: "text", nullable: true)
                 },
@@ -34,8 +34,8 @@ namespace KoodaamoJukebox.Database.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrlHash = table.Column<string>(type: "text", nullable: false),
+                    DownloadUrl = table.Column<string>(type: "text", nullable: true),
+                    DownloadUrlHash = table.Column<string>(type: "text", nullable: true),
                     Path = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>

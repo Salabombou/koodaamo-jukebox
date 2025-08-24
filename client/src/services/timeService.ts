@@ -12,7 +12,7 @@ interface TimeSample {
 }
 
 async function performTimeSample(): Promise<TimeSample> {
-  const isEmbedded = !!localStorage.getItem(LS_KEY_IS_EMBEDDED);
+  const isEmbedded = localStorage.getItem(LS_KEY_IS_EMBEDDED) === "true";
 
   const clientSend = performance.now();
   const response = await axios.get(`${isEmbedded ? "/.proxy" : ""}/api/time`, {

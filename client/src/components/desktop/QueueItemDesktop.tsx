@@ -103,8 +103,8 @@ function QueueItemDesktopComponent({
                 <img src={thumbnailBlob} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
               </div>
               <div className="flex flex-col overflow-hidden w-full pl-4 select-none">
-                <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
-                <label className="text-s truncate select-none opacity-75">{track?.uploader}</label>
+                <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
+                <span className="text-s truncate select-none opacity-75">{track?.uploader}</span>
               </div>
             </div>
           </div>

@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KoodaamoJukebox.Database.Migrations
 {
     [DbContext(typeof(KoodaamoJukeboxDbContext))]
-    [Migration("20250812141836_InitialCreate")]
+    [Migration("20250823204848_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -33,7 +33,6 @@ namespace KoodaamoJukebox.Database.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DownloadUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("ExpiresAt")
@@ -63,11 +62,9 @@ namespace KoodaamoJukebox.Database.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DownloadUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("DownloadUrlHash")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Path")

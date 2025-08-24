@@ -1,6 +1,8 @@
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { DiscordSDK, DiscordSDKMock, RPCCloseCodes } from "@discord/embedded-app-sdk";
 
+import { LS_KEY_IS_EMBEDDED } from "../constants";
+
 const DiscordSDKContext = createContext<((DiscordSDK | DiscordSDKMock) & { isEmbedded: boolean }) | null>(null);
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -53,7 +55,7 @@ export function DiscordSDKProvider({ children }: { children: ReactNode }) {
           },
         });
       }
-      localStorage.setItem("is_embedded", String(isEmbedded));
+      localStorage.setItem(LS_KEY_IS_EMBEDDED, String(isEmbedded));
       await newSdk.ready();
       setSdk(Object.assign(newSdk, { isEmbedded }));
     })();

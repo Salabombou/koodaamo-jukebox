@@ -36,7 +36,7 @@ export default function ContextMenuDesktop({ ref, children, controlsDisabled, it
   useImperativeHandle(ref, () => ({
     get isOpen() {
       return visible;
-    }
+    },
   }));
 
   useEffect(() => {

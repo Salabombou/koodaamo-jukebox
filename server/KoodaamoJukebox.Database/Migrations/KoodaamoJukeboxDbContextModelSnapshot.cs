@@ -30,7 +30,6 @@ namespace KoodaamoJukebox.Database.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DownloadUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("ExpiresAt")
@@ -60,11 +59,9 @@ namespace KoodaamoJukebox.Database.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DownloadUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("DownloadUrlHash")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Path")

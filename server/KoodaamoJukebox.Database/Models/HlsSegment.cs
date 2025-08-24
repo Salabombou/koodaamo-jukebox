@@ -15,11 +15,9 @@ namespace KoodaamoJukebox.Database.Models
         [Required]
         public required string WebpageUrlHash { get; set; }
 
-        [Required]
-        public required string DownloadUrl { get; set; }
+        public string? DownloadUrl { get; set; }
 
-        [Required]
-        public required string DownloadUrlHash { get; set; }
+        public string? DownloadUrlHash { get; set; }
 
         public string? Path { get; set; }
     }

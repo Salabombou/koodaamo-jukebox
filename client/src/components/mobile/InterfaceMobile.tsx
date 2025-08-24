@@ -13,7 +13,7 @@ import PlayerSeekBar from "../common/PlayerSeekBar";
 import SeekOverlay from "../common/SeekOverlay";
 import VolumeSlider from "../common/VolumeSlider";
 
-import type { ContextMenuMobileItem} from "./ContextMenuMobile";
+import type { ContextMenuMobileItem } from "./ContextMenuMobile";
 import ContextMenuMobile from "./ContextMenuMobile";
 import QueueMobile from "./QueueMobile";
 

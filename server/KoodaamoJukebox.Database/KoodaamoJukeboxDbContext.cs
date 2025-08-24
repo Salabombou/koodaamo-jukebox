@@ -62,7 +62,6 @@ namespace KoodaamoJukebox.Database
                 entity.HasKey(p => p.Id);
                 entity.HasIndex(p => p.WebpageUrlHash).IsUnique();
                 entity.Property(p => p.WebpageUrlHash).IsRequired();
-                entity.Property(p => p.DownloadUrl).IsRequired();
                 entity.Property(p => p.ExpiresAt).IsRequired();
             });
 
@@ -73,8 +72,6 @@ namespace KoodaamoJukebox.Database
                 entity.HasIndex(s => s.WebpageUrlHash);
                 entity.HasIndex(s => s.DownloadUrlHash).IsUnique();
                 entity.Property(s => s.WebpageUrlHash).IsRequired();
-                entity.Property(s => s.DownloadUrl).IsRequired();
-                entity.Property(s => s.DownloadUrlHash).IsRequired();
             });
         }
 
