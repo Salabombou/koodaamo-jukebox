@@ -34,8 +34,9 @@ namespace KoodaamoJukebox.Api.Utilities
             return output.ToString();
         }
 
-        public static async Task DownloadFileAsync(string url, string destinationPath)
+        public static async Task DownloadFileAsync(string url, string destinationPath, Microsoft.Extensions.Logging.ILogger? logger = null, string? context = null)
         {
+            var sw = Stopwatch.StartNew();
             using (var process = new Process())
             {
                 process.StartInfo.FileName = "curl";
@@ -45,13 +46,23 @@ namespace KoodaamoJukebox.Api.Utilities
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.CreateNoWindow = true;
 
+                logger?.LogInformation("CurlHelper: Running curl command: curl -sL {Url} -o {Dest} (context={Context})", url, destinationPath, context);
                 process.Start();
+                var stdOut = await process.StandardOutput.ReadToEndAsync();
+                var stdErr = await process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync();
+                sw.Stop();
+
+                logger?.LogInformation("CurlHelper: curl finished in {ElapsedMs}ms (context={Context})", sw.ElapsedMilliseconds, context);
+                if (!string.IsNullOrWhiteSpace(stdOut))
+                    logger?.LogInformation("CurlHelper: curl stdout: {StdOut} (context={Context})", stdOut, context);
+                if (!string.IsNullOrWhiteSpace(stdErr))
+                    logger?.LogWarning("CurlHelper: curl stderr: {StdErr} (context={Context})", stdErr, context);
 
                 if (process.ExitCode != 0)
                 {
-                    var error = await process.StandardError.ReadToEndAsync();
-                    throw new Exception($"curl failed: {error}");
+                    logger?.LogError("CurlHelper: curl failed with exit code {ExitCode} (context={Context})", process.ExitCode, context);
+                    throw new Exception($"curl failed: {stdErr}");
                 }
             }
         }

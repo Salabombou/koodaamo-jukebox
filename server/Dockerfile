@@ -17,7 +17,6 @@ FROM build AS publish
 WORKDIR /src/KoodaamoJukebox.Api
 RUN dotnet publish "KoodaamoJukebox.Api.csproj" -c Release -o /app/publish
 
-
 # Stage for running database migration
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS update-database
 WORKDIR /src/KoodaamoJukebox.Database
@@ -29,9 +28,19 @@ CMD ["dotnet-ef", "database", "update", "--startup-project", "../KoodaamoJukebox
 # Final stage
 FROM base AS final
 WORKDIR /app
-RUN apk add --no-cache curl python3 ffmpeg
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+
+# Install system deps, python, ffmpeg, and pip
+RUN apk update && apk add --no-cache \
+    curl \
+    python3 \
+    ffmpeg
+
+#RUN python3 -m ensurepip
+
+# Install yt-dlp and required Python libraries
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp && \
     chmod a+rx /usr/local/bin/yt-dlp
+
 COPY --from=publish /app/publish .
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
