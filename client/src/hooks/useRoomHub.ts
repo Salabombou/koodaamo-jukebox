@@ -331,20 +331,6 @@ export default function useRoomHub() {
           updatedItems.set(item.id, item);
         }
 
-        const sortedItems = Array.from(updatedItems.values()).sort((a, b) => a.index - b.index);
-        for (let i = 0; i < sortedItems.length; i++) {
-          const item = sortedItems[i];
-          item.index = i;
-        }
-
-        if (isShuffledRef.current) {
-          const shuffledItems = Array.from(updatedItems.values()).sort((a, b) => a.shuffled_index! - b.shuffled_index!);
-          for (let i = 0; i < shuffledItems.length; i++) {
-            const item = shuffledItems[i];
-            item.index = i;
-          }
-        }
-
         queueItemsRef.current = updatedItems;
         setQueueItems(new Map(queueItemsRef.current));
         setQueueList(
@@ -395,10 +381,27 @@ export default function useRoomHub() {
         // Update state
         setCurrentItemIndex(event.current_item_index);
         setCurrentItemShuffleIndex(event.current_item_shuffle_index);
+        
         const updatedItems = new Map(queueItemsRef.current);
         updatedItems.delete(event.deleted_item_id);
+        
+        // Re-assign indices to remaining items
+        const remainingItems = Array.from(updatedItems.values()).sort((a, b) => {
+          const aIndex = isShuffledRef.current ? (a.shuffled_index ?? a.index) : a.index;
+          const bIndex = isShuffledRef.current ? (b.shuffled_index ?? b.index) : b.index;
+          return aIndex - bIndex;
+        });
+        
+        for (let i = 0; i < remainingItems.length; i++) {
+          const item = remainingItems[i];
+          if (isShuffledRef.current) {
+            updatedItems.set(item.id, { ...item, shuffled_index: i });
+          } else {
+            updatedItems.set(item.id, { ...item, index: i });
+          }
+        }
+        
         queueItemsRef.current = updatedItems;
-
         setQueueItems(new Map(queueItemsRef.current));
         setQueueList(
           Array.from(queueItemsRef.current.values()).sort((a, b) => {
