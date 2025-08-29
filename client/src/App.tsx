@@ -1,9 +1,6 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
-import type { ErrorData } from "hls.js";
-import Hls from "hls.js";
 
-import type { AudioPlayerRef } from "./components/common/AudioPlayer";
-import AudioPlayer from "./components/common/AudioPlayer";
+import AudioPlayer, { type AudioPlayerRef } from "./components/common/AudioPlayer";
 import GradientBackground from "./components/common/GradientBackground";
 import InterfaceDesktop from "./components/desktop/InterfaceDesktop";
 import InterfaceMobile from "./components/mobile/InterfaceMobile";
@@ -14,11 +11,11 @@ import useRoomHub from "./hooks/useRoomHub";
 import * as apiService from "./services/apiService";
 import * as timeService from "./services/timeService";
 import type { Track } from "./types/track";
+import { LS_KEY_AUTH_TOKEN } from "./constants";
 
 export default function App() {
   const discordSDK = useDiscordSDK();
   const { playingSince, currentItemIndex, currentItemId, isLooping, isPaused, isShuffled, queueItems, queueList, invokeRoomAction, invokePending, invokeError } = useRoomHub();
-  const player = useRef<AudioPlayerRef>(null);
   const modalRef = useRef<HTMLDialogElement>(null as unknown as HTMLDialogElement);
   const seeking = useRef(true);
   const lastHlsTrackId = useRef<string | null>(null);
@@ -32,6 +29,8 @@ export default function App() {
   const [timestamp, setTimestamp] = useState(0);
   const [audioReady, setAudioReady] = useState(false);
 
+  const player = useRef<AudioPlayerRef>(null);
+
   useEffect(() => {
     if (!discordSDK.isEmbedded) {
       modalRef.current.showModal();
@@ -42,11 +41,13 @@ export default function App() {
   }, [discordSDK.isEmbedded]);
 
   useEffect(() => {
-    timeService.syncServerTime(discordSDK.isEmbedded);
-  }, [discordSDK.isEmbedded]);
+    timeService.syncServerTime();
+  }, []);
 
   useEffect(() => {
-    player.current!.setVolume(Number(localStorage.getItem("volume") ?? 0.01));
+    const initialVolume = Number(localStorage.getItem("volume") ?? 0.01);
+    setVolume(initialVolume);
+    player.current?.setVolume(initialVolume);
   }, []);
 
   useEffect(() => {
@@ -71,52 +72,6 @@ export default function App() {
       document.removeEventListener("contextmenu", handleContextMenu);
     };
   }, []);
-
-  useEffect(() => {
-    if (!player.current) return;
-    if (!isReady) return;
-    if (!audioReady) return;
-
-    console.log("Playing since:", playingSince);
-    if (playingSince === null) {
-      setTimestamp(0);
-      return;
-    }
-
-    const msSince = timeService.getServerNow() - playingSince;
-    console.log("Milliseconds since playing started:", msSince);
-
-    // Check if estimated resume time is past the duration
-    const estimatedResumeTime = msSince / 1000;
-    if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
-      console.log("Estimated resume time is past duration, skipping to beginning");
-      seeking.current = true;
-      player.current.seek(0);
-      setTimestamp(0);
-      invokeRoomAction("Seek", 0, isPaused);
-      return;
-    }
-
-    if (msSince < 0) {
-      setTimeout(() => {
-        // Only play if all conditions are met
-        if (!player.current) return;
-        if (!isPaused && audioReady && isReady && player.current.paused) {
-          console.log("Centralized: Ensuring playback after delay");
-          player.current.play();
-        }
-      }, Math.abs(msSince));
-      player.current.seek(0);
-      setTimestamp(0);
-    }
-    if (isPaused) {
-      console.log("Pausing audio playback");
-      player.current.pause();
-    } else if (player.current.paused) {
-      console.log("Resuming audio playback");
-      player.current.play();
-    }
-  }, [playingSince, isPaused, duration, isReady, audioReady, invokeRoomAction, isLooping]);
 
   useEffect(() => {
     if (typeof invokeError !== "string") return;
@@ -160,47 +115,13 @@ export default function App() {
   }, [queueItems, tracks]);
 
   useEffect(() => {
-    if (!isReady || !player.current) return;
-    const currentUniqueId = currentTrack ? currentTrack.id : null;
-    const lastUniqueId = lastHlsTrackId.current;
-
-    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
-      lastHlsTrackId.current = currentUniqueId;
-      skipOnFatalError.current = false;
-      preFetch.current = false;
-      setAudioReady(false);
-      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
-      player.current.loadSource(src);
-      setDuration(0);
-      setTimestamp(0);
-      console.log("Loading new track:", currentTrack.title);
-    } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
-      if (typeof playingSince === "number" && duration > 0) {
-        const currentTime = timeService.getServerNow();
-        const elapsedTime = (currentTime - playingSince) / 1000;
-        const seekPosition = Math.max(0, Math.min(elapsedTime, duration));
-
-        if (Math.abs(player.current.currentTime - seekPosition) > 1) {
-          player.current.seek(seekPosition);
-          setTimestamp(seekPosition);
-          console.log("Restoring playback position to", seekPosition, "seconds");
-        }
-      } else {
-        player.current.seek(0);
-        setTimestamp(0);
-      }
-      setAudioReady(true);
-    }
-  }, [currentTrack, discordSDK.isEmbedded, isReady, playingSince, duration]);
-
-  useEffect(() => {
     if (!isReady) return;
     if (!audioReady) return;
     if (playingSince === null) return;
     if (isPaused) return;
     if (!player.current) return;
 
-    if (player.current.paused) {
+    if (!player.current.paused) {
       player.current.play();
     }
   }, [audioReady, isReady, playingSince, isPaused]);
@@ -322,19 +243,20 @@ export default function App() {
   const handleVolumeChange = useCallback((volume: number) => {
     if (!player.current) return;
     volume = Math.min(Math.max(volume, 0), 1);
-    player.current.setVolume(volume);
     localStorage.setItem("volume", String(volume));
+    player.current?.setVolume(volume);
     setVolume(volume);
   }, []);
 
   const handleCanPlayThrough = useCallback(() => {
     if (!isReady) return;
     setAudioReady(true);
+    player.current?.setVolume(volume);
     if (!isPaused && playingSince === null) {
       console.log("Resuming playback after can play through");
       invokeRoomAction("PauseToggle", false);
     }
-  }, [isPaused, playingSince, invokeRoomAction, isReady]);
+  }, [isPaused, playingSince, invokeRoomAction, isReady, volume]);
 
   const handleEnded = useCallback(() => {
     if (!player.current) return;
@@ -344,7 +266,7 @@ export default function App() {
       player.current.play();
       invokeRoomAction("Seek", 0, false);
     } else {
-      // Fully reset underlying element to avoid a brief replay of old buffered audio
+      // Reset player to prevent old audio from playing when skipping to next track
       player.current.reset();
       if (typeof currentItemIndex === "number") {
         if (currentItemIndex + 1 >= queueItems.size && queueItems.size > 0) {
@@ -366,17 +288,21 @@ export default function App() {
     if (seeking.current) return;
     if (invokePending) return;
 
+    const newestDuration = duration;
+
+    setDuration(newestDuration);
+
     const currentTime = timeService.getServerNow();
     if (typeof playingSince === "number") {
       const elapsedTime = (currentTime - playingSince) / 1000;
 
-      if (elapsedTime > duration && duration > 0) {
+      if (elapsedTime > newestDuration && newestDuration > 0) {
         return;
       }
 
       if (elapsedTime >= 1 && Math.abs(player.current.currentTime - elapsedTime) > 1) {
         desyncCount.current++;
-        if (desyncCount.current >= 10) {
+        if (desyncCount.current >= 25) {
           console.log("Fixing desync, setting currentTime to", elapsedTime);
           player.current.seek(elapsedTime);
           desyncCount.current = 0;
@@ -389,12 +315,12 @@ export default function App() {
       }
     }
 
-    const newTimestamp = Math.max(player.current.currentTime ?? 0, 0);
-    if (!isNaN(newTimestamp)) {
+    const newTimestamp = Math.max(player.current.currentTime, 0);
+    if (!isNaN(newTimestamp) && !player.current.paused) {
       setTimestamp(newTimestamp);
     }
 
-    if (typeof currentItemIndex !== "number" || queueItems.size === 0 || duration === 0 || currentItemIndex < 0 || currentItemIndex >= queueItems.size) {
+    if (typeof currentItemIndex !== "number" || queueItems.size === 0 || newestDuration === 0 || currentItemIndex < 0 || currentItemIndex >= queueItems.size) {
       return;
     } // No next track
 
@@ -406,53 +332,94 @@ export default function App() {
       }
     }
     if (!nextTrack) return;
-    const timeLeft = duration - (player.current.currentTime ?? 0);
-    if (timeLeft <= 10 && timeLeft > 0) {
+    const timeLeft = newestDuration - player.current.currentTime;
+    if (timeLeft <= 15 && timeLeft > 0) {
       // Prefetch next track audio
       const nextTrackId = nextTrack.id;
       const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
-      const token = localStorage.getItem("auth_token");
+      const token = localStorage.getItem(LS_KEY_AUTH_TOKEN);
       if (preFetch.current) return;
       preFetch.current = true;
       fetch(src, {
-        method: "GET",
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
     }
-  }, [playingSince, duration, currentItemIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, invokePending]);
+  }, [playingSince, currentItemIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, invokePending, duration]);
+
+  useEffect(() => {
+    const timeUpdateInterval = window.setInterval(() => {
+      if (player.current && !player.current.paused) {
+        handleTimeUpdate();
+      }
+    }, 100);
+
+    return () => {
+      if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval);
+      }
+    };
+  });
 
   const handleFatalError = useCallback(
-    (data: ErrorData | Event | string) => {
-      if (skipOnFatalError.current) return; // Prevent multiple skips
+    (error: unknown) => {
+      if (skipOnFatalError.current) return;
       skipOnFatalError.current = true;
 
-      if (typeof data === "string") return;
+      if (typeof error === "string") return;
 
-      if ("fatal" in data) {
-        switch (data.type) {
-          case Hls.ErrorTypes.NETWORK_ERROR:
-            console.error("Network error occurred while loading audio:", data);
-            break;
-          case Hls.ErrorTypes.MEDIA_ERROR:
-            console.error("Media error occurred while loading audio:", data);
-            break;
-          case Hls.ErrorTypes.OTHER_ERROR:
-            console.error("An unknown error occurred while loading audio:", data);
-            break;
-          default:
-            console.error("Unhandled HLS error type:", data.type, data);
-            break;
-        }
-      } else if (data instanceof Event) {
-        console.error("Audio Player error:", data);
-      }
-
+      console.error("Audio Player error:", error);
       if (typeof currentItemIndex === "number") {
         invokeRoomAction("Skip", currentItemIndex + 1);
       }
     },
     [currentItemIndex, invokeRoomAction],
   );
+
+  useEffect(() => {
+    if (!isReady) return;
+    if (!audioReady) return;
+    if (!player.current) return;
+
+    console.log("Playing since:", playingSince);
+    if (playingSince === null) {
+      setTimestamp(0);
+      return;
+    }
+
+    const msSince = timeService.getServerNow() - playingSince;
+    console.log("Milliseconds since playing started:", msSince);
+
+    // Check if estimated resume time is past the duration
+    const estimatedResumeTime = msSince / 1000;
+    if (estimatedResumeTime >= duration && duration > 0 && !isLooping) {
+      console.log("Estimated resume time is past duration, skipping to beginning");
+      seeking.current = true;
+      player.current.seek(0);
+      setTimestamp(0);
+      invokeRoomAction("Seek", 0, isPaused);
+      return;
+    }
+
+    if (msSince < 0) {
+      setTimeout(() => {
+        // Only play if all conditions are met
+        if (!isPaused && audioReady && isReady && player.current?.paused) {
+          console.log("Centralized: Ensuring playback after delay");
+          player.current!.play();
+        }
+      }, Math.abs(msSince));
+      player.current.seek(0);
+      setTimestamp(0);
+    }
+    if (isPaused) {
+      console.log("Pausing audio playback");
+      player.current.pause();
+    } else if (player.current.paused) {
+      console.log("Resuming audio playback");
+      player.current.play();
+    }
+  }, [playingSince, isPaused, duration, isReady, audioReady, invokeRoomAction, isLooping]);
 
   useEffect(() => {
     const handleArrowleft = () => {
@@ -536,7 +503,6 @@ export default function App() {
     duration,
     timestamp,
     isPaused,
-    player,
     discordSDK,
   });
 
@@ -547,9 +513,52 @@ export default function App() {
     playingSince,
   });
 
+
+
+    useEffect(() => {
+    if (!isReady) return;
+    const currentUniqueId = currentTrack ? currentTrack.id : null;
+    const lastUniqueId = lastHlsTrackId.current;
+
+    if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
+      lastHlsTrackId.current = currentUniqueId;
+      skipOnFatalError.current = false;
+      preFetch.current = false;
+      setAudioReady(false);
+      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
+      player.current!.loadSource(src);
+      setDuration(0);
+      setTimestamp(0);
+      console.log("Loading new track:", currentTrack.title);
+    } else if (typeof currentUniqueId === "string" && lastUniqueId === currentUniqueId) {
+      if (typeof playingSince === "number" && duration > 0) {
+        const currentTime = timeService.getServerNow();
+        const elapsedTime = (currentTime - playingSince) / 1000;
+        const seekPosition = Math.max(0, Math.min(elapsedTime, duration));
+
+        if (player.current && Math.abs(player.current.currentTime - seekPosition) > 1 && !player.current.paused) {
+          player.current.seek(seekPosition);
+          setTimestamp(seekPosition);
+          console.log("Restoring playback position to", seekPosition, "seconds");
+        }
+      } else if (player.current) {
+        player.current.seek(0);
+        setTimestamp(0);
+      }
+      setAudioReady(true);
+    }
+  }, [currentTrack, discordSDK.isEmbedded, isReady, playingSince, duration]);
+
   return (
     <>
-      <AudioPlayer ref={player} onDuration={setDuration} onFatalError={handleFatalError} onEnded={handleEnded} onCanPlayThrough={handleCanPlayThrough} onTimeUpdate={handleTimeUpdate} />
+      <AudioPlayer
+        ref={player}
+        onDuration={(duration) => setDuration(duration)}
+        onFatalError={handleFatalError}
+        onEnded={handleEnded}
+        onCanPlayThrough={handleCanPlayThrough}
+        onTimeUpdate={handleTimeUpdate}
+      />
       <GradientBackground sourceImage={currentTrack?.id && `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`} />
       <dialog className="modal backdrop-blur-xs" ref={modalRef} onClose={() => setIsReady(true)}>
         <div className="modal-action">

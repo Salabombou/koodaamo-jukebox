@@ -21,7 +21,12 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: always
-    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     ports:
       - "8080:8080"
 
@@ -32,7 +37,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__KoodaamoJukeboxDb=${CONNECTION_STRING}
-    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   client:
     build:
@@ -53,13 +59,13 @@ services:
       - ENV=production
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
-      - API_BASE_URL=http://127.0.0.1:${PORT:-8080}
+      - API_BASE_URL=http://localhost:${PORT:-8080}
       - API_BASE_URL_PROD=${API_BASE_URL_PROD}
       - JWT_SECRET=${JWT_SECRET}
+    network_mode: "service:server"
     depends_on:
       - server
     restart: always
-    network_mode: host
 
 volumes:
   client-build:

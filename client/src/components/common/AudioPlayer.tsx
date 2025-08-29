@@ -150,7 +150,11 @@ export default function AudioPlayer({ ref, onDuration, onFatalError, onEnded, on
     if (Hls.isSupported()) {
       console.log("HLS is supported, initializing...");
       hls.current = new Hls({
-        xhrSetup: (xhr) => {
+        manifestLoadingMaxRetryTimeout: 60000,
+        levelLoadingMaxRetryTimeout: 60000,
+        xhrSetup: (xhr, url) => {
+          xhr.timeout = 60000; // Set per-request timeout to 60 seconds
+          xhr.open("POST", url, true); // Use POST instead of GET
           const token = localStorage.getItem(LS_KEY_AUTH_TOKEN) ?? "";
           if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         },

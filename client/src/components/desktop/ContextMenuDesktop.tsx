@@ -1,27 +1,21 @@
 import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 
-/**
- * Single action entry shown inside the context menu.
- * @property children React node rendered as the menu item label/content.
- * @property action Callback invoked when the item is clicked.
- * @property className Optional extra Tailwind / utility classes for the <li>.
- */
-export interface ContextMenuItem {
+export interface ContextMenuDesktopItem {
   children: React.ReactNode;
-  action: () => unknown;
+  action: () => void;
   className?: string;
 }
 
-export interface ContextMenuRef {
+export interface ContextMenuDesktopRef {
   readonly isOpen: boolean;
 }
 
 interface ContextMenuProps {
-  ref?: React.RefObject<ContextMenuRef | null>;
+  ref?: React.RefObject<ContextMenuDesktopRef | null>;
   children: React.ReactNode;
   controlsDisabled?: boolean;
-  items: ContextMenuItem[];
+  items: ContextMenuDesktopItem[];
 }
 
 /**
@@ -34,7 +28,7 @@ interface ContextMenuProps {
  * @param controlsDisabled When true the menu will not be rendered (acts as a permissions / busy gate).
  * @param items List of menu item descriptors to render.
  */
-export default function ContextMenu({ ref, children, controlsDisabled, items }: ContextMenuProps) {
+export default function ContextMenuDesktop({ ref, children, controlsDisabled, items }: ContextMenuProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);

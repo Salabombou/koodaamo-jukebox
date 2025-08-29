@@ -221,6 +221,7 @@ export default function QueueMobile({
             tracks={tracks}
             queueList={queueList}
             currentItemId={currentItemId}
+            currentItemIndex={currentItemIndex}
             controlsDisabled={controlsDisabled}
             onItemsRendered={(visibleStartIndex, visibleStopIndex) => {
               setStartIndex(visibleStartIndex);

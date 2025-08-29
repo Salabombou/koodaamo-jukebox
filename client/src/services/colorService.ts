@@ -75,7 +75,8 @@ const rgbToCss = ([r, g, b]: [number, number, number]): string => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-const colorCount = 10;
+const colorCount = 20;
+const paletteLength = 10;
 const quality = 1;
 export function getProminentColor(url: string): Promise<[string, string]> {
   try {
@@ -87,6 +88,7 @@ export function getProminentColor(url: string): Promise<[string, string]> {
         try {
           const palette = colorThief.getPalette(image, colorCount, quality);
           palette.sort((a, b) => vibranceScore(b) - vibranceScore(a));
+          palette.length = Math.min(paletteLength, palette.length);
 
           const colorA = palette.shift();
           if (!colorA) {

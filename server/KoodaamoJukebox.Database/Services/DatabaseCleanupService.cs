@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
+using System.IO;
 
 namespace KoodaamoJukebox.Database.Services
 {
@@ -40,25 +41,30 @@ namespace KoodaamoJukebox.Database.Services
 
                     // Find TrackIds that are not referenced by any QueueItem
                     var allTrackIds = await db.Tracks.Select(t => t.WebpageUrlHash).ToListAsync(stoppingToken);
-                    var referencedTrackIds = await db.QueueItems.Select(qi => qi.TrackId).Distinct().ToListAsync(stoppingToken);
+                    var referencedTrackIds = await db.QueueItems.Select(qi => qi.WebpageUrlHash).Distinct().ToListAsync(stoppingToken);
                     var orphanTrackIds = allTrackIds.Except(referencedTrackIds).ToList();
 
                     if (orphanTrackIds.Count > 0)
                     {
                         // Delete orphan Tracks
                         var orphanTracks = await db.Tracks.Where(t => orphanTrackIds.Contains(t.WebpageUrlHash)).ToListAsync(stoppingToken);
+                        foreach (var track in orphanTracks)
+                        {
+                            if (!string.IsNullOrWhiteSpace(track.Path) && Directory.Exists(track.Path))
+                            {
+                                try
+                                {
+                                    Directory.Delete(track.Path, true);
+                                    _logger.LogInformation($"Deleted directory {track.Path} for orphan track {track.WebpageUrlHash}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, $"Failed to delete directory {track.Path}");
+                                }
+                            }
+                        }
                         db.Tracks.RemoveRange(orphanTracks);
                         _logger.LogInformation($"Deleted {orphanTracks.Count} orphan tracks.");
-
-                        // Delete associated HlsPlaylists
-                        var orphanPlaylists = await db.HlsPlaylists.Where(p => orphanTrackIds.Contains(p.WebpageUrlHash)).ToListAsync(stoppingToken);
-                        db.HlsPlaylists.RemoveRange(orphanPlaylists);
-                        _logger.LogInformation($"Deleted {orphanPlaylists.Count} orphan playlists.");
-
-                        // Delete associated HlsSegments
-                        var orphanSegments = await db.HlsSegments.Where(s => orphanTrackIds.Contains(s.WebpageUrlHash)).ToListAsync(stoppingToken);
-                        db.HlsSegments.RemoveRange(orphanSegments);
-                        _logger.LogInformation($"Deleted {orphanSegments.Count} orphan segments.");
                     }
 
                     // Remove RoomInfo entries with no associated users

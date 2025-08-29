@@ -91,6 +91,7 @@ export default function QueueDesktop({ tracks, queueList, currentItemId, current
         tracks={tracks}
         queueList={queueList}
         currentItemId={currentItemId}
+        currentItemIndex={currentItemIndex}
         controlsDisabled={controlsDisabled}
         onItemsRendered={(visibleStartIndex, visibleStopIndex) => {
           setStartIndex(visibleStartIndex);

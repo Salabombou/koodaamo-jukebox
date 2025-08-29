@@ -8,10 +8,6 @@ namespace KoodaamoJukebox.Database
     {
         public KoodaamoJukeboxDbContext(DbContextOptions<KoodaamoJukeboxDbContext> options) : base(options) { }
 
-        public DbSet<HlsPlaylist> HlsPlaylists { get; set; }
-
-        public DbSet<HlsSegment> HlsSegments { get; set; }
-
         public DbSet<Track> Tracks { get; set; }
 
         public DbSet<User> Users { get; set; }
@@ -47,34 +43,23 @@ namespace KoodaamoJukebox.Database
             modelBuilder.Entity<QueueItem>(entity =>
             {
                 entity.ToTable("QueueItems");
-                entity.HasIndex(qi => qi.TrackId);
+                entity.HasIndex(qi => qi.WebpageUrlHash);
                 entity.HasIndex(qi => qi.Index);
                 entity.Property(qi => qi.RoomCode).IsRequired();
-                entity.Property(qi => qi.TrackId).IsRequired();
+                entity.Property(qi => qi.WebpageUrlHash).IsRequired();
                 entity.Property(qi => qi.Index).IsRequired();
                 entity.Property(qi => qi.CreatedAt).IsRequired();
                 entity.Property(qi => qi.UpdatedAt).IsRequired();
             });
 
-            modelBuilder.Entity<HlsPlaylist>(entity =>
+            modelBuilder.Entity<Track>(entity =>
             {
-                entity.ToTable("HlsPlaylists");
-                entity.HasKey(p => p.Id);
-                entity.HasIndex(p => p.WebpageUrlHash).IsUnique();
-                entity.Property(p => p.WebpageUrlHash).IsRequired();
-                entity.Property(p => p.DownloadUrl).IsRequired();
-                entity.Property(p => p.ExpiresAt).IsRequired();
-            });
-
-            modelBuilder.Entity<HlsSegment>(entity =>
-            {
-                entity.ToTable("HlsSegments");
-                entity.HasKey(s => s.Id);
-                entity.HasIndex(s => s.WebpageUrlHash);
-                entity.HasIndex(s => s.DownloadUrlHash).IsUnique();
-                entity.Property(s => s.WebpageUrlHash).IsRequired();
-                entity.Property(s => s.DownloadUrl).IsRequired();
-                entity.Property(s => s.DownloadUrlHash).IsRequired();
+                entity.ToTable("Tracks");
+                entity.HasIndex(t => t.WebpageUrl).IsUnique();
+                entity.Property(t => t.WebpageUrlHash).IsRequired();
+                entity.Property(t => t.Type).IsRequired();
+                entity.Property(t => t.WebpageUrl).IsRequired();
+                entity.Property(t => t.Title).IsRequired();
             });
         }
 

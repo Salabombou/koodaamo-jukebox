@@ -17,6 +17,12 @@ export const TIME_SYNC_SAMPLES = 5 as const;
 export const TIME_SYNC_SAMPLE_DELAY_MS = 25 as const;
 
 /**
+ * Interval (in milliseconds) for synchronizing time with the server.
+ * @constant
+ */
+export const TIME_SYNC_INTERVAL = 3600_000 as const;
+
+/**
  * Maximum delay (in milliseconds) for API retry backoff.
  * @constant
  */

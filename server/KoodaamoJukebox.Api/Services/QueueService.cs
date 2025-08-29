@@ -167,7 +167,7 @@ namespace KoodaamoJukebox.Api.Services
             }
 
             queue.CurrentItemId = currentItem.Id;
-            queue.CurrentItemTrackId = currentItem.TrackId;
+            queue.CurrentItemTrackId = currentItem.WebpageUrlHash;
 
             queue.PausedAt = null;
             queue.PlayingSince = null;
@@ -413,7 +413,7 @@ namespace KoodaamoJukebox.Api.Services
                 var queueItem = new QueueItem
                 {
                     RoomCode = roomCode,
-                    TrackId = track.WebpageUrlHash,
+                    WebpageUrlHash = track.WebpageUrlHash,
                     IsDeleted = false,
                     Index = insertUnshuffledIndex + 1 + i,
                     ShuffleIndex = roomInfo.IsShuffled ? insertShuffledIndex + 1 + i : null
@@ -429,7 +429,7 @@ namespace KoodaamoJukebox.Api.Services
             if (wasEmpty && newQueueItems.Count > 0)
             {
                 roomInfo.CurrentItemIndex = 0;
-                roomInfo.CurrentItemTrackId = newQueueItems[0].TrackId;
+                roomInfo.CurrentItemTrackId = newQueueItems[0].WebpageUrlHash;
                 if (roomInfo.IsShuffled)
                 {
                     roomInfo.CurrentItemShuffleIndex = newQueueItems[0].ShuffleIndex;
@@ -440,7 +440,7 @@ namespace KoodaamoJukebox.Api.Services
                 }
 
                 int firstItemId = await _dbContext.QueueItems
-                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.TrackId == newQueueItems[0].TrackId)
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.WebpageUrlHash == newQueueItems[0].WebpageUrlHash)
                     .OrderBy(qi => qi.Index)
                     .Select(qi => qi.Id)
                     .FirstOrDefaultAsync();
@@ -496,7 +496,7 @@ namespace KoodaamoJukebox.Api.Services
                     roomInfo.CurrentItemIndex = 0;
                     roomInfo.CurrentItemShuffleIndex = 0;
                     roomInfo.CurrentItemId = shuffledItems.FirstOrDefault()?.Id;
-                    roomInfo.CurrentItemTrackId = shuffledItems.FirstOrDefault()?.TrackId;
+                    roomInfo.CurrentItemTrackId = shuffledItems.FirstOrDefault()?.WebpageUrlHash;
                 }
                 else
                 {
@@ -517,7 +517,7 @@ namespace KoodaamoJukebox.Api.Services
                     }
                     roomInfo.CurrentItemShuffleIndex = 0;
                     roomInfo.CurrentItemIndex = 0;
-                    roomInfo.CurrentItemTrackId = currentItem.TrackId;
+                    roomInfo.CurrentItemTrackId = currentItem.WebpageUrlHash;
                 }
                 if (changedItems.Count > 0)
                 {
@@ -542,7 +542,7 @@ namespace KoodaamoJukebox.Api.Services
                 }
                 roomInfo.CurrentItemIndex = currentItem.Index;
                 roomInfo.CurrentItemShuffleIndex = null;
-                roomInfo.CurrentItemTrackId = currentItem.TrackId;
+                roomInfo.CurrentItemTrackId = currentItem.WebpageUrlHash;
                 if (changedItems.Count > 0)
                 {
                     _dbContext.QueueItems.UpdateRange(changedItems);
@@ -670,7 +670,7 @@ namespace KoodaamoJukebox.Api.Services
             {
                 // Find the current track by its unique identifier
                 var newCurrent = await _dbContext.QueueItems
-                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.TrackId == currentTrackId)
+                    .Where(qi => qi.RoomCode == roomCode && !qi.IsDeleted && qi.WebpageUrlHash == currentTrackId)
                     .FirstOrDefaultAsync();
                 if (newCurrent != null)
                 {
@@ -689,7 +689,7 @@ namespace KoodaamoJukebox.Api.Services
                             queue.CurrentItemShuffleIndex = newCurrent.ShuffleIndex;
                         }
                     }
-                    queue.CurrentItemTrackId = newCurrent.TrackId;
+                    queue.CurrentItemTrackId = newCurrent.WebpageUrlHash;
                 }
                 else
                 {

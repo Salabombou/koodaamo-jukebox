@@ -4,8 +4,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import type { QueueItem } from "../../types/queue";
-import ContextMenu from "../common/ContextMenu";
 import type { QueueItemProps } from "../common/QueueList";
+
+import ContextMenuDesktop from "./ContextMenuDesktop";
 
 function QueueItemDesktopComponent({
   index,
@@ -81,7 +82,7 @@ function QueueItemDesktopComponent({
           `${isSorting ? "" : highlighted ? "hover:bg-queue-item-highlight-hover" : "hover:bg-queue-item-hover"}`,
         ].join(" ")}
       >
-        <ContextMenu items={contextMenuItems} controlsDisabled={controlsDisabled}>
+        <ContextMenuDesktop items={contextMenuItems} controlsDisabled={controlsDisabled}>
           <div className="flex flex-row-reverse xl:flex-row items-center w-full h-full select-none">
             <div className="flex items-center">
               <button
@@ -102,12 +103,12 @@ function QueueItemDesktopComponent({
                 <img src={thumbnailBlob} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
               </div>
               <div className="flex flex-col overflow-hidden w-full pl-4 select-none">
-                <label className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</label>
-                <label className="text-s truncate select-none opacity-75">{track?.uploader}</label>
+                <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
+                <span className="text-s truncate select-none opacity-75">{track?.uploader}</span>
               </div>
             </div>
           </div>
-        </ContextMenu>
+        </ContextMenuDesktop>
       </div>
     </div>
   );

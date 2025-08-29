@@ -12,45 +12,13 @@ namespace KoodaamoJukebox.Database.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "HlsPlaylists",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
-                    ExpiresAt = table.Column<long>(type: "bigint", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_HlsPlaylists", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "HlsSegments",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrl = table.Column<string>(type: "text", nullable: false),
-                    DownloadUrlHash = table.Column<string>(type: "text", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_HlsSegments", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "QueueItems",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     RoomCode = table.Column<string>(type: "text", nullable: false),
-                    TrackId = table.Column<string>(type: "text", nullable: false),
+                    WebpageUrlHash = table.Column<string>(type: "text", nullable: false),
                     Index = table.Column<int>(type: "integer", nullable: false),
                     ShuffleIndex = table.Column<int>(type: "integer", nullable: true),
                     IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
@@ -95,7 +63,8 @@ namespace KoodaamoJukebox.Database.Migrations
                     Title = table.Column<string>(type: "text", nullable: false),
                     Uploader = table.Column<string>(type: "text", nullable: true),
                     ThumbnailHigh = table.Column<string>(type: "text", nullable: true),
-                    ThumbnailLow = table.Column<string>(type: "text", nullable: true)
+                    ThumbnailLow = table.Column<string>(type: "text", nullable: true),
+                    Path = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -124,31 +93,14 @@ namespace KoodaamoJukebox.Database.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_HlsPlaylists_WebpageUrlHash",
-                table: "HlsPlaylists",
-                column: "WebpageUrlHash",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_HlsSegments_DownloadUrlHash",
-                table: "HlsSegments",
-                column: "DownloadUrlHash",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_HlsSegments_WebpageUrlHash",
-                table: "HlsSegments",
-                column: "WebpageUrlHash");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_QueueItems_Index",
                 table: "QueueItems",
                 column: "Index");
 
             migrationBuilder.CreateIndex(
-                name: "IX_QueueItems_TrackId",
+                name: "IX_QueueItems_WebpageUrlHash",
                 table: "QueueItems",
-                column: "TrackId");
+                column: "WebpageUrlHash");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Queues_CurrentItemIndex",
@@ -192,12 +144,6 @@ namespace KoodaamoJukebox.Database.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "HlsPlaylists");
-
-            migrationBuilder.DropTable(
-                name: "HlsSegments");
-
             migrationBuilder.DropTable(
                 name: "QueueItems");
 
