@@ -31,6 +31,8 @@ namespace KoodaamoJukebox.Database.Models
         public string? ThumbnailHigh { get; set; }
 
         public string? ThumbnailLow { get; set; }
+
+        public string? Path { get; set; }
     }
 
     public class TrackDto

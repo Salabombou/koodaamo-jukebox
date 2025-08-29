@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
+using System.IO;
 
 namespace KoodaamoJukebox.Api.Utilities
 {
@@ -19,82 +20,95 @@ namespace KoodaamoJukebox.Api.Utilities
             _youtubeV3ApiKey = configuration["YouTube:ApiKey"] ?? throw new InvalidOperationException("YouTube:ApiKey is not set in configuration");
         }
 
-public async Task<YtDlpAudioStream> GetAudioStream(string webpageUrl)
-{
-    if (!Uri.IsWellFormedUriString(webpageUrl, UriKind.Absolute))
-    {
-        throw new ArgumentException("Invalid URL format.", nameof(webpageUrl));
-    }
-
-    var startInfo = new ProcessStartInfo
-    {
-        FileName = _ytDlpPath,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-        UseShellExecute = false,
-        CreateNoWindow = true
-    };
-
-    // Arguments to get the best audio (HLS .m3u8 if possible)
-    startInfo.ArgumentList.Add("--dump-json");
-    startInfo.ArgumentList.Add(webpageUrl);
-    startInfo.ArgumentList.Add("--no-warnings");
-    startInfo.ArgumentList.Add("-f");
-    startInfo.ArgumentList.Add("bestaudio[protocol=m3u8_native]/bestaudio[protocol=https]");
-    startInfo.ArgumentList.Add("--no-playlist");
-    startInfo.ArgumentList.Add("--skip-download");
-
-    // Use temp cookie/session file
-    string tempSessionFile = Path.Combine(Path.GetTempPath(), "yt-dlp-cookies.txt");
-    startInfo.ArgumentList.Add("--cookies");
-    startInfo.ArgumentList.Add(tempSessionFile);
-
-    var process = new Process { StartInfo = startInfo };
-    process.Start();
-
-    var outputTask = process.StandardOutput.ReadToEndAsync();
-    var errorTask = process.StandardError.ReadToEndAsync();
-
-    await process.WaitForExitAsync();
-    var output = await outputTask;
-    var error = await errorTask;
-
-    if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
-    {
-        throw new InvalidOperationException(
-            $"Failed to fetch audio info for: {webpageUrl}. Exit code: {process.ExitCode}. yt-dlp error: {error}"
-        );
-    }
-
-    var data = JsonSerializer.Deserialize<JsonElement>(output);
-
-    if (data.TryGetProperty("is_live", out var isLive) && isLive.GetBoolean())
-    {
-        throw new InvalidOperationException($"Cannot fetch audio stream for live content: {webpageUrl}");
-    }
-
-    string? protocol = data.TryGetProperty("protocol", out var proto) ? proto.GetString() : null;
-    string? audioUrl = data.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null;
-
-    if (!string.IsNullOrWhiteSpace(audioUrl))
-    {
-        // Detect type
-        var type = protocol switch
+        public async Task<string> GetAudio(string webpageUrl)
         {
-            "m3u8_native" or "m3u8" => YtDlpAudioStreamType.M3U8Native,
-            _ => YtDlpAudioStreamType.HTTPS
-        };
+            if (!Uri.IsWellFormedUriString(webpageUrl, UriKind.Absolute))
+            {
+                throw new ArgumentException("Invalid URL format.", nameof(webpageUrl));
+            }
 
-        return new YtDlpAudioStream
-        {
-            Url = audioUrl,
-            Type = type
-        };
-    }
+            string outputDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(outputDir);
 
-    throw new InvalidOperationException($"No suitable audio format found for: {webpageUrl}");
-}
+            // First download audio file (not m3u8 directly)
+            string audioFilePath = Path.Combine(outputDir, "audio.opus");
 
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _ytDlpPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            startInfo.ArgumentList.Add(webpageUrl);
+            startInfo.ArgumentList.Add("--no-warnings");
+            startInfo.ArgumentList.Add("--no-check-formats");
+            startInfo.ArgumentList.Add("-f");
+            startInfo.ArgumentList.Add("bestaudio/best");
+            startInfo.ArgumentList.Add("-o");
+            startInfo.ArgumentList.Add(audioFilePath);
+
+            // Use temp cookie/session file
+            string tempSessionFile = Path.Combine(Path.GetTempPath(), "yt-dlp-cookies.txt");
+            startInfo.ArgumentList.Add("--cookies");
+            startInfo.ArgumentList.Add(tempSessionFile);
+
+            var process = new Process { StartInfo = startInfo };
+            process.Start();
+
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var error = await errorTask;
+
+            if (process.ExitCode != 0 || !File.Exists(audioFilePath))
+            {
+                throw new InvalidOperationException(
+                    $"Failed to fetch audio for: {webpageUrl}. Exit code: {process.ExitCode}. yt-dlp error: {error}"
+                );
+            }
+
+            // Now create HLS playlist and segments in the same folder
+            string playlistPath = Path.Combine(outputDir, "audio.m3u8");
+            string segmentPattern = Path.Combine(outputDir, "segment-%03d.ts");
+
+            string ffmpegArgs =
+                $"-y -i \"{audioFilePath}\" -vn -c:a aac -f hls " +
+                $"-hls_time 10 -hls_list_size 0 " +
+                $"-hls_segment_filename \"{segmentPattern}\" \"{playlistPath}\"";
+
+            var ffmpegProcess = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = ffmpegArgs,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            ffmpegProcess.Start();
+            string ffmpegStderr = await ffmpegProcess.StandardError.ReadToEndAsync();
+            await ffmpegProcess.WaitForExitAsync();
+
+            if (ffmpegProcess.ExitCode != 0 || !File.Exists(playlistPath))
+            {
+                throw new InvalidOperationException(
+                    $"ffmpeg failed to create HLS playlist. Exit code: {ffmpegProcess.ExitCode}. stderr: {ffmpegStderr}"
+                );
+            }
+
+            if (File.Exists(audioFilePath))
+            {
+                File.Delete(audioFilePath);
+            }
+
+            return outputDir;
+        }
 
         private async Task<Track[]> GetYoutubePlaylist(string url)
         {
@@ -364,10 +378,10 @@ public async Task<YtDlpAudioStream> GetAudioStream(string webpageUrl)
                     var data = JsonSerializer.Deserialize<JsonElement>(line);
 
                     string? extractor = data.GetProperty("extractor").GetString();
-                    if (string.IsNullOrWhiteSpace(extractor) || extractor == "generic")
+                    /*if (string.IsNullOrWhiteSpace(extractor) || extractor == "generic")
                     {
                         throw new ArgumentException($"Direct download is not supported.");
-                    }
+                    }*/
 
                     string? webpageUrl = data.GetProperty("webpage_url").GetString();
                     string? title = data.GetProperty("title").GetString();

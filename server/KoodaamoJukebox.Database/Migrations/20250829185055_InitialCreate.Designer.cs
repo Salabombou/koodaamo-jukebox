@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace KoodaamoJukebox.Database.Migrations
 {
     [DbContext(typeof(KoodaamoJukeboxDbContext))]
-    [Migration("20250823204848_InitialCreate")]
+    [Migration("20250829185055_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -23,66 +23,6 @@ namespace KoodaamoJukebox.Database.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("KoodaamoJukebox.Database.Models.HlsPlaylist", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("DownloadUrl")
-                        .HasColumnType("text");
-
-                    b.Property<long>("ExpiresAt")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Path")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WebpageUrlHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WebpageUrlHash")
-                        .IsUnique();
-
-                    b.ToTable("HlsPlaylists", (string)null);
-                });
-
-            modelBuilder.Entity("KoodaamoJukebox.Database.Models.HlsSegment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("DownloadUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("DownloadUrlHash")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Path")
-                        .HasColumnType("text");
-
-                    b.Property<string>("WebpageUrlHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DownloadUrlHash")
-                        .IsUnique();
-
-                    b.HasIndex("WebpageUrlHash");
-
-                    b.ToTable("HlsSegments", (string)null);
-                });
 
             modelBuilder.Entity("KoodaamoJukebox.Database.Models.QueueItem", b =>
                 {
@@ -108,18 +48,18 @@ namespace KoodaamoJukebox.Database.Migrations
                     b.Property<int?>("ShuffleIndex")
                         .HasColumnType("integer");
 
-                    b.Property<string>("TrackId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<long>("UpdatedAt")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("WebpageUrlHash")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Index");
 
-                    b.HasIndex("TrackId");
+                    b.HasIndex("WebpageUrlHash");
 
                     b.ToTable("QueueItems", (string)null);
                 });
@@ -183,6 +123,9 @@ namespace KoodaamoJukebox.Database.Migrations
                     b.Property<string>("WebpageUrlHash")
                         .HasColumnType("text");
 
+                    b.Property<string>("Path")
+                        .HasColumnType("text");
+
                     b.Property<string>("ThumbnailHigh")
                         .HasColumnType("text");
 
@@ -208,7 +151,7 @@ namespace KoodaamoJukebox.Database.Migrations
                     b.HasIndex("WebpageUrl")
                         .IsUnique();
 
-                    b.ToTable("Tracks");
+                    b.ToTable("Tracks", (string)null);
                 });
 
             modelBuilder.Entity("KoodaamoJukebox.Database.Models.User", b =>

@@ -1,29 +1,12 @@
-import React, {
-  useCallback,
-  useEffect,
-  useOptimistic,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useOptimistic, useState } from "react";
 import AutoSizer from "react-virtualized-auto-sizer";
 import type { ListChildComponentProps } from "react-window";
 import { FixedSizeList } from "react-window";
-import {
-  closestCenter,
-  DndContext,
-  DragOverlay,
-  type Modifier,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { closestCenter, DndContext, DragOverlay, type Modifier, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { getEventCoordinates } from "@dnd-kit/utilities";
 
-import {
-  QUEUE_ITEM_HEIGHT_DESKTOP,
-  QUEUE_ITEM_HEIGHT_MOBILE,
-} from "../../constants";
+import { QUEUE_ITEM_HEIGHT_DESKTOP, QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import * as thumbnailService from "../../services/thumbnailService";
 import type { QueueItem } from "../../types/queue";
@@ -65,11 +48,7 @@ const MemoQueueItemMobile = React.memo(QueueItemMobile, (prev, next) => {
 });
 
 // ----------- DRAG AXIS MODIFIER -------------
-const restrictToVerticalAxisCenterY: Modifier = ({
-  transform,
-  draggingNodeRect,
-  activatorEvent,
-}) => {
+const restrictToVerticalAxisCenterY: Modifier = ({ transform, draggingNodeRect, activatorEvent }) => {
   if (draggingNodeRect && activatorEvent) {
     const activatorCoordinates = getEventCoordinates(activatorEvent);
     if (!activatorCoordinates) return { ...transform, x: 0 };
@@ -122,15 +101,10 @@ export default function Queue({
   onDragEnd,
 }: QueueProps) {
   const discordSDK = useDiscordSDK();
-  const [thumbnailBlobs, setThumbnailBlobs] = useState<Record<string, string>>(
-    {}
-  );
+  const [thumbnailBlobs, setThumbnailBlobs] = useState<Record<string, string>>({});
 
   // Optimistic queue list manager
-  const [optimisticQueueList, moveItem] = useOptimistic<
-    QueueItem[],
-    [number, number]
-  >(queueList, (state, [fromIndex, toIndex]) => {
+  const [optimisticQueueList, moveItem] = useOptimistic<QueueItem[], [number, number]>(queueList, (state, [fromIndex, toIndex]) => {
     const newState = [...state];
     const [movedItem] = newState.splice(fromIndex, 1);
 
@@ -143,17 +117,14 @@ export default function Queue({
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  const itemKey = useCallback(
-    (index: number, data: QueueItem[]) => data[index].id,
-    []
-  );
+  const itemKey = useCallback((index: number, data: QueueItem[]) => data[index].id, []);
 
   // Setup DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 0, tolerance: 0 },
-    })
+    }),
   );
 
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: 0 });
@@ -163,10 +134,7 @@ export default function Queue({
     let cancelled = false;
     async function fetchThumbnails() {
       const start = Math.max(0, visibleRange.start - 3);
-      const stop = Math.min(
-        optimisticQueueList.length - 1,
-        visibleRange.stop + 3
-      );
+      const stop = Math.min(optimisticQueueList.length - 1, visibleRange.stop + 3);
 
       const promises: Promise<void>[] = [];
       const batchSize = 2;
@@ -176,9 +144,7 @@ export default function Queue({
         if (!item) continue;
         const track = tracks.get(item.track_id);
         if (track?.id) {
-          const url = discordSDK.isEmbedded
-            ? `/.proxy/api/track/${track.id}/thumbnail-low`
-            : `/api/track/${track.id}/thumbnail-low`;
+          const url = discordSDK.isEmbedded ? `/.proxy/api/track/${track.id}/thumbnail-low` : `/api/track/${track.id}/thumbnail-low`;
           if (!thumbnailBlobs[url]) {
             promises.push(
               (async () => {
@@ -186,7 +152,7 @@ export default function Queue({
                 if (!cancelled && objectUrl) {
                   setThumbnailBlobs((prev) => ({ ...prev, [url]: objectUrl }));
                 }
-              })()
+              })(),
             );
           }
         }
@@ -213,22 +179,19 @@ export default function Queue({
       }
       onDelete(itemId);
     },
-    [optimisticQueueList, moveItem, onDelete]
+    [optimisticQueueList, moveItem, onDelete],
   );
 
   const handlePlayNext = useCallback(
     (index: number) => {
       if (currentItemIndex == null) return;
-      const nextIndex = Math.min(
-        currentItemIndex + 1,
-        optimisticQueueList.length - 1
-      );
+      const nextIndex = Math.min(currentItemIndex + 1, optimisticQueueList.length - 1);
       if (index !== nextIndex) {
         moveItem([index, nextIndex]);
       }
       onPlayNext(index);
     },
-    [optimisticQueueList, currentItemIndex, moveItem, onPlayNext]
+    [optimisticQueueList, currentItemIndex, moveItem, onPlayNext],
   );
 
   // --------- Row Renderer -----------
@@ -237,16 +200,11 @@ export default function Queue({
       const item = props.data[props.index];
       const track = tracks.get(item.track_id) ?? null;
 
-      const url = track?.id
-        ? discordSDK.isEmbedded
-          ? `/.proxy/api/track/${track.id}/thumbnail-low`
-          : `/api/track/${track.id}/thumbnail-low`
-        : null;
+      const url = track?.id ? (discordSDK.isEmbedded ? `/.proxy/api/track/${track.id}/thumbnail-low` : `/api/track/${track.id}/thumbnail-low`) : null;
 
       const thumbnailBlob = (url && thumbnailBlobs[url]) || "/black.jpg";
 
-      const QueueItemComponent =
-        type === "desktop" ? MemoQueueItemDesktop : MemoQueueItemMobile;
+      const QueueItemComponent = type === "desktop" ? MemoQueueItemDesktop : MemoQueueItemMobile;
 
       return (
         <QueueItemComponent
@@ -261,17 +219,7 @@ export default function Queue({
         />
       );
     },
-    [
-      type,
-      tracks,
-      currentItemId,
-      thumbnailBlobs,
-      onSkip,
-      handleDelete,
-      handlePlayNext,
-      controlsDisabled,
-      discordSDK.isEmbedded,
-    ]
+    [type, tracks, currentItemId, thumbnailBlobs, onSkip, handleDelete, handlePlayNext, controlsDisabled, discordSDK.isEmbedded],
   );
 
   return (
@@ -281,29 +229,19 @@ export default function Queue({
           sensors={sensors}
           collisionDetection={closestCenter}
           modifiers={[restrictToVerticalAxisCenterY]}
-          onDragStart={(e) =>
-            setDraggedIndex(e.active.data.current?.sortable.index as number)
-          }
+          onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
           onDragEnd={(e) => {
             const fromIndex = draggedIndex;
             const toIndex = e.over?.data.current?.sortable.index;
             setDraggedIndex(null);
-            if (
-              typeof fromIndex === "number" &&
-              typeof toIndex === "number" &&
-              fromIndex !== toIndex &&
-              !controlsDisabled
-            ) {
+            if (typeof fromIndex === "number" && typeof toIndex === "number" && fromIndex !== toIndex && !controlsDisabled) {
               onMove(fromIndex, toIndex);
               moveItem([fromIndex, toIndex]);
               onDragEnd?.(fromIndex, toIndex);
             }
           }}
         >
-          <SortableContext
-            items={optimisticQueueList}
-            strategy={verticalListSortingStrategy}
-          >
+          <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
             <FixedSizeList
               ref={listRef}
               outerRef={outerRef}
@@ -315,11 +253,7 @@ export default function Queue({
               itemData={optimisticQueueList}
               itemCount={optimisticQueueList.length}
               overscanCount={5}
-              itemSize={
-                type === "desktop"
-                  ? QUEUE_ITEM_HEIGHT_DESKTOP
-                  : QUEUE_ITEM_HEIGHT_MOBILE
-              }
+              itemSize={type === "desktop" ? QUEUE_ITEM_HEIGHT_DESKTOP : QUEUE_ITEM_HEIGHT_MOBILE}
               itemKey={itemKey}
               style={{
                 overflowX: "hidden",
@@ -344,20 +278,10 @@ export default function Queue({
           <DragOverlay>
             {draggedIndex !== null &&
               (() => {
-                const track =
-                  tracks.get(optimisticQueueList[draggedIndex].track_id) ??
-                  null;
-                const url = track?.id
-                  ? discordSDK.isEmbedded
-                    ? `/.proxy/api/track/${track.id}/thumbnail-low`
-                    : `/api/track/${track.id}/thumbnail-low`
-                  : null;
-                const thumbnailBlob =
-                  (url && thumbnailBlobs[url]) || "/black.jpg";
-                const QueueItemComponent =
-                  type === "desktop"
-                    ? MemoQueueItemDesktop
-                    : MemoQueueItemMobile;
+                const track = tracks.get(optimisticQueueList[draggedIndex].track_id) ?? null;
+                const url = track?.id ? (discordSDK.isEmbedded ? `/.proxy/api/track/${track.id}/thumbnail-low` : `/api/track/${track.id}/thumbnail-low`) : null;
+                const thumbnailBlob = (url && thumbnailBlobs[url]) || "/black.jpg";
+                const QueueItemComponent = type === "desktop" ? MemoQueueItemDesktop : MemoQueueItemMobile;
 
                 return (
                   <QueueItemComponent

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace KoodaamoJukebox.Database.Models
 {
     [Table("QueueItems")]
-    [Index(nameof(TrackId))]
+    [Index(nameof(WebpageUrlHash))]
     public class QueueItem
     {
         [Key]
@@ -16,7 +16,7 @@ namespace KoodaamoJukebox.Database.Models
         public required string RoomCode { get; set; }
 
         [Required]
-        public required string TrackId { get; set; }
+        public required string WebpageUrlHash { get; set; }
 
         [Required]
         public required int Index { get; set; }
@@ -35,7 +35,7 @@ namespace KoodaamoJukebox.Database.Models
         public QueueItemDto(QueueItem item)
         {
             Id = item.Id;
-            TrackId = item.TrackId;
+            TrackId = item.WebpageUrlHash;
             Index = item.Index;
             ShuffledIndex = item.ShuffleIndex;
             IsDeleted = item.IsDeleted;
