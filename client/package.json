@@ -25,7 +25,6 @@
     "daisyui": "^5.0.54",
     "framer-motion": "^12.23.12",
     "hls.js": "^1.6.11",
-    "hls.js": "^1.6.11",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-fast-marquee": "^1.6.5",
@@ -37,7 +36,6 @@
     "tailwindcss": "^4.1.12"
   },
   "devDependencies": {
-    "@eslint/js": "^9.34.0",
     "@eslint/js": "^9.34.0",
     "@types/colorthief": "^2.6.0",
     "@types/howler": "^2.2.12",

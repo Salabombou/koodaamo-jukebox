@@ -56,6 +56,7 @@ export function DiscordAuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("expires_at");
         console.error("Failed to authenticate:", err);
+        window.location.href = import.meta.env.VITE_DISCORD_OAUTH2_URL;
         throw err;
       });
     accessToken = response.access_token;

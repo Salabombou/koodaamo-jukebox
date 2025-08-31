@@ -377,21 +377,25 @@ export default function useRoomHub() {
         // Update refs first
         currentItemIndexRef.current = event.current_item_index;
         currentItemShuffleIndexRef.current = event.current_item_shuffle_index;
+        currentItemIdRef.current = event.current_item_id;
+        currentItemTrackIdRef.current = event.current_item_track_id;
 
         // Update state
         setCurrentItemIndex(event.current_item_index);
         setCurrentItemShuffleIndex(event.current_item_shuffle_index);
-        
+        setCurrentItemId(event.current_item_id);
+        setCurrentItemTrackId(event.current_item_track_id);
+
         const updatedItems = new Map(queueItemsRef.current);
         updatedItems.delete(event.deleted_item_id);
-        
+
         // Re-assign indices to remaining items
         const remainingItems = Array.from(updatedItems.values()).sort((a, b) => {
           const aIndex = isShuffledRef.current ? (a.shuffled_index ?? a.index) : a.index;
           const bIndex = isShuffledRef.current ? (b.shuffled_index ?? b.index) : b.index;
           return aIndex - bIndex;
         });
-        
+
         for (let i = 0; i < remainingItems.length; i++) {
           const item = remainingItems[i];
           if (isShuffledRef.current) {
@@ -400,7 +404,7 @@ export default function useRoomHub() {
             updatedItems.set(item.id, { ...item, index: i });
           }
         }
-        
+
         queueItemsRef.current = updatedItems;
         setQueueItems(new Map(queueItemsRef.current));
         setQueueList(

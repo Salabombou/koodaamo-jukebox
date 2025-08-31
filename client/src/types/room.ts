@@ -83,4 +83,6 @@ export interface QueueDeletedEvent extends RoomEvent {
   deleted_item_id: number;
   current_item_index: number;
   current_item_shuffle_index: number | null;
+  current_item_id: number | null;
+  current_item_track_id: string | null;
 }

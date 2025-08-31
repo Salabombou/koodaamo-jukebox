@@ -18,8 +18,6 @@ services:
     depends_on:
       client:
         condition: service_completed_successfully
-      migrate:
-        condition: service_completed_successfully
     restart: always
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -39,6 +37,7 @@ services:
       - ConnectionStrings__KoodaamoJukeboxDb=${CONNECTION_STRING}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    profiles: ["migrate"]
 
   client:
     build:

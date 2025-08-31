@@ -635,8 +635,6 @@ namespace KoodaamoJukebox.Api.Services
                 .ToListAsync();
 
             // Find the index of the item to delete in the ordered list
-            var index = queueItems.FindIndex(qi => qi.Id == itemId);
-            // Find the index of the item to delete in the ordered list
             var deletedItemIndex = queueItems.FindIndex(qi => qi.Id == itemId);
 
             item.IsDeleted = true;
@@ -688,8 +686,9 @@ namespace KoodaamoJukebox.Api.Services
                         {
                             queue.CurrentItemShuffleIndex = newCurrent.ShuffleIndex;
                         }
+                        queue.CurrentItemTrackId = newCurrent.WebpageUrlHash;
+                        queue.CurrentItemId = newCurrent.Id;
                     }
-                    queue.CurrentItemTrackId = newCurrent.WebpageUrlHash;
                 }
                 else
                 {
@@ -714,6 +713,8 @@ namespace KoodaamoJukebox.Api.Services
                 DeletedItemId = item.Id,
                 CurrentItemIndex = (int)queue.CurrentItemIndex,
                 CurrentItemShuffleIndex = queue.CurrentItemShuffleIndex,
+                CurrentItemId = queue.CurrentItemId,
+                CurrentItemTrackId = queue.CurrentItemTrackId,
             });
         }
     }
@@ -797,5 +798,7 @@ namespace KoodaamoJukebox.Api.Services
         public int DeletedItemId { get; set; }
         public int CurrentItemIndex { get; set; }
         public int? CurrentItemShuffleIndex { get; set; }
+        public int? CurrentItemId { get; set; }
+        public string? CurrentItemTrackId { get; set; }
     }
 }

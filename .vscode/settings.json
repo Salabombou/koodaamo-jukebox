@@ -1,3 +1,4 @@
 {
     "dotnet.defaultSolution": "server/KoodaamoJukebox.sln",
+    "license.default": "mit",
 }

@@ -10,6 +10,7 @@ import useMediaSession from "./hooks/useMediaSession";
 import useRoomHub from "./hooks/useRoomHub";
 import * as apiService from "./services/apiService";
 import * as timeService from "./services/timeService";
+import type { QueueItem } from "./types/queue";
 import type { Track } from "./types/track";
 import { LS_KEY_AUTH_TOKEN } from "./constants";
 
@@ -20,10 +21,10 @@ export default function App() {
   const seeking = useRef(true);
   const lastHlsTrackId = useRef<string | null>(null);
   const skipOnFatalError = useRef(false);
-  const preFetch = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [nextItem, setNextItem] = useState<QueueItem | null>(null);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0);
   const [timestamp, setTimestamp] = useState(0);
@@ -88,7 +89,49 @@ export default function App() {
 
       setCurrentTrack(track);
     }
-  }, [currentItemId, queueItems, tracks]);
+    if (typeof currentItemIndex === "number") {
+      const nextItemIndex = currentItemIndex + 1;
+      const item = queueList[nextItemIndex];
+      console.log("Queue list item at current index:", item);
+      if (!item) return;
+
+      const itemIndex = isShuffled ? item.shuffled_index : item.index;
+      console.log("Next item index:", nextItemIndex);
+      console.log("Item index:", itemIndex);
+      if (itemIndex !== nextItemIndex) return;
+
+      setNextItem(item);
+    }
+  }, [currentItemId, currentItemIndex, queueItems, tracks, isShuffled, queueList]);
+
+  const handleDeleteById = useCallback(
+    (id: number) => {
+      if (invokePending) return;
+      console.log("Deleting item by id", id);
+      invokeRoomAction("Delete", id);
+    },
+    [invokeRoomAction, invokePending],
+  );
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (!nextItem) return;
+      const url = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextItem.track_id}/`;
+      const token = localStorage.getItem(LS_KEY_AUTH_TOKEN);
+      fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(response => {
+        if (response.status === 500) {
+          console.error("Error fetching next track:", response);
+          handleDeleteById(nextItem.id);
+        }
+      })
+    }, 20_000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [nextItem, discordSDK.isEmbedded, handleDeleteById]);
 
   // Only update tracks if new tracks are actually added
   useEffect(() => {
@@ -134,12 +177,6 @@ export default function App() {
       invokeRoomAction("Move", fromIndex, toIndex);
     },
     [invokeRoomAction, invokePending],
-  );
-  const handleDelete = useCallback(
-    (index: number) => {
-      if (index !== currentItemIndex) invokeRoomAction("Delete", index);
-    },
-    [currentItemIndex, invokeRoomAction],
   );
   const handlePlayNext = useCallback(
     (index: number) => {
@@ -319,33 +356,7 @@ export default function App() {
     if (!isNaN(newTimestamp) && !player.current.paused) {
       setTimestamp(newTimestamp);
     }
-
-    if (typeof currentItemIndex !== "number" || queueItems.size === 0 || newestDuration === 0 || currentItemIndex < 0 || currentItemIndex >= queueItems.size) {
-      return;
-    } // No next track
-
-    let nextTrack: Track | null = null;
-    for (const item of queueItems.values()) {
-      if ((isShuffled ? item.shuffled_index : item.index) === currentItemIndex + 1) {
-        nextTrack = tracks.get(item.track_id) ?? null;
-        break;
-      }
-    }
-    if (!nextTrack) return;
-    const timeLeft = newestDuration - player.current.currentTime;
-    if (timeLeft <= 15 && timeLeft > 0) {
-      // Prefetch next track audio
-      const nextTrackId = nextTrack.id;
-      const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${nextTrackId}/`;
-      const token = localStorage.getItem(LS_KEY_AUTH_TOKEN);
-      if (preFetch.current) return;
-      preFetch.current = true;
-      fetch(src, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-  }, [playingSince, currentItemIndex, queueItems, isShuffled, isPaused, tracks, discordSDK.isEmbedded, isReady, invokePending, duration]);
+  }, [playingSince, isPaused, isReady, invokePending, duration]);
 
   useEffect(() => {
     const timeUpdateInterval = window.setInterval(() => {
@@ -513,9 +524,7 @@ export default function App() {
     playingSince,
   });
 
-
-
-    useEffect(() => {
+  useEffect(() => {
     if (!isReady) return;
     const currentUniqueId = currentTrack ? currentTrack.id : null;
     const lastUniqueId = lastHlsTrackId.current;
@@ -523,7 +532,6 @@ export default function App() {
     if (typeof currentUniqueId === "string" && lastUniqueId !== currentUniqueId && currentTrack) {
       lastHlsTrackId.current = currentUniqueId;
       skipOnFatalError.current = false;
-      preFetch.current = false;
       setAudioReady(false);
       const src = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/audio/${currentTrack.id}/`;
       player.current!.loadSource(src);
@@ -593,7 +601,7 @@ export default function App() {
               currentItemIndex={currentItemIndex}
               onMove={handleMove}
               onSkip={handleSkip}
-              onDelete={handleDelete}
+              onDelete={handleDeleteById}
               onPlayNext={handlePlayNext}
             />
           </div>
@@ -621,7 +629,7 @@ export default function App() {
               currentItemIndex={currentItemIndex}
               onMove={handleMove}
               onSkip={handleSkip}
-              onDelete={handleDelete}
+              onDelete={handleDeleteById}
               onPlayNext={handlePlayNext}
             />
           </div>
