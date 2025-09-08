@@ -73,8 +73,8 @@ importers:
         version: 4.1.13
     devDependencies:
       '@eslint/js':
-        specifier: ^9.34.0
-        version: 9.34.0
+        specifier: ^9.35.0
+        version: 9.35.0
       '@types/colorthief':
         specifier: ^2.6.0
         version: 2.6.0

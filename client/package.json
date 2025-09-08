@@ -36,7 +36,7 @@
     "tailwindcss": "^4.1.13"
   },
   "devDependencies": {
-    "@eslint/js": "^9.34.0",
+    "@eslint/js": "^9.35.0",
     "@types/colorthief": "^2.6.0",
     "@types/howler": "^2.2.12",
     "@types/node": "^24.3.0",
