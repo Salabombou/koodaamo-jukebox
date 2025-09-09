@@ -1,35 +1,30 @@
-import { memo } from "react";
 import { FaGripLines } from "react-icons/fa";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import type { QueueItem } from "../../types/queue";
 import type { QueueItemProps } from "../common/QueueList";
 
 import ContextMenuDesktop from "./ContextMenuDesktop";
 
-function QueueItemDesktopComponent({
-  index,
-  style,
-  data,
-  track,
-  currentItemId,
-  thumbnailBlob = "/black.jpg",
-  onDelete,
-  onSkip,
-  onPlayNext,
-  controlsDisabled = false,
-  overlay = false,
-}: QueueItemProps) {
+export default function QueueItemDesktop({ index, style, data, currentItemId, tracks, onDelete, onSkip, onPlayNext, controlsDisabled = false, overlay = false }: QueueItemProps) {
+  const discordSDK = useDiscordSDK();
   const item = data[index] as QueueItem | undefined;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id: item?.id ?? `empty-${index}`,
   });
 
+  const dndStyle = {
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
+    transition,
+  };
+
   if (!item) return null;
 
-  const highlighted = currentItemId === item.id;
+  const track = tracks.get(item.track_id);
+  if (!track) return null;
 
   const handleDelete = () => onDelete(item.id);
   const handlePlayNext = () => onPlayNext(index);
@@ -56,22 +51,30 @@ function QueueItemDesktopComponent({
     },
   ];
 
+  const highlighted = currentItemId === item.id;
+  const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${item.track_id}/thumbnail-low`;
+
   return (
+    // outer wrapper: gets virtualization style
     <div
       key={item.id}
-      ref={setNodeRef}
       style={{
-        backgroundColor: "transparent",
-        color: highlighted ? "#fff" : undefined,
-        ...style,
+        ...style, // includes virtualizer's translateY
         width: "100%",
         height: "64px",
-        transform: CSS.Transform.toString(transform),
-        transition,
-        visibility: isDragging || !track ? "hidden" : "visible",
-        pointerEvents: controlsDisabled ? "none" : "auto",
       }}
     >
+      {/* inner wrapper: gets sortable transforms */}
+      <div
+        ref={setNodeRef}
+        style={{
+          ...dndStyle,
+          backgroundColor: "transparent",
+          color: highlighted ? "#fff" : undefined,
+          visibility: isDragging || !track ? "hidden" : "visible",
+          pointerEvents: controlsDisabled ? "none" : "auto",
+        }}
+      >
       <div
         className={[
           "flex h-16 max-h-16 w-full md:pl-0 pl-4 ",
@@ -100,7 +103,7 @@ function QueueItemDesktopComponent({
             </div>
             <div className="flex items-center w-full min-w-0" onDoubleClick={controlsDisabled ? undefined : () => onSkip(index)}>
               <div className="md:aspect-video aspect-square h-12 w-12 md:h-14 md:w-auto flex flex-shrink-0 items-center justify-center overflow-hidden bg-black relative select-none">
-                <img src={thumbnailBlob} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
+                <img src={thumbnailUrl} loading="lazy" className="w-full h-full object-cover object-center bg-black select-none md:object-cover" alt={track?.title || "thumbnail"} draggable={false} />
               </div>
               <div className="flex flex-col overflow-hidden w-full pl-4 select-none">
                 <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
@@ -111,9 +114,6 @@ function QueueItemDesktopComponent({
         </ContextMenuDesktop>
       </div>
     </div>
+    </div>
   );
 }
-
-const QueueItemDesktop = memo(QueueItemDesktopComponent);
-
-export default QueueItemDesktop;

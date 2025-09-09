@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCallback } from "react";
 import { FaBars, FaChevronDown, FaChevronUp, FaLocationArrow, FaPause, FaPlay } from "react-icons/fa";
 import { FaRepeat } from "react-icons/fa6";
-import type { FixedSizeList } from "react-window";
+import { useListRef } from "react-window";
 
 import { QUEUE_ITEM_HEIGHT_MOBILE } from "../../constants";
 import { useDiscordSDK } from "../../hooks/useDiscordSDK";
@@ -51,14 +51,10 @@ export default function QueueMobile({
   onDelete,
   onPlayNext,
 }: QueueMobileProps) {
-  const listRef = useRef<FixedSizeList>(null);
-  const outerRef = useRef<HTMLDivElement>(null);
-
-  const [startIndex, setStartIndex] = useState(0);
-  const [stopIndex, setStopIndex] = useState(0);
-
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const listRef = useListRef(null);
 
   const [showScrollToCurrentButton, setShowScrollToCurrentButton] = useState(false);
 
@@ -77,25 +73,30 @@ export default function QueueMobile({
     };
   }, [isOpen, onDropdownAction]);
 
-  useEffect(() => {}, [startIndex, stopIndex]);
-
   // Fetch thumbnail for current track
   useEffect(() => {
     let cancelled = false;
+    const thumbnailUrl = currentTrack?.id ? `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high` : null;
+
     async function fetchThumbnail() {
       if (!currentTrack?.id) {
         setImageBlobUrl(null);
         return;
       }
-      const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`;
-      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl);
+
+      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl!);
       if (!cancelled) setImageBlobUrl(objectUrl);
     }
-    fetchThumbnail();
+
+    if (currentTrack?.id) {
+      fetchThumbnail();
+    } else {
+      setImageBlobUrl(null);
+    }
+
     return () => {
       cancelled = true;
-      if (currentTrack?.id) {
-        const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${currentTrack.id}/thumbnail-high`;
+      if (thumbnailUrl) {
         thumbnailService.removeThumbnail(thumbnailUrl);
       }
     };
@@ -106,15 +107,18 @@ export default function QueueMobile({
 
   // Function to scroll to current track
   const scrollToCurrentTrack = useCallback(() => {
-    if (!listRef.current || currentItemIndex === null) return;
+    if (!listRef || currentItemIndex === null) return;
     isScrollingToCurrentTrack.current = true;
-    const currentTrackPosition = currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE;
-    listRef.current.scrollTo(currentTrackPosition);
+    listRef.current?.scrollToRow({
+      index: currentItemIndex,
+      align: "start",
+      behavior: "smooth",
+    });
     setShowScrollToCurrentButton(false);
     setTimeout(() => {
       isScrollingToCurrentTrack.current = false;
     }, 100);
-  }, [currentItemIndex]);
+  }, [currentItemIndex, listRef]);
 
   const lastAction = useRef<number>(0);
 
@@ -217,16 +221,11 @@ export default function QueueMobile({
           <QueueList
             type="mobile"
             listRef={listRef}
-            outerRef={outerRef}
             tracks={tracks}
             queueList={queueList}
             currentItemId={currentItemId}
             currentItemIndex={currentItemIndex}
             controlsDisabled={controlsDisabled}
-            onItemsRendered={(visibleStartIndex, visibleStopIndex) => {
-              setStartIndex(visibleStartIndex);
-              setStopIndex(visibleStopIndex);
-            }}
             onMove={handleMove}
             onSkip={handleSkip}
             onDelete={onDelete}

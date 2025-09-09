@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import type { FixedSizeList } from "react-window";
+import { useListRef } from "react-window";
 
-import { QUEUE_ITEM_HEIGHT_DESKTOP } from "../../constants";
 import type { QueueItem } from "../../types/queue";
 import type { Track } from "../../types/track";
 import QueueList from "../common/QueueList";
@@ -20,8 +19,7 @@ interface QueueDesktopProps {
 }
 
 export default function QueueDesktop({ tracks, queueList, currentItemId, currentItemIndex, controlsDisabled, onMove, onSkip, onDelete, onPlayNext }: QueueDesktopProps) {
-  const listRef = useRef<FixedSizeList>(null);
-  const outerRef = useRef<HTMLDivElement>(null);
+  const listRef = useListRef(null);
 
   const [startIndex, setStartIndex] = useState(0);
   const [stopIndex, setStopIndex] = useState(0);
@@ -29,25 +27,16 @@ export default function QueueDesktop({ tracks, queueList, currentItemId, current
   const topArrowVisible = typeof currentItemIndex === "number" && currentItemIndex < startIndex && queueList.length > 0;
   const bottomArrowVisible = typeof currentItemIndex === "number" && currentItemIndex > stopIndex && queueList.length > 0;
 
-  const scrollToIndexCentered = (index: number) => {
-    if (listRef.current) {
-      const height = outerRef.current ? outerRef.current.clientHeight : Number(listRef.current.props.height);
-      const visibleCount = Math.floor(height / QUEUE_ITEM_HEIGHT_DESKTOP);
-      const offset = Math.max(0, index - Math.floor(visibleCount / 2));
-      listRef.current.scrollTo(offset * QUEUE_ITEM_HEIGHT_DESKTOP);
-    }
-  };
-
   // Auto-scroll to current track when currentItemIndex changes
   useEffect(() => {
     if (currentItemIndex !== null) {
       const currentTime = Date.now();
       const msSinceLastAction = currentTime - lastAction.current;
       if (msSinceLastAction > 1000) {
-        scrollToIndexCentered(currentItemIndex);
+        listRef.current?.scrollToRow({ index: currentItemIndex, align: "center", behavior: "smooth" });
       }
     }
-  }, [currentItemIndex]);
+  }, [currentItemIndex, listRef]);
 
   const lastAction = useRef<number>(0);
   const handleScroll = () => {
@@ -63,7 +52,7 @@ export default function QueueDesktop({ tracks, queueList, currentItemId, current
       {topArrowVisible && (
         <div className="absolute top-2 right-2 z-10">
           <button
-            onClick={() => scrollToIndexCentered(currentItemIndex ?? 0)}
+            onClick={() => listRef.current?.scrollToRow({ index: currentItemIndex, align: "center", behavior: "smooth" })}
             className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white"
             aria-label="Scroll to current track"
           >
@@ -75,7 +64,7 @@ export default function QueueDesktop({ tracks, queueList, currentItemId, current
       {bottomArrowVisible && (
         <div className="absolute bottom-2 right-2 z-10">
           <button
-            onClick={() => scrollToIndexCentered(currentItemIndex ?? 0)}
+            onClick={() => listRef.current?.scrollToRow({ index: currentItemIndex, align: "center", behavior: "smooth" })}
             className="btn btn-square btn-ghost hover:bg-queue-arrow-button-hover text-3xl text-white"
             aria-label="Scroll to current track"
           >
@@ -87,22 +76,21 @@ export default function QueueDesktop({ tracks, queueList, currentItemId, current
       <QueueList
         type="desktop"
         listRef={listRef}
-        outerRef={outerRef}
         tracks={tracks}
         queueList={queueList}
         currentItemId={currentItemId}
         currentItemIndex={currentItemIndex}
         controlsDisabled={controlsDisabled}
-        onItemsRendered={(visibleStartIndex, visibleStopIndex) => {
-          setStartIndex(visibleStartIndex);
-          setStopIndex(visibleStopIndex);
-        }}
         onMove={onMove}
         onSkip={onSkip}
         onDelete={onDelete}
         onPlayNext={onPlayNext}
         onScroll={handleScroll}
         onDragEnd={handleDragEnd}
+        onRowsRendered={(start, stop) => {
+          setStartIndex(start);
+          setStopIndex(stop);
+        }}
       />
     </div>
   );

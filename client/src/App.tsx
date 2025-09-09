@@ -120,12 +120,12 @@ export default function App() {
       fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-      }).then(response => {
+      }).then((response) => {
         if (response.status === 500) {
           console.error("Error fetching next track:", response);
           handleDeleteById(nextItem.id);
         }
-      })
+      });
     }, 20_000);
 
     return () => {

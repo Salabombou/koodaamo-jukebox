@@ -287,7 +287,7 @@ export default function useRoomHub() {
             if (isShuffledRef.current) {
               updatedItems.set(item.id, { ...item, shuffled_index: i });
             } else {
-              updatedItems.set(item.id, { ...item, index: i });
+              updatedItems.set(item.id, { ...item, index: i, shuffled_index: null });
             }
           }
 
@@ -325,6 +325,22 @@ export default function useRoomHub() {
         setCurrentItemTrackId(event.current_item_track_id);
 
         const updatedItems = new Map(queueItemsRef.current);
+
+        // Shift indices of existing items after the insertion point
+        const insertIndex = isShuffledRef.current ? currentItemShuffleIndexRef.current : currentItemIndexRef.current;
+        if (insertIndex !== null) {
+          for (const item of updatedItems.values()) {
+            if (isShuffledRef.current) {
+              if (item.shuffled_index != null && item.shuffled_index > insertIndex) {
+                item.shuffled_index += event.added_items.length;
+              }
+            } else {
+              if (item.index > insertIndex) {
+                item.index += event.added_items.length;
+              }
+            }
+          }
+        }
 
         for (let i = 0; i < event.added_items.length; i++) {
           const item = event.added_items[i];
@@ -401,7 +417,7 @@ export default function useRoomHub() {
           if (isShuffledRef.current) {
             updatedItems.set(item.id, { ...item, shuffled_index: i });
           } else {
-            updatedItems.set(item.id, { ...item, index: i });
+            updatedItems.set(item.id, { ...item, index: i, shuffled_index: null });
           }
         }
 

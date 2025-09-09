@@ -1,25 +1,16 @@
-import { memo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FaGripLines, FaTrash } from "react-icons/fa";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import { useDiscordSDK } from "../../hooks/useDiscordSDK";
 import type { QueueItem } from "../../types/queue";
 import type { QueueItemProps } from "../common/QueueList";
 
 import ContextMenuMobile, { type ContextMenuMobileItem, type ContextMenuMobileRef } from "./ContextMenuMobile";
 
-function QueueItemMobileComponent({
-  index,
-  style,
-  data,
-  track,
-  //currentItemId,
-  thumbnailBlob = "/black.jpg",
-  onDelete,
-  onSkip,
-  onPlayNext,
-  controlsDisabled = false,
-}: QueueItemProps) {
+export default function QueueItemMobile({ index, style, data, currentItemId, tracks, onDelete, onSkip, onPlayNext, controlsDisabled = false, ariaAttributes }: QueueItemProps) {
+  const discordSDK = useDiscordSDK();
   const item = data[index] as QueueItem | undefined;
   const contextMenuRef = useRef<ContextMenuMobileRef>(null);
 
@@ -35,14 +26,32 @@ function QueueItemMobileComponent({
   const [touchActive, setTouchActive] = useState(false);
   const touchTimeoutRef = useRef<number | null>(null);
 
-  // Drag/reorder
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item?.id ?? `empty-${index}`,
-  });
   // Add state for managing swipe animation
   const [swipeAnimating, setSwipeAnimating] = useState(false);
 
+  // Drag/reorder
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item?.id ?? `empty-${index}`,
+    animateLayoutChanges: () => false,
+  });
+
+  const combinedTransform = {
+    x: (transform?.x || 0) + swipeX,
+    y: typeof transform?.y === "number" ? transform.y : 0,
+    scaleX: typeof transform?.scaleX === "number" ? transform.scaleX : 1,
+    scaleY: typeof transform?.scaleY === "number" ? transform.scaleY : 1,
+  };
+
+  const dndStyle = {
+    transform: CSS.Transform.toString(combinedTransform),
+    transition: swipeAnimating ? "transform 0.3s ease" : transition,
+  };
+
+
   if (!item) return null;
+
+  const track = tracks.get(item.track_id);
+  if (!track) return null;
 
   const handleDelete = () => onDelete(item.id);
   const handlePlayNext = () => onPlayNext(index);
@@ -59,8 +68,6 @@ function QueueItemMobileComponent({
       className: "text-red-500 hover:text-red-700",
     },
   ];
-
-  ///const highlight = item.id === currentItemId;
 
   // --- Touch handlers with direction lock ---
   const onTouchStart = (e: React.TouchEvent) => {
@@ -130,43 +137,38 @@ function QueueItemMobileComponent({
     setTouchActive(false);
   };
 
-  // Calculate combined transform for drag and swipe
-  let combinedTransform = transform;
-  if (swipeX !== 0) {
-    combinedTransform = {
-      x: (transform?.x || 0) + swipeX,
-      y: typeof transform?.y === "number" ? transform.y : 0,
-      scaleX: typeof transform?.scaleX === "number" ? transform.scaleX : 1,
-      scaleY: typeof transform?.scaleY === "number" ? transform.scaleY : 1,
-    };
-  }
-
   const swipeDeleteDanger = isHorizontal && Math.abs(swipeX) >= threshold;
+  const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${item.track_id}/thumbnail-low`;
+  const highlighted = currentItemId === item.id;
 
   return (
     <div
-      key={item.id}
-      ref={setNodeRef}
       style={{
         ...style,
-        transform: CSS.Transform.toString(combinedTransform),
-        transition: swipeAnimating
-          ? "transform 0.3s ease" // smooth slide back or off-screen
-          : transition, // dnd-kit drag transition
-      }}
-      className={`relative w-full h-16 ${isDragging || !track ? "invisible" : ""} ${controlsDisabled ? "pointer-events-none" : ""}`}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-      onTransitionEnd={() => {
-        if (deletionInProgress) {
-          handleDelete();
-          setSwipeX(0);
-          setDeletionInProgress(false);
-        }
+        width: "100%",
+        height: "64px",
       }}
     >
+      <div
+        ref={setNodeRef}
+        style={{
+          ...dndStyle,
+          position: "relative",
+        }}
+        {...ariaAttributes}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        className={`${isDragging || !track ? "invisible" : ""} ${controlsDisabled ? "pointer-events-none" : ""} ${highlighted ? "bg-white/10" : ""}`}
+        onTransitionEnd={() => {
+          if (deletionInProgress) {
+            handleDelete();
+            setSwipeX(0);
+            setDeletionInProgress(false);
+          }
+        }}
+      >
       {/* Swipe right to reveal delete (shows on left side) */}
       <div
         className="absolute top-0 bottom-0 flex items-center"
@@ -212,7 +214,7 @@ function QueueItemMobileComponent({
       <ContextMenuMobile ref={contextMenuRef} items={contextMenuItems} controlsDisabled={controlsDisabled}>
         <div className="h-full flex items-center justify-start ml-4 pr-16">
           <div className="flex items-center flex-1 min-w-0" onDoubleClick={() => onSkip(index)}>
-            <img src={thumbnailBlob} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
+            <img src={thumbnailUrl} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
             <div className="flex flex-col overflow-hidden flex-1 min-w-0 ml-4 select-none justify-center h-full">
               <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
               <span className="text-s truncate select-none opacity-75">{track?.uploader}</span>
@@ -232,8 +234,6 @@ function QueueItemMobileComponent({
         <FaGripLines className="text-xl" />
       </div>
     </div>
+    </div>
   );
 }
-
-const QueueItemMobile = memo(QueueItemMobileComponent);
-export default QueueItemMobile;

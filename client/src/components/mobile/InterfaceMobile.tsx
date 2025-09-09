@@ -89,20 +89,27 @@ export default function InterfaceMobile({
 
   useEffect(() => {
     let cancelled = false;
+    const thumbnailUrl = track?.id ? `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high` : null;
+
     async function fetchThumbnail() {
       if (!track?.id) {
         setImageBlobUrl(null);
         return;
       }
-      const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high`;
-      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl);
+
+      const objectUrl = await thumbnailService.getThumbnail(thumbnailUrl!);
       if (!cancelled) setImageBlobUrl(objectUrl);
     }
-    fetchThumbnail();
+
+    if (track?.id) {
+      fetchThumbnail();
+    } else {
+      setImageBlobUrl(null);
+    }
+
     return () => {
       cancelled = true;
-      if (track?.id) {
-        const thumbnailUrl = `${discordSDK.isEmbedded ? "/.proxy" : ""}/api/track/${track.id}/thumbnail-high`;
+      if (thumbnailUrl) {
         thumbnailService.removeThumbnail(thumbnailUrl);
       }
     };
