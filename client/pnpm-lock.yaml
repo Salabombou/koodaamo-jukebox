@@ -58,7 +58,7 @@ importers:
         version: 5.5.0(react@19.1.1)
       react-markdown:
         specifier: ^10.1.0
-        version: 10.1.0(@types/react@19.1.12)(react@19.1.1)
+        version: 10.1.0(@types/react@19.1.13)(react@19.1.1)
       react-virtualized-auto-sizer:
         specifier: ^1.0.26
         version: 1.0.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -83,7 +83,7 @@ importers:
         version: 6.8.0
       '@testing-library/react':
         specifier: ^16.3.0
-        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.1.9(@types/react@19.1.12))(@types/react@19.1.12)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@types/colorthief':
         specifier: ^2.6.0
         version: 2.6.0
@@ -97,11 +97,11 @@ importers:
         specifier: ^24.3.1
         version: 24.3.1
       '@types/react':
-        specifier: ^19.1.12
-        version: 19.1.12
+        specifier: ^19.1.13
+        version: 19.1.13
       '@types/react-dom':
         specifier: ^19.1.9
-        version: 19.1.9(@types/react@19.1.12)
+        version: 19.1.9(@types/react@19.1.13)
       '@types/react-window':
         specifier: ^1.8.8
         version: 1.8.8
@@ -1191,8 +1191,8 @@ packages:
   '@types/react-window@1.8.8':
     resolution: {integrity: sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==}
 
-  '@types/react@19.1.12':
-    resolution: {integrity: sha512-cMoR+FoAf/Jyq6+Df2/Z41jISvGZZ2eTlnsaJRptmZ76Caldwy1odD4xTr/gNV9VLj0AWgg/nmkevIyUfIIq5w==}
+  '@types/react@19.1.13':
+    resolution: {integrity: sha512-hHkbU/eoO3EG5/MZkuFSKmYqPbSVk5byPFa3e7y/8TybHiLMACgI8seVYlicwk7H5K/rI2px9xrQp/C+AUDTiQ==}
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
@@ -4431,15 +4431,15 @@ snapshots:
       picocolors: 1.1.1
       redent: 3.0.0
 
-  '@testing-library/react@16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.1.9(@types/react@19.1.12))(@types/react@19.1.12)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+  '@testing-library/react@16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@babel/runtime': 7.28.4
       '@testing-library/dom': 10.4.1
       react: 19.1.1
       react-dom: 19.1.1(react@19.1.1)
     optionalDependencies:
-      '@types/react': 19.1.12
-      '@types/react-dom': 19.1.9(@types/react@19.1.12)
+      '@types/react': 19.1.13
+      '@types/react-dom': 19.1.9(@types/react@19.1.13)
 
   '@tokenizer/token@0.3.0': {}
 
@@ -4530,15 +4530,15 @@ snapshots:
     dependencies:
       undici-types: 7.10.0
 
-  '@types/react-dom@19.1.9(@types/react@19.1.12)':
+  '@types/react-dom@19.1.9(@types/react@19.1.13)':
     dependencies:
-      '@types/react': 19.1.12
+      '@types/react': 19.1.13
 
   '@types/react-window@1.8.8':
     dependencies:
-      '@types/react': 19.1.12
+      '@types/react': 19.1.13
 
-  '@types/react@19.1.12':
+  '@types/react@19.1.13':
     dependencies:
       csstype: 3.1.3
 
@@ -6628,11 +6628,11 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-markdown@10.1.0(@types/react@19.1.12)(react@19.1.1):
+  react-markdown@10.1.0(@types/react@19.1.13)(react@19.1.1):
     dependencies:
       '@types/hast': 3.0.4
       '@types/mdast': 4.0.4
-      '@types/react': 19.1.12
+      '@types/react': 19.1.13
       devlop: 1.1.0
       hast-util-to-jsx-runtime: 2.3.6
       html-url-attributes: 3.0.1
