@@ -21,7 +21,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@microsoft/signalr": "^9.0.6",
     "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.1.13",
+    "@tailwindcss/vite": "^4.1.14",
     "axios": "^1.12.2",
     "colorthief": "^2.6.0",
     "daisyui": "^5.1.14",
