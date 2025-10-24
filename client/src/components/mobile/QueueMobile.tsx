@@ -126,14 +126,14 @@ export default function QueueMobile({
   const isScrollingToCurrentTrack = useRef<boolean>(false);
 
   const handleScroll = useCallback(
-    (scrollOffset: number, userScrolled: boolean) => {
+    (scrollOffset: number) => {
       const currentTrackPosition = currentItemIndex !== null ? currentItemIndex * QUEUE_ITEM_HEIGHT_MOBILE : 0;
 
       if (isScrollingToCurrentTrack.current) {
         lastScrollPosition.current = scrollOffset;
         return;
       }
-      const showButton = (queueLength > 0 && isOpen && userScrolled) || scrollOffset !== currentTrackPosition;
+      const showButton = (queueLength > 0 && isOpen) || scrollOffset !== currentTrackPosition;
       setShowScrollToCurrentButton(showButton);
       lastAction.current = Date.now();
       lastScrollPosition.current = scrollOffset;

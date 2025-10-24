@@ -1,32 +1,32 @@
-import * as signalR from '@microsoft/signalr';
-import { act,renderHook } from '@testing-library/react';
+import * as signalR from "@microsoft/signalr";
+import { act, renderHook } from "@testing-library/react";
 
-import type { QueueItem } from '../../types/queue';
-import type { RoomInfo } from '../../types/room';
-import useRoomHub from '../useRoomHub';
+import type { QueueItem } from "../../types/queue";
+import type { RoomInfo } from "../../types/room";
+import useRoomHub from "../useRoomHub";
 
 // Mock dependencies
-jest.mock('@microsoft/signalr');
-jest.mock('../useDiscordSDK', () => ({
+jest.mock("@microsoft/signalr");
+jest.mock("../useDiscordSDK", () => ({
   useDiscordSDK: () => ({ isEmbedded: false }),
 }));
-jest.mock('../../services/shuffleService', () => ({
+jest.mock("../../services/shuffleService", () => ({
   shuffle: (items: QueueItem[]) => [...items].reverse(),
 }));
-jest.mock('../../services/timeService', () => ({
+jest.mock("../../services/timeService", () => ({
   getServerNow: () => Date.now(),
 }));
 
 const mockQueueItems: QueueItem[] = [
-  { id: 1, track_id: 'track1-hash', index: 0, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
-  { id: 2, track_id: 'track2-hash', index: 1, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
-  { id: 3, track_id: 'track3-hash', index: 2, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
-  { id: 4, track_id: 'track4-hash', index: 3, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
-  { id: 5, track_id: 'track5-hash', index: 4, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
+  { id: 1, track_id: "track1-hash", index: 0, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
+  { id: 2, track_id: "track2-hash", index: 1, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
+  { id: 3, track_id: "track3-hash", index: 2, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
+  { id: 4, track_id: "track4-hash", index: 3, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
+  { id: 5, track_id: "track5-hash", index: 4, shuffled_index: null, is_deleted: false, created_at: Date.now(), updated_at: Date.now() },
 ];
 
 const mockRoomInfo: RoomInfo = {
-  room_code: 'test-room',
+  room_code: "test-room",
   is_paused: true,
   is_looping: false,
   is_shuffled: false,
@@ -35,11 +35,11 @@ const mockRoomInfo: RoomInfo = {
     index: 0,
     shuffle_index: null,
     id: 1,
-    track_id: 'track1-hash',
+    track_id: "track1-hash",
   },
 };
 
-describe('useRoomHub', () => {
+describe("useRoomHub", () => {
   let mockConnection: {
     state: signalR.HubConnectionState;
     start: jest.Mock;
@@ -58,9 +58,9 @@ describe('useRoomHub', () => {
 
   beforeEach(() => {
     // Mock localStorage
-    Object.defineProperty(window, 'localStorage', {
+    Object.defineProperty(window, "localStorage", {
       value: {
-        getItem: jest.fn(() => 'mock-token'),
+        getItem: jest.fn(() => "mock-token"),
         setItem: jest.fn(),
         removeItem: jest.fn(),
       },
@@ -92,7 +92,7 @@ describe('useRoomHub', () => {
     jest.clearAllMocks();
   });
 
-  it('should initialize with default state', () => {
+  it("should initialize with default state", () => {
     const { result } = renderHook(() => useRoomHub());
 
     expect(result.current.isPaused).toBeNull();
@@ -101,12 +101,12 @@ describe('useRoomHub', () => {
     expect(result.current.queueItems.size).toBe(0);
   });
 
-  it('should handle RoomInfo event', () => {
+  it("should handle RoomInfo event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
       // Simulate RoomInfo event
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
@@ -119,18 +119,18 @@ describe('useRoomHub', () => {
     expect(result.current.queueItems.size).toBe(5);
   });
 
-  it('should handle PauseToggled event', () => {
+  it("should handle PauseToggled event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const pauseCallback = mockConnection.on.mock.calls.find(call => call[0] === 'PauseToggled')?.[1];
+      const pauseCallback = mockConnection.on.mock.calls.find((call) => call[0] === "PauseToggled")?.[1];
       if (pauseCallback) {
         pauseCallback({ is_paused: false, playing_since: 1000 });
       }
@@ -140,18 +140,18 @@ describe('useRoomHub', () => {
     expect(result.current.playingSince).toBe(1000);
   });
 
-  it('should handle LoopToggled event', () => {
+  it("should handle LoopToggled event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const loopCallback = mockConnection.on.mock.calls.find(call => call[0] === 'LoopToggled')?.[1];
+      const loopCallback = mockConnection.on.mock.calls.find((call) => call[0] === "LoopToggled")?.[1];
       if (loopCallback) {
         loopCallback({ is_looping: true });
       }
@@ -160,18 +160,18 @@ describe('useRoomHub', () => {
     expect(result.current.isLooping).toBe(true);
   });
 
-  it('should handle ShuffleToggled event', () => {
+  it("should handle ShuffleToggled event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const shuffleCallback = mockConnection.on.mock.calls.find(call => call[0] === 'ShuffleToggled')?.[1];
+      const shuffleCallback = mockConnection.on.mock.calls.find((call) => call[0] === "ShuffleToggled")?.[1];
       if (shuffleCallback) {
         shuffleCallback({
           is_shuffled: true,
@@ -179,7 +179,7 @@ describe('useRoomHub', () => {
           current_item_index: 0,
           current_item_shuffle_index: 0,
           current_item_id: 1,
-          current_item_track_id: 'track1-hash',
+          current_item_track_id: "track1-hash",
         });
       }
     });
@@ -188,18 +188,18 @@ describe('useRoomHub', () => {
     expect(result.current.currentItemShuffleIndex).toBe(0);
   });
 
-  it('should handle TrackSeeked event', () => {
+  it("should handle TrackSeeked event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const seekCallback = mockConnection.on.mock.calls.find(call => call[0] === 'TrackSeeked')?.[1];
+      const seekCallback = mockConnection.on.mock.calls.find((call) => call[0] === "TrackSeeked")?.[1];
       if (seekCallback) {
         seekCallback({ playing_since: 2000 });
       }
@@ -208,24 +208,24 @@ describe('useRoomHub', () => {
     expect(result.current.playingSince).toBe(2000);
   });
 
-  it('should handle TrackSkipped event', () => {
+  it("should handle TrackSkipped event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const skipCallback = mockConnection.on.mock.calls.find(call => call[0] === 'TrackSkipped')?.[1];
+      const skipCallback = mockConnection.on.mock.calls.find((call) => call[0] === "TrackSkipped")?.[1];
       if (skipCallback) {
         skipCallback({
           current_item_index: 2,
           current_item_shuffle_index: null,
           current_item_id: 3,
-          current_item_track_id: 'track3-hash',
+          current_item_track_id: "track3-hash",
         });
       }
     });
@@ -235,18 +235,18 @@ describe('useRoomHub', () => {
     expect(result.current.playingSince).toBeNull();
   });
 
-  it('should handle QueueMoved event', () => {
+  it("should handle QueueMoved event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const moveCallback = mockConnection.on.mock.calls.find(call => call[0] === 'QueueMoved')?.[1];
+      const moveCallback = mockConnection.on.mock.calls.find((call) => call[0] === "QueueMoved")?.[1];
       if (moveCallback) {
         moveCallback({
           from: 0,
@@ -254,28 +254,28 @@ describe('useRoomHub', () => {
           current_item_index: 2,
           current_item_shuffle_index: null,
           current_item_id: 3,
-          current_item_track_id: 'track3-hash',
+          current_item_track_id: "track3-hash",
         });
       }
     });
 
     const queueList = result.current.queueList;
-    expect(queueList[0].track_id).toBe('track2-hash');
-    expect(queueList[2].track_id).toBe('track1-hash');
+    expect(queueList[0].track_id).toBe("track2-hash");
+    expect(queueList[2].track_id).toBe("track1-hash");
   });
 
-  it('should handle QueueCleared event', () => {
+  it("should handle QueueCleared event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const clearCallback = mockConnection.on.mock.calls.find(call => call[0] === 'QueueCleared')?.[1];
+      const clearCallback = mockConnection.on.mock.calls.find((call) => call[0] === "QueueCleared")?.[1];
       if (clearCallback) {
         clearCallback({ current_item_id: 1 });
       }
@@ -285,25 +285,25 @@ describe('useRoomHub', () => {
     expect(result.current.queueItems.get(1)?.index).toBe(0);
   });
 
-  it('should handle QueueDeleted event', () => {
+  it("should handle QueueDeleted event", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
     });
 
     act(() => {
-      const deleteCallback = mockConnection.on.mock.calls.find(call => call[0] === 'QueueDeleted')?.[1];
+      const deleteCallback = mockConnection.on.mock.calls.find((call) => call[0] === "QueueDeleted")?.[1];
       if (deleteCallback) {
         deleteCallback({
           deleted_item_id: 2,
           current_item_index: 0,
           current_item_shuffle_index: null,
           current_item_id: 1,
-          current_item_track_id: 'track1-hash',
+          current_item_track_id: "track1-hash",
         });
       }
     });
@@ -312,11 +312,11 @@ describe('useRoomHub', () => {
     expect(result.current.queueItems.has(2)).toBe(false);
   });
 
-  it('should maintain consistency after complex operations', () => {
+  it("should maintain consistency after complex operations", () => {
     const { result } = renderHook(() => useRoomHub());
 
     act(() => {
-      const roomInfoCallback = mockConnection.on.mock.calls.find(call => call[0] === 'RoomInfo')?.[1];
+      const roomInfoCallback = mockConnection.on.mock.calls.find((call) => call[0] === "RoomInfo")?.[1];
       if (roomInfoCallback) {
         roomInfoCallback(mockRoomInfo, mockQueueItems);
       }
@@ -324,26 +324,26 @@ describe('useRoomHub', () => {
 
     // Perform a series of operations
     act(() => {
-      const skipCallback = mockConnection.on.mock.calls.find(call => call[0] === 'TrackSkipped')?.[1];
+      const skipCallback = mockConnection.on.mock.calls.find((call) => call[0] === "TrackSkipped")?.[1];
       if (skipCallback) {
         skipCallback({
           current_item_index: 1,
           current_item_shuffle_index: null,
           current_item_id: 2,
-          current_item_track_id: 'track2-hash',
+          current_item_track_id: "track2-hash",
         });
       }
     });
 
     act(() => {
-      const pauseCallback = mockConnection.on.mock.calls.find(call => call[0] === 'PauseToggled')?.[1];
+      const pauseCallback = mockConnection.on.mock.calls.find((call) => call[0] === "PauseToggled")?.[1];
       if (pauseCallback) {
         pauseCallback({ is_paused: true, playing_since: null });
       }
     });
 
     act(() => {
-      const moveCallback = mockConnection.on.mock.calls.find(call => call[0] === 'QueueMoved')?.[1];
+      const moveCallback = mockConnection.on.mock.calls.find((call) => call[0] === "QueueMoved")?.[1];
       if (moveCallback) {
         moveCallback({
           from: 2,
@@ -351,13 +351,13 @@ describe('useRoomHub', () => {
           current_item_index: 1,
           current_item_shuffle_index: null,
           current_item_id: 2,
-          current_item_track_id: 'track2-hash',
+          current_item_track_id: "track2-hash",
         });
       }
     });
 
     act(() => {
-      const shuffleCallback = mockConnection.on.mock.calls.find(call => call[0] === 'ShuffleToggled')?.[1];
+      const shuffleCallback = mockConnection.on.mock.calls.find((call) => call[0] === "ShuffleToggled")?.[1];
       if (shuffleCallback) {
         shuffleCallback({
           is_shuffled: true,
@@ -365,34 +365,34 @@ describe('useRoomHub', () => {
           current_item_index: 1,
           current_item_shuffle_index: 1,
           current_item_id: 2,
-          current_item_track_id: 'track2-hash',
+          current_item_track_id: "track2-hash",
         });
       }
     });
 
     act(() => {
-      const loopCallback = mockConnection.on.mock.calls.find(call => call[0] === 'LoopToggled')?.[1];
+      const loopCallback = mockConnection.on.mock.calls.find((call) => call[0] === "LoopToggled")?.[1];
       if (loopCallback) {
         loopCallback({ is_looping: true });
       }
     });
 
     act(() => {
-      const seekCallback = mockConnection.on.mock.calls.find(call => call[0] === 'TrackSeeked')?.[1];
+      const seekCallback = mockConnection.on.mock.calls.find((call) => call[0] === "TrackSeeked")?.[1];
       if (seekCallback) {
         seekCallback({ playing_since: 3000 });
       }
     });
 
     act(() => {
-      const deleteCallback = mockConnection.on.mock.calls.find(call => call[0] === 'QueueDeleted')?.[1];
+      const deleteCallback = mockConnection.on.mock.calls.find((call) => call[0] === "QueueDeleted")?.[1];
       if (deleteCallback) {
         deleteCallback({
           deleted_item_id: 3,
           current_item_index: 1,
           current_item_shuffle_index: 1,
           current_item_id: 2,
-          current_item_track_id: 'track2-hash',
+          current_item_track_id: "track2-hash",
         });
       }
     });

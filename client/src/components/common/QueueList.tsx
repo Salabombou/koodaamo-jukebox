@@ -1,5 +1,4 @@
-import React, { useCallback, useOptimistic, useState } from "react";
-//import AutoSizer from "react-virtualized-auto-sizer";
+import React, { useCallback, useOptimistic, useRef, useState } from "react";
 import type { ListImperativeAPI, RowComponentProps } from "react-window";
 import { List } from "react-window";
 import { closestCenter, DndContext, DragOverlay, type Modifier, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -51,7 +50,7 @@ interface QueueProps {
   onSkip: (index: number) => void;
   onDelete: (itemId: number) => void;
   onPlayNext: (index: number) => void;
-  onScroll?: (scrollPosition: number, userScroll: boolean) => void;
+  onScroll?: (scrollPosition: number) => void;
   onDragEnd?: (fromIndex: number, toIndex: number) => void;
   onRowsRendered?: (startIndex: number, stopIndex: number) => void;
 }
@@ -125,76 +124,90 @@ export default function Queue({
 
   const QueueItemComponent = type === "desktop" ? QueueItemDesktop : QueueItemMobile;
 
+  const transitionOngoing = useRef(false);
+  const scrollTimeout = useRef<number | null>(null);
+
   return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxisCenterY]}
-          onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
-          onDragEnd={(e) => {
-            const fromIndex = draggedIndex;
-            const toIndex = e.over?.data.current?.sortable.index;
-            setDraggedIndex(null);
-            if (typeof fromIndex === "number" && typeof toIndex === "number" && fromIndex !== toIndex && !controlsDisabled) {
-              onMove(fromIndex, toIndex);
-              moveItem([fromIndex, toIndex]);
-              onDragEnd?.(fromIndex, toIndex);
-            }
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      modifiers={[restrictToVerticalAxisCenterY]}
+      onDragStart={(e) => setDraggedIndex(e.active.data.current?.sortable.index as number)}
+      onDragEnd={(e) => {
+        const fromIndex = draggedIndex;
+        const toIndex = e.over?.data.current?.sortable.index;
+        setDraggedIndex(null);
+        if (typeof fromIndex === "number" && typeof toIndex === "number" && fromIndex !== toIndex && !controlsDisabled) {
+          onMove(fromIndex, toIndex);
+          moveItem([fromIndex, toIndex]);
+          onDragEnd?.(fromIndex, toIndex);
+        }
+      }}
+    >
+      <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
+        <List
+          listRef={listRef}
+          rowCount={optimisticQueueList.length}
+          rowHeight={type === "desktop" ? QUEUE_ITEM_HEIGHT_DESKTOP : QUEUE_ITEM_HEIGHT_MOBILE}
+          style={{
+            overflowX: "hidden",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+            touchAction: "pan-y",
           }}
-        >
-          <SortableContext items={optimisticQueueList} strategy={verticalListSortingStrategy}>
-            <List
-              listRef={listRef}
-              rowCount={optimisticQueueList.length}
-              rowHeight={type === "desktop" ? QUEUE_ITEM_HEIGHT_DESKTOP : QUEUE_ITEM_HEIGHT_MOBILE}
-              style={{
-                overflowX: "hidden",
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-                scrollbarWidth: "none",
-                touchAction: "pan-y",
-              }}
-              onScroll={(e) => {
-                if (onScroll) {
-                  onScroll(e.currentTarget.scrollTop, e.currentTarget.scrollHeight - e.currentTarget.clientHeight - e.currentTarget.scrollTop > 1);
-                }
-              }}
-              onRowsRendered={({ startIndex, stopIndex }) => {
-                onRowsRendered?.(startIndex, stopIndex);
-              }}
-              rowComponent={QueueItemComponent}
-              rowProps={{ data: optimisticQueueList, tracks, currentItemId, onSkip, onDelete: handleDelete, onPlayNext: handlePlayNext, controlsDisabled }}
-            />
-          </SortableContext>
+          onScroll={(e) => {
+            if (scrollTimeout.current) {
+              clearTimeout(scrollTimeout.current);
+            }
+            scrollTimeout.current = window.setTimeout(() => {
+              if (onScroll && !transitionOngoing.current) {
+                onScroll(e.currentTarget.scrollTop);
+              }
+            }, 1000);
+          }}
+          onTransitionStart={() => {
+            transitionOngoing.current = true;
+          }}
+          onTransitionEnd={() => {
+            transitionOngoing.current = false;
+          }}
+          onRowsRendered={({ startIndex, stopIndex }) => {
+            onRowsRendered?.(startIndex, stopIndex);
+          }}
+          rowComponent={QueueItemComponent}
+          rowProps={{ data: optimisticQueueList, tracks, currentItemId, onSkip, onDelete: handleDelete, onPlayNext: handlePlayNext, controlsDisabled }}
+        />
+      </SortableContext>
 
-          {/* Drag overlay (unchanged except for using the same QueueItemComponent) */}
-          <DragOverlay>
-            {draggedIndex !== null &&
-              (() => {
-                const draggedItem = optimisticQueueList[draggedIndex];
-                if (!draggedItem) return null;
+      {/* Drag overlay (unchanged except for using the same QueueItemComponent) */}
+      <DragOverlay>
+        {draggedIndex !== null &&
+          (() => {
+            const draggedItem = optimisticQueueList[draggedIndex];
+            if (!draggedItem) return null;
 
-                return (
-                  <QueueItemComponent
-                    ariaAttributes={{
-                      role: "listitem",
-                      "aria-setsize": optimisticQueueList.length,
-                      "aria-posinset": draggedIndex + 1,
-                    }}
-                    overlay={true}
-                    index={draggedIndex}
-                    tracks={tracks}
-                    currentItemId={currentItemId}
-                    onSkip={() => {}}
-                    onDelete={() => {}}
-                    onPlayNext={() => {}}
-                    style={{}}
-                    data={optimisticQueueList}
-                    controlsDisabled={true}
-                  />
-                );
-              })()}
-          </DragOverlay>
-        </DndContext>
+            return (
+              <QueueItemComponent
+                ariaAttributes={{
+                  role: "listitem",
+                  "aria-setsize": optimisticQueueList.length,
+                  "aria-posinset": draggedIndex + 1,
+                }}
+                overlay={true}
+                index={draggedIndex}
+                tracks={tracks}
+                currentItemId={currentItemId}
+                onSkip={() => {}}
+                onDelete={() => {}}
+                onPlayNext={() => {}}
+                style={{}}
+                data={optimisticQueueList}
+                controlsDisabled={true}
+              />
+            );
+          })()}
+      </DragOverlay>
+    </DndContext>
   );
 }

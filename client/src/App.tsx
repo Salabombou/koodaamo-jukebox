@@ -33,6 +33,17 @@ export default function App() {
   const player = useRef<AudioPlayerRef>(null);
 
   useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Included for legacy support, e.g. Chrome/Edge < 119
+      e.returnValue = true;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  useEffect(() => {
     if (!discordSDK.isEmbedded) {
       modalRef.current.showModal();
     } else {

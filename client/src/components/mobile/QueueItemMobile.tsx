@@ -47,7 +47,6 @@ export default function QueueItemMobile({ index, style, data, currentItemId, tra
     transition: swipeAnimating ? "transform 0.3s ease" : transition,
   };
 
-
   if (!item) return null;
 
   const track = tracks.get(item.track_id);
@@ -160,7 +159,7 @@ export default function QueueItemMobile({ index, style, data, currentItemId, tra
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
-        className={`${isDragging || !track ? "invisible" : ""} ${controlsDisabled ? "pointer-events-none" : ""} ${highlighted ? "bg-white/10" : ""}`}
+        className={`h-full ${isDragging || !track ? "invisible" : ""} ${controlsDisabled ? "pointer-events-none" : ""} ${highlighted ? "bg-white/10" : ""}`}
         onTransitionEnd={() => {
           if (deletionInProgress) {
             handleDelete();
@@ -169,71 +168,71 @@ export default function QueueItemMobile({ index, style, data, currentItemId, tra
           }
         }}
       >
-      {/* Swipe right to reveal delete (shows on left side) */}
-      <div
-        className="absolute top-0 bottom-0 flex items-center"
-        style={{
-          left: `-${Math.abs(swipeX)}px`, // negative offset
-          width: `${Math.abs(swipeX)}px`, // grow in negative direction
-          transition: swipeX === 0 ? "left 0.25s ease, width 0.25s ease" : "none",
-        }}
-        hidden={deletionInProgress || swipeAnimating}
-      >
-        <div className={`absolute inset-0 bg-red-800 ${swipeDeleteDanger ? "opacity-100" : "opacity-0"} transition-opacity`} />
-        <FaTrash className={`text-white font-semibold ml-9 truncate z-10 ${swipeDeleteDanger ? "animate-pulse" : ""}`} />
-      </div>
-
-      {/* Swipe left to reveal delete (shows on right side) */}
-      <div
-        className="absolute top-0 bottom-0 flex items-center justify-end"
-        style={{
-          right: `-${Math.abs(swipeX)}px`,
-          width: `${Math.abs(swipeX)}px`, // grows left as swipeX increases
-          transition: swipeX === 0 ? "width 0.25s ease" : "none",
-        }}
-        hidden={deletionInProgress || swipeAnimating}
-      >
-        <div className={`absolute inset-0 bg-red-800 ${swipeDeleteDanger ? "opacity-100" : "opacity-0"} transition-opacity`} />
-        <FaTrash className={`text-white font-semibold mr-6 z-10 ${swipeDeleteDanger ? "animate-pulse" : ""}`} />
-      </div>
-      {/* Long-press visual progress overlay (restored) */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+        {/* Swipe right to reveal delete (shows on left side) */}
         <div
-          className="absolute left-0 top-0 h-full bg-white/5 rounded-xs"
+          className="absolute top-0 bottom-0 flex items-center"
           style={{
-            width: `${touchActive ? 100 : 0}%`,
-            transition: touchActive ? "width 0.3s linear" : "none",
+            left: `-${Math.abs(swipeX)}px`, // negative offset
+            width: `${Math.abs(swipeX)}px`, // grow in negative direction
+            transition: swipeX === 0 ? "left 0.25s ease, width 0.25s ease" : "none",
           }}
-          onTransitionEnd={() => {
-            if (touchActive) setTouchActive(false);
-          }}
-        />
-      </div>
+          hidden={deletionInProgress || swipeAnimating}
+        >
+          <div className={`absolute inset-0 bg-red-800 ${swipeDeleteDanger ? "opacity-100" : "opacity-0"} transition-opacity`} />
+          <FaTrash className={`text-white font-semibold ml-9 truncate z-10 ${swipeDeleteDanger ? "animate-pulse" : ""}`} />
+        </div>
 
-      {/* Foreground content (moves with swipe) */}
-      <ContextMenuMobile ref={contextMenuRef} items={contextMenuItems} controlsDisabled={controlsDisabled}>
-        <div className="h-full flex items-center justify-start ml-4 pr-16">
-          <div className="flex items-center flex-1 min-w-0" onDoubleClick={() => onSkip(index)}>
-            <img src={thumbnailUrl} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
-            <div className="flex flex-col overflow-hidden flex-1 min-w-0 ml-4 select-none justify-center h-full">
-              <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
-              <span className="text-s truncate select-none opacity-75">{track?.uploader}</span>
+        {/* Swipe left to reveal delete (shows on right side) */}
+        <div
+          className="absolute top-0 bottom-0 flex items-center justify-end"
+          style={{
+            right: `-${Math.abs(swipeX)}px`,
+            width: `${Math.abs(swipeX)}px`, // grows left as swipeX increases
+            transition: swipeX === 0 ? "width 0.25s ease" : "none",
+          }}
+          hidden={deletionInProgress || swipeAnimating}
+        >
+          <div className={`absolute inset-0 bg-red-800 ${swipeDeleteDanger ? "opacity-100" : "opacity-0"} transition-opacity`} />
+          <FaTrash className={`text-white font-semibold mr-6 z-10 ${swipeDeleteDanger ? "animate-pulse" : ""}`} />
+        </div>
+        {/* Long-press visual progress overlay (restored) */}
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <div
+            className="absolute left-0 top-0 h-full bg-white/5 rounded-xs"
+            style={{
+              width: `${touchActive ? 100 : 0}%`,
+              transition: touchActive ? "width 0.3s linear" : "none",
+            }}
+            onTransitionEnd={() => {
+              if (touchActive) setTouchActive(false);
+            }}
+          />
+        </div>
+
+        {/* Foreground content (moves with swipe) */}
+        <ContextMenuMobile ref={contextMenuRef} items={contextMenuItems} controlsDisabled={controlsDisabled}>
+          <div className="h-full flex items-center justify-start ml-4 pr-16">
+            <div className="flex items-center flex-1 min-w-0 h-full" onDoubleClick={() => onSkip(index)}>
+              <img src={thumbnailUrl} alt={track?.title || "Track Thumbnail"} className="aspect-square object-cover h-14 min-w-14 rounded-xs" />
+              <div className="flex flex-col overflow-hidden flex-1 min-w-0 ml-4 select-none justify-center h-full">
+                <span className="text-s font-semibold line-clamp-2 break-words leading-tight -mb-1 select-none">{track?.title}</span>
+                <span className="text-s truncate select-none opacity-75">{track?.uploader}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </ContextMenuMobile>
+        </ContextMenuMobile>
 
-      {/* Drag handle outside ContextMenuMobile */}
-      <div
-        {...attributes}
-        {...listeners}
-        tabIndex={0}
-        aria-label="Drag to reorder"
-        className="absolute right-0 top-0 w-16 h-16 flex items-center justify-center select-none border-none outline-none touch-none z-10"
-      >
-        <FaGripLines className="text-xl" />
+        {/* Drag handle outside ContextMenuMobile */}
+        <div
+          {...attributes}
+          {...listeners}
+          tabIndex={0}
+          aria-label="Drag to reorder"
+          className="absolute right-0 top-0 w-16 h-16 flex items-center justify-center select-none border-none outline-none touch-none z-10"
+        >
+          <FaGripLines className="text-xl" />
+        </div>
       </div>
-    </div>
     </div>
   );
 }
