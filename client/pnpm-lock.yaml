@@ -63,8 +63,8 @@ importers:
         specifier: ^1.0.26
         version: 1.0.26(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react-window:
-        specifier: ^2.2.2
-        version: 2.2.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: ^2.2.3
+        version: 2.2.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
@@ -2986,8 +2986,8 @@ packages:
       react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  react-window@2.2.2:
-    resolution: {integrity: sha512-kvHKwFImKBWNbx2S87NZOhQhAVkBthjmnOfHlhQI45p3A+D+V53E+CqQMsyHrxNe3ke+YtWXuKDa1eoHAaIWJg==}
+  react-window@2.2.3:
+    resolution: {integrity: sha512-gTRqQYC8ojbiXyd9duYFiSn2TJw0ROXCgYjenOvNKITWzK0m0eCvkUsEUM08xvydkMh7ncp+LE0uS3DeNGZxnQ==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -4600,7 +4600,7 @@ snapshots:
 
   '@types/react-window@2.0.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
-      react-window: 2.2.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      react-window: 2.2.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
     transitivePeerDependencies:
       - react
       - react-dom
@@ -6781,7 +6781,7 @@ snapshots:
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 
-  react-window@2.2.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
+  react-window@2.2.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
