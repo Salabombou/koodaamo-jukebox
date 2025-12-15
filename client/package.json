@@ -24,7 +24,7 @@
     "@tailwindcss/vite": "^4.1.17",
     "axios": "^1.13.2",
     "colorthief": "^2.6.0",
-    "daisyui": "^5.5.8",
+    "daisyui": "^5.5.14",
     "framer-motion": "^12.23.25",
     "hls.js": "^1.6.15",
     "react": "^19.2.1",
