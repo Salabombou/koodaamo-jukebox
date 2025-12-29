@@ -60,8 +60,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.7)(react@19.2.3)
       react-virtualized-auto-sizer:
-        specifier: ^1.0.26
-        version: 1.0.26(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^2.0.0
+        version: 2.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-window:
         specifier: ^2.2.3
         version: 2.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -2943,11 +2943,11 @@ packages:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
 
-  react-virtualized-auto-sizer@1.0.26:
-    resolution: {integrity: sha512-CblNyiNVw2o+hsa5/49NH2ogGxZ+t+3aweRvNSq7TVjDIlwk7ir4lencEg5HxHeSzwNarSkNkiu0qJSOXtxm5A==}
+  react-virtualized-auto-sizer@2.0.0:
+    resolution: {integrity: sha512-VVRkdUXmqwSa287akwnYU+Z7ZuC3OzxCf/ELV6mYCgz61IQ+0UWMY30sGQEzjWjVxWCFhrMt+dIrPNZBLrj7lA==}
     peerDependencies:
-      react: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^15.3.0 || ^16.0.0-alpha || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
 
   react-window@2.2.3:
     resolution: {integrity: sha512-gTRqQYC8ojbiXyd9duYFiSn2TJw0ROXCgYjenOvNKITWzK0m0eCvkUsEUM08xvydkMh7ncp+LE0uS3DeNGZxnQ==}
@@ -3397,6 +3397,7 @@ packages:
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@4.0.0:
     resolution: {integrity: sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==}
@@ -6694,7 +6695,7 @@ snapshots:
 
   react-refresh@0.18.0: {}
 
-  react-virtualized-auto-sizer@1.0.26(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  react-virtualized-auto-sizer@2.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
