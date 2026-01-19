@@ -25,7 +25,7 @@
     "axios": "^1.13.2",
     "colorthief": "^2.6.0",
     "daisyui": "^5.5.14",
-    "framer-motion": "^12.24.0",
+    "framer-motion": "^12.27.1",
     "hls.js": "^1.6.15",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
