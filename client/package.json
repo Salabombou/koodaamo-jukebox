@@ -42,7 +42,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/colorthief": "^2.6.0",
+    "@types/colorthief": "^2.6.1",
     "@types/howler": "^2.2.12",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.9",
