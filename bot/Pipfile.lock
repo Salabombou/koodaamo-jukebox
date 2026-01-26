@@ -454,11 +454,11 @@
         },
         "packaging": {
             "hashes": [
-                "sha256:4864f12a44c5447552820887745f0cba7babea53356b52c93b4547e56128f168",
-                "sha256:7b933851b1b13c75261dd365feb7ca91db8446fa35418b648ff8b79cabcd762d"
+                "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4",
+                "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==26.0rc3"
+            "version": "==26.0"
         },
         "pathspec": {
             "hashes": [
