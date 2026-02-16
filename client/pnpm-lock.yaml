@@ -60,8 +60,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.13)(react@19.2.4)
       react-virtualized-auto-sizer:
-        specifier: ^2.0.2
-        version: 2.0.2(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        specifier: ^2.0.3
+        version: 2.0.3(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
       react-window:
         specifier: ^2.2.6
         version: 2.2.6(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
@@ -3024,8 +3024,8 @@ packages:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
 
-  react-virtualized-auto-sizer@2.0.2:
-    resolution: {integrity: sha512-FvnVDed3nn7Xt2m2ioo+O1VBpP1uMIl8ygtpkzfhYoRb1e06on6hp2DEBg9AquCXqtP1bhgVT4lS+xpBwrXq7Q==}
+  react-virtualized-auto-sizer@2.0.3:
+    resolution: {integrity: sha512-nonmCSUIh5HtbzazGcQ1NhnMFps/ZBu/UKJyhCt0Fhi7ondLAUZNETtRCWM8RWYZDzVlMYOQGgBmIxUutIhqgw==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -6893,7 +6893,7 @@ snapshots:
 
   react-refresh@0.18.0: {}
 
-  react-virtualized-auto-sizer@2.0.2(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-virtualized-auto-sizer@2.0.3(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
     dependencies:
       react: 19.2.4
       react-dom: 19.2.3(react@19.2.4)
