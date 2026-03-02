@@ -23,7 +23,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.1",
     "axios": "^1.13.5",
-    "colorthief": "^2.6.0",
+    "colorthief": "^3.0.0",
     "daisyui": "^5.5.19",
     "framer-motion": "^12.34.3",
     "hls.js": "^1.6.15",
