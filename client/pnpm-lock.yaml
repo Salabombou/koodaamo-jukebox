@@ -33,8 +33,8 @@ importers:
         specifier: ^1.13.6
         version: 1.13.6
       colorthief:
-        specifier: ^3.0.0
-        version: 3.0.0(sharp@0.33.5)
+        specifier: ^3.3.1
+        version: 3.3.1(sharp@0.33.5)
       daisyui:
         specifier: ^5.5.19
         version: 5.5.19
@@ -1669,8 +1669,9 @@ packages:
     resolution: {integrity: sha512-1rXeuUUiGGrykh+CeBdu5Ie7OJwinCgQY0bc7GCRxy5xVHy+moaqkpL/jqQq0MtQOeYcrqEz4abc5f0KtU7W4A==}
     engines: {node: '>=12.5.0'}
 
-  colorthief@3.0.0:
-    resolution: {integrity: sha512-trWTnTcTg77Ct+KAT9A0AENTT5RkZin20XOIO4i5w5wq2IAdVsFhrgdm0f58P8cPenp27Rajl6pGy4pkKjaRIg==}
+  colorthief@3.3.1:
+    resolution: {integrity: sha512-a3qzYXy51h6p3725pV8rnJwUBGTtvYQge2pVhKJwL+vETUD5pCi6VKmQyu51pBHdUbu/BPEXbwFLS0GnxXNhGA==}
+    hasBin: true
     peerDependencies:
       sharp: '>=0.33.0'
     peerDependenciesMeta:
@@ -5091,7 +5092,7 @@ snapshots:
       color-string: 1.9.1
     optional: true
 
-  colorthief@3.0.0(sharp@0.33.5):
+  colorthief@3.3.1(sharp@0.33.5):
     optionalDependencies:
       sharp: 0.33.5
 
