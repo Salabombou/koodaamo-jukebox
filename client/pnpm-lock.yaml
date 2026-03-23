@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@discord/embedded-app-sdk':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.4.1
+        version: 2.4.1
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
@@ -430,8 +430,8 @@ packages:
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
 
-  '@discord/embedded-app-sdk@2.4.0':
-    resolution: {integrity: sha512-kIIS79tuVKvu9YC6GIuvBSfUqNa6511UqafD4i3qGjWSRqVulioYuRzZ+M9D9/KZ2wuu0nQ5IWIYlnh1bsy2tg==}
+  '@discord/embedded-app-sdk@2.4.1':
+    resolution: {integrity: sha512-oybHVPf+nfN4+p3j3ysAdlZsKNYLYeod2Lc7g8zdS516KDj9kPXe5pYlLZ6Gqi4lBjpeMnU543OHYuK1+nl+/A==}
 
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
@@ -1250,8 +1250,8 @@ packages:
   '@types/lodash.transform@4.6.9':
     resolution: {integrity: sha512-1iIn+l7Vrj8hsr2iZLtxRkcV9AtjTafIyxKO9DX2EEcdOgz3Op5dhwKQFhMJgdfIRbYHBUF+SU97Y6P+zyLXNg==}
 
-  '@types/lodash@4.17.20':
-    resolution: {integrity: sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==}
+  '@types/lodash@4.17.24':
+    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
@@ -1931,8 +1931,8 @@ packages:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
 
-  eventemitter3@5.0.1:
-    resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
+  eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
   eventsource@2.0.2:
     resolution: {integrity: sha512-IzUmBGPR3+oUG9dUeXynyNmf91/3zUSJg1lCktzKw47OXuhco54U3r9B7O4XX+Rb1Itm9OZ2b0RkTs10bICOxA==}
@@ -3872,13 +3872,13 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@discord/embedded-app-sdk@2.4.0':
+  '@discord/embedded-app-sdk@2.4.1':
     dependencies:
       '@types/lodash.transform': 4.6.9
       '@types/uuid': 10.0.0
       big-integer: 1.6.52
       decimal.js-light: 2.5.1
-      eventemitter3: 5.0.1
+      eventemitter3: 5.0.4
       lodash.transform: 4.6.0
       uuid: 11.1.0
       zod: 3.25.76
@@ -4675,9 +4675,9 @@ snapshots:
 
   '@types/lodash.transform@4.6.9':
     dependencies:
-      '@types/lodash': 4.17.20
+      '@types/lodash': 4.17.24
 
-  '@types/lodash@4.17.20': {}
+  '@types/lodash@4.17.24': {}
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -5357,7 +5357,7 @@ snapshots:
 
   event-target-shim@5.0.1: {}
 
-  eventemitter3@5.0.1: {}
+  eventemitter3@5.0.4: {}
 
   eventsource@2.0.2: {}
 
