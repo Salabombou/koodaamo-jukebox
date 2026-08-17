@@ -571,11 +571,11 @@
         },
         "platformdirs": {
             "hashes": [
-                "sha256:3a2ae5fca3520a01ab1be8b45613537f52ddf5b5f6f53d88233892dfbf0cd82d",
-                "sha256:7f89089b6ea71bda7962953edcf784b2e2d9d285b40ad88be2bb75c6e9d82ab4"
+                "sha256:5ed065d443751de711da036041a7a214122efc4a4de393b3f4137ba5576540e7",
+                "sha256:66a73d38a849810252df809a3d8bcbda8e26f6c189920e7535ad608a48dbb5ab"
             ],
             "markers": "python_version >= '3.10'",
-            "version": "==4.11.2"
+            "version": "==4.11.3"
         },
         "propcache": {
             "hashes": [
